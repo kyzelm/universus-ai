@@ -77,6 +77,7 @@ const PAD_BUTTONS: Record<number, number> = {
   2: IN_LP, // square / X
   3: IN_MP, // triangle / Y
   5: IN_HP, // R1 / RB
+  6: IN_HP, // L2 / LT
   0: IN_LK, // cross / A
   1: IN_MK, // circle / B
   7: IN_HK, // R2 / RT

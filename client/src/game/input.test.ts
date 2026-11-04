@@ -134,6 +134,7 @@ test('gamepad: dpad and face buttons map to bits', () => {
   expect(packPad(fakePad({buttons: [2]}))).toBe(IN_LP)
   expect(packPad(fakePad({buttons: [0]}))).toBe(IN_LK)
   expect(packPad(fakePad({buttons: [5]}))).toBe(IN_HP)
+  expect(packPad(fakePad({buttons: [6]}))).toBe(IN_HP)
   expect(packPad(fakePad({buttons: [13, 15, 2]}))).toBe(IN_DOWN | IN_RIGHT | IN_LP)
   expect(packPad(fakePad())).toBe(0)
 })
