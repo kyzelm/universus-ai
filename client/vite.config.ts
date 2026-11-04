@@ -1,6 +1,7 @@
 import {defineConfig, type Plugin, type UserConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import {execFile} from 'node:child_process'
+import path from 'node:path'
 import {promisify} from 'node:util'
 
 const run = promisify(execFile)
@@ -9,9 +10,13 @@ function simWasm(): Plugin {
   return {
     name: 'sim-wasm',
     configureServer(server) {
-      server.watcher.add('../sim')
+      // The character and balance JSON is go:embed'ed into the binary, so a
+      // data edit is a sim edit: watching ../sim alone served a WASM with the
+      // old roster after every JSON change.
+      const roots = ['../sim', '../data'].map((d) => path.resolve(d) + path.sep)
+      server.watcher.add(roots)
       server.watcher.on('change', async (file) => {
-        if (!file.endsWith('.go')) return
+        if (!roots.some((r) => file.startsWith(r)) || !/\.(go|json)$/.test(file)) return
         try {
           await run('go', ['build', '-o', 'public/main.wasm', '../sim/wasm'], {
             env: {...process.env, GOOS: 'js', GOARCH: 'wasm'},
