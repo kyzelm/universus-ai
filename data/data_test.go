@@ -222,6 +222,26 @@ func TestValidationRejectsBadData(t *testing.T) {
 			}
 		}},
 
+		// Target combos: after names a move by id, so ids must be unique and
+		// must exist, a move cannot follow itself (HP>HP>HP... forever), and
+		// only a plain normal can be a follow-up.
+		{"two moves with one id", func(c *jsonCharacter) { c.Moves[1].ID = c.Moves[0].ID }},
+		{"a follow-up of no move", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].After = []string{"nope"} }},
+		{"a move that follows itself", func(c *jsonCharacter) {
+			last := &c.Moves[len(c.Moves)-1]
+			last.After = []string{last.ID}
+		}},
+		{"a super as a follow-up", func(c *jsonCharacter) { c.Moves[0].After = []string{"5LP"} }},
+		// The second-stage knobs: follow-ups only, and in range.
+		{"needsHit on a move that follows nothing", func(c *jsonCharacter) {
+			no := false
+			c.Moves[0].NeedsHit = &no
+		}},
+		{"a dir on a move that follows nothing", func(c *jsonCharacter) { c.Moves[0].Dir = "6" }},
+		{"dir 5", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Dir = "5" }},
+		{"a dir that is not numpad", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Dir = "forward" }},
+		{"an empty window", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Window = []int{10, 10} }},
+		{"a window past the source's end", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Window = []int{0, 999} }},
 		// The one the design note itself got wrong: 8.0 and -0.03 pass every
 		// individual check and give a nine-second jump.
 		{"jump constants that do not go together", func(c *jsonCharacter) { c.Gravity = "-0.03" }},
@@ -603,5 +623,173 @@ func TestTheShippedScalingTable(t *testing.T) {
 	}
 	if b.CounterHitstun <= 0 {
 		t.Error("a counter hit carries no extra hitstun, so it cannot open anything")
+	}
+}
+
+// Every shipped target combo must actually combo: each follow-up, pressed the
+// frame its source's hitstop ends, has to land before the defender recovers.
+// The loader proves the chain is well-formed; only running it proves the frame
+// data and the pushback leave it connected.
+func TestTheShippedTargetCombosCombo(t *testing.T) {
+	cs := loadRoster(t)
+
+	found := 0
+	for ci := range cs {
+		c := &cs[ci]
+		for leaf := int32(0); leaf < c.NumMoves; leaf++ {
+			// Start from the end of each chain: a follow-up nothing follows.
+			// Only the chains that need a connect claim to be combos; a
+			// whiffable second stage has its own test.
+			if c.Moves[leaf].After == 0 || c.Moves[leaf].CancelInto&sim.CancelTarget != 0 ||
+				c.Moves[leaf].Whiff != 0 {
+				continue
+			}
+			found++
+			var chain []int32
+			// Walked back through the first source of each step.
+			for m := leaf; ; m = int32(bits.TrailingZeros32(c.Moves[m].After)) {
+				chain = append([]int32{m}, chain...)
+				if c.Moves[m].After == 0 {
+					break
+				}
+			}
+
+			s := sim.NewMatch(int32(ci), int32(ci))
+			s.Players[0].X, s.Players[1].X = sim.FromInt(-15), sim.FromInt(15)
+			for step, m := range chain {
+				s.Advance([2]uint16{c.Moves[m].Button, 0})
+				if got := s.Players[0].MoveIndex; got != m {
+					t.Fatalf("character %d: step %d gave move %d, want %d", ci, step, got, m)
+				}
+				for f := 0; s.Players[0].HasHit == 0 || s.Hitstop > 0; f++ {
+					if f > 60 {
+						t.Fatalf("character %d: step %d (move %d) never connected", ci, step, m)
+					}
+					s.Advance([2]uint16{0, 0})
+				}
+			}
+			if got := s.Players[1].Combo; got != int32(len(chain)) {
+				t.Errorf("character %d: target combo of %d hits ends on combo %d", ci, len(chain), got)
+			}
+		}
+	}
+	if found == 0 {
+		t.Error("the roster has no target combos")
+	}
+}
+
+// loadRoster installs the shipped roster and balance in the sim, for the tests
+// that play moves out rather than read them.
+func loadRoster(t *testing.T) []sim.Character {
+	t.Helper()
+	cs, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := LoadBalance()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sim.LoadCharacters(cs) {
+		t.Fatal("sim refused the roster")
+	}
+	sim.LoadBalance(b)
+	return cs
+}
+
+// numpad is a numpad direction as the input bits of a player facing right.
+var numpad = [10]uint16{
+	0,
+	sim.InDown | sim.InLeft, sim.InDown, sim.InDown | sim.InRight,
+	sim.InLeft, 0, sim.InRight,
+	sim.InUp | sim.InLeft, sim.InUp, sim.InUp | sim.InRight,
+}
+
+// motions are the stick inputs of each motion the roster uses, facing right.
+var motions = map[sim.Motion][]int{
+	sim.MotionNone: nil,
+	sim.MotionQCF:  {2, 3, 6},
+	sim.MotionQCB:  {2, 1, 4},
+	sim.MotionDP:   {6, 2, 3},
+}
+
+// perform inputs move m for player 0, facing right, from neutral.
+func perform(t *testing.T, s *sim.GameState, c *sim.Character, m int32) {
+	t.Helper()
+	mv := &c.Moves[m]
+	seq, ok := motions[mv.Motion]
+	if !ok {
+		t.Fatalf("move %d: no test input for motion %d", m, mv.Motion)
+	}
+	last := 5
+	for _, d := range seq {
+		s.Advance([2]uint16{numpad[d], 0})
+		last = d
+	}
+	s.Advance([2]uint16{numpad[last] | mv.Button, 0})
+	if got := s.Players[0].MoveIndex; got != m {
+		t.Fatalf("inputs for move %d gave move %d", m, got)
+	}
+}
+
+// Every shipped second stage that does not need a hit must come out of each of
+// its sources after a whiff, on its direction, and throw its projectile if it
+// has one.
+func TestTheShippedSecondStagesComeOutOfAWhiff(t *testing.T) {
+	cs := loadRoster(t)
+	found := 0
+	for ci := range cs {
+		c := &cs[ci]
+		for f := int32(0); f < c.NumMoves; f++ {
+			fm := &c.Moves[f]
+			if fm.After == 0 || fm.Whiff == 0 {
+				continue
+			}
+			for src := int32(0); src < c.NumMoves; src++ {
+				if fm.After&(1<<uint32(src)) == 0 {
+					continue
+				}
+				found++
+
+				s := sim.NewMatch(int32(ci), int32(ci)) // full gap: the source whiffs
+				perform(t, &s, c, src)
+				dir := numpad[5]
+				if fm.Dir != 0 {
+					dir = numpad[fm.Dir]
+				}
+				// Press on every other frame, holding the direction throughout,
+				// until the source is over.
+				for n := 0; s.Players[0].MoveIndex == src && n < 200; n++ {
+					in := dir
+					if n%2 == 0 {
+						in |= fm.Button
+					}
+					s.Advance([2]uint16{in, 0})
+				}
+				if got := s.Players[0].MoveIndex; got != f {
+					t.Errorf("character %d: move %d after a whiffed %d, want the second stage %d", ci, got, src, f)
+					continue
+				}
+				if s.Players[0].HasHit != 0 {
+					t.Errorf("character %d: the source %d connected, so this was not a whiff", ci, src)
+				}
+				if !fm.Proj.Exists() {
+					continue
+				}
+				for s.Players[0].StateFrame <= fm.Startup {
+					s.Advance([2]uint16{0, 0})
+				}
+				thrown := false
+				for i := range s.Projectiles {
+					thrown = thrown || (s.Projectiles[i].Active != 0 && s.Projectiles[i].Move == f)
+				}
+				if !thrown {
+					t.Errorf("character %d: second stage %d threw no projectile", ci, f)
+				}
+			}
+		}
+	}
+	if found == 0 {
+		t.Error("the roster has no second stages that come out of a whiff")
 	}
 }

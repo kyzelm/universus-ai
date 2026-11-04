@@ -371,13 +371,41 @@ func (p *PlayerState) doubleTapped(now uint32, dir uint8) bool {
 // cancelable button safe to throw out. And the window opens at the first active
 // frame, so a cancel cannot come out before the move it is cancelling has had a
 // chance to be one.
+//
+// The follow-up bit is the exception and is passed through regardless: a
+// follow-up judges its own window and its own connect rule (followOpen), and a
+// fireball's second stage has to be reachable from a fireball that hit nothing.
 func (s *GameState) cancelMask(i int) uint16 {
 	p := &s.Players[i]
 	mv := p.move()
-	if mv == nil || p.HasHit == 0 || p.StateFrame < mv.Startup {
+	if mv == nil {
 		return 0
 	}
+	if p.HasHit == 0 || p.StateFrame < mv.Startup {
+		return mv.CancelInto & CancelTarget
+	}
 	return mv.CancelInto
+}
+
+// followOpen reports that follow-up mv may come out of the player's current
+// move on this frame: the current move is one of its sources, the connect rule
+// is met, and the source is inside the follow-up's window.
+func (p *PlayerState) followOpen(mv *Move) bool {
+	src := p.move()
+	if src == nil || mv.After&(1<<uint32(p.MoveIndex)) == 0 {
+		return false
+	}
+	if mv.Whiff == 0 && p.HasHit == 0 {
+		return false
+	}
+	start, end := mv.WindowStart, mv.WindowEnd
+	if end == 0 {
+		start, end = src.Startup, src.Total()
+		if mv.Whiff != 0 {
+			start = src.Startup + src.Active
+		}
+	}
+	return p.StateFrame >= start && p.StateFrame < end
 }
 
 // moveFor finds the move a recent button press selects, or -1.
@@ -426,6 +454,14 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 			continue
 		}
 
+		// A follow-up exists only inside the window of a move it was written
+		// for. Everywhere else its button belongs to the ordinary normal, which
+		// is why the check is not just the category above: on the ordinary path
+		// cancel is zero and would let it through.
+		if mv.After != 0 && (cancel&CancelTarget == 0 || !p.followOpen(mv)) {
+			continue
+		}
+
 		// The meter gates the super, and it gates it *here*, at selection: a
 		// level 3 the player cannot afford must not be picked and then fail,
 		// because a picked move has already beaten every cheaper one that
@@ -467,6 +503,9 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 
 		f := p.pressFrame(now, mv.Button)
 		if f < 0 {
+			continue
+		}
+		if mv.Dir != 0 && direction(p.at(now, now-uint32(f)), p.Facing) != mv.Dir {
 			continue
 		}
 		// The motion is checked at the frame of the *press*, not at the frame

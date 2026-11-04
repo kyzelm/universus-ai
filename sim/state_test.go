@@ -649,6 +649,186 @@ func TestACancelTakesOnlyTheCategoriesTheMoveNames(t *testing.T) {
 	}
 }
 
+// withTargetCombo adds a follow-up to the jab on the jab's own button — the
+// HP>HP shape, which is the hard case: the same press must be the jab from
+// neutral and the follow-up out of the jab. Restored after the test, since the
+// roster is global.
+func withTargetCombo(t *testing.T) int32 {
+	t.Helper()
+	c := char()
+	saved := *c
+	t.Cleanup(func() { *c = saved })
+
+	f := c.NumMoves
+	c.Moves[f] = c.Moves[0]
+	c.Moves[f].After = 1 << 0 // follows move 0
+	c.Moves[f].CancelInto = 0
+	c.Moves[0].CancelInto |= CancelTarget
+	c.NumMoves++
+	return f
+}
+
+// The follow-up comes out of the jab's window, on the same button the jab
+// itself is on, and it does not loop: it names no follow-up of its own.
+func TestATargetComboComesOutOfItsSource(t *testing.T) {
+	f := withTargetCombo(t)
+	s := cancelWindow(t, 30)
+
+	s.Advance([2]uint16{InLP, 0})
+	if got := s.Players[0].MoveIndex; got != f {
+		t.Fatalf("move %d out of the jab's window, want the follow-up %d", got, f)
+	}
+
+	// Connect again and press again: the follow-up has no follow-up.
+	for s.Players[0].HasHit == 0 && s.Players[0].StateFrame < char().Moves[f].Total() {
+		s.Advance([2]uint16{0, 0})
+	}
+	for s.Hitstop > 0 {
+		s.Advance([2]uint16{0, 0})
+	}
+	s.Advance([2]uint16{InLP, 0})
+	if got := s.Players[0].MoveIndex; got != f || s.Players[0].StateFrame == 1 {
+		t.Errorf("move %d on frame %d: the follow-up restarted itself", got, s.Players[0].StateFrame)
+	}
+}
+
+// Outside the window the follow-up does not exist: not from neutral, and not
+// after a whiff, which opens no window at all. Moved to crouching LP, which
+// the fixture leaves empty — on the jab's own input a tie goes to the lower
+// index and the jab would win whether the gate worked or not.
+func TestATargetComboNeedsItsWindow(t *testing.T) {
+	f := withTargetCombo(t)
+	char().Moves[f].Stance = StanceCrouch
+
+	s := New()
+	s.Advance([2]uint16{pad[2] | InLP, 0})
+	if got := s.Players[0].MoveIndex; got == f {
+		t.Error("the follow-up came out from neutral")
+	}
+
+	s = cancelWindow(t, 300)
+	s.Advance([2]uint16{pad[2] | InLP, 0})
+	if got := s.Players[0].MoveIndex; got == f {
+		t.Error("the follow-up came out of a whiffed jab")
+	}
+}
+
+// withSecondStage gives the fireball (move 2) a second stage on 6+LP, the
+// fireball again, the way a rekka is written: a follow-up that may come out
+// whether or not the first stage connected. Restored after the test.
+func withSecondStage(t *testing.T) int32 {
+	t.Helper()
+	c := char()
+	saved := *c
+	t.Cleanup(func() { *c = saved })
+
+	f := c.NumMoves
+	c.Moves[f] = c.Moves[2]
+	c.Moves[f].Motion = MotionNone
+	c.Moves[f].After = 1 << 2
+	c.Moves[f].Whiff = 1
+	c.Moves[f].Dir = DirFwd
+	c.Moves[2].CancelInto |= CancelTarget
+	c.NumMoves++
+	return f
+}
+
+// fireballRecovery throws the fireball and runs it to the first frame after
+// its active frames, which is where a whiffable second stage's default window
+// opens.
+func fireballRecovery(t *testing.T) GameState {
+	t.Helper()
+	s := New()
+	feed(&s, 2, 3)
+	s.Advance([2]uint16{pad[6] | InLP, 0})
+	if got := s.Players[0].MoveIndex; got != 2 {
+		t.Fatalf("the fireball did not come out: move %d", got)
+	}
+	fb := &char().Moves[2]
+	for s.Players[0].StateFrame < fb.Startup+fb.Active {
+		s.Advance([2]uint16{0, 0})
+	}
+	return s
+}
+
+func activeProjectiles(s *GameState) (n int) {
+	for i := range s.Projectiles {
+		if s.Projectiles[i].Active != 0 {
+			n++
+		}
+	}
+	return n
+}
+
+// The second stage comes out of a fireball that hit nothing, on the direction
+// it was written for and on no other, and throws a second fireball.
+func TestASecondStageComesOutOfAWhiff(t *testing.T) {
+	f := withSecondStage(t)
+	s := fireballRecovery(t)
+	if s.Players[0].HasHit != 0 {
+		t.Fatal("the fireball's move connected, so this proves nothing about a whiff")
+	}
+
+	s.Advance([2]uint16{InLP, 0}) // no direction: not the second stage
+	if got := s.Players[0].MoveIndex; got != 2 {
+		t.Fatalf("plain LP gave move %d, want the fireball still running", got)
+	}
+	s.Advance([2]uint16{0, 0})
+	s.Advance([2]uint16{pad[6] | InLP, 0})
+	if got := s.Players[0].MoveIndex; got != f {
+		t.Fatalf("6+LP gave move %d, want the second stage %d", got, f)
+	}
+
+	for s.Players[0].StateFrame <= char().Moves[f].Startup {
+		s.Advance([2]uint16{0, 0})
+	}
+	if n := activeProjectiles(&s); n != 2 {
+		t.Errorf("%d fireballs in flight, want both stages'", n)
+	}
+}
+
+// needsHit is per follow-up: the same second stage with the connect rule left
+// on never comes out of a fireball, whose move has no hitbox to connect with.
+func TestASecondStageThatNeedsAHitWaitsForOne(t *testing.T) {
+	f := withSecondStage(t)
+	char().Moves[f].Whiff = 0
+	s := fireballRecovery(t)
+
+	s.Advance([2]uint16{pad[6] | InLP, 0})
+	if got := s.Players[0].MoveIndex; got == f {
+		t.Error("a follow-up that needs a hit came out of a whiff")
+	}
+}
+
+// And the default window opens at the end of the first stage's active
+// frames, not before: a press held and buffered from inside them comes out on
+// the first frame after, and the first stage loses none of its active frames.
+func TestASecondStageWaitsForTheFirstToPlayOut(t *testing.T) {
+	f := withSecondStage(t)
+	fb := &char().Moves[2]
+	s := New()
+	feed(&s, 2, 3)
+	s.Advance([2]uint16{pad[6] | InLP, 0})
+	for s.Players[0].StateFrame < fb.Startup {
+		s.Advance([2]uint16{pad[6], 0})
+	}
+
+	in := pad[6] | InLP // pressed on the first active frame, then held
+	for range 2 * InputBuffer {
+		was := s.Players[0].StateFrame
+		s.Advance([2]uint16{in, 0})
+		in = pad[6]
+		if s.Players[0].MoveIndex == f {
+			if was < fb.Startup+fb.Active {
+				t.Errorf("the second stage came out of source frame %d, inside its active frames %d..%d",
+					was, fb.Startup, fb.Startup+fb.Active-1)
+			}
+			return
+		}
+	}
+	t.Error("the buffered second stage never came out")
+}
+
 // **The camera has a dead zone.** Walking toward a player who is standing still
 // must not move the camera, or the standing player slides across the screen
 // and reads as moving too — which is exactly what the midpoint camera did.

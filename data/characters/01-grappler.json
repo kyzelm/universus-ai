@@ -561,6 +561,27 @@
         { "frame": 10, "hurt": [[-14, 4, 32, 44]], "hit": [[10, 4, 30, 28]] },
         { "frame": 16, "hurt": [[-14, 4, 28, 44]] }
       ]
+    },
+    {
+      "_comment": "Target combo HP>HP. Its own move, so the second HP has no follow-up of its own and HP>HP>HP is not a loop. Frame data copied from 5HP; tune here.",
+      "id": "5HP>5HP",
+      "after": ["5HP"],
+      "input": { "stance": "stand", "button": "HP" },
+      "startup": 11,
+      "active": 4,
+      "recovery": 21,
+      "damage": 1100,
+      "hitstun": 22,
+      "blockstun": 16,
+      "hitstop": 11,
+      "attackLevel": "mid",
+      "cancel": ["super3"],
+      "knockback": [3.4, 0],
+      "boxes": [
+        { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
+        { "frame": 11, "hurt": [[-14, 0, 38, 52]], "hit": [[14, 20, 34, 22]] },
+        { "frame": 15, "hurt": [[-14, 0, 28, 52]] }
+      ]
     }
   ]
 }

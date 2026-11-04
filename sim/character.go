@@ -44,7 +44,17 @@ const (
 	CancelSuper1  uint16 = 1 << 2
 	CancelSuper2  uint16 = 1 << 3
 	CancelSuper3  uint16 = 1 << 4
+
+	// CancelTarget is a target combo: the one follow-up written for this exact
+	// move (Move.After). Never authored — the loader sets it on every move some
+	// other move names in its After, so the bit and the follow-ups cannot
+	// disagree.
+	CancelTarget uint16 = 1 << 5
 )
+
+// After is a bitmask over move indices, so the move list must fit in it. A
+// MaxMoves above 32 overflows this constant and fails the build here.
+const _ = uint32(1) << (MaxMoves - 1)
 
 // superCancel is the category of a super at the given level. Index 0 is unused:
 // level 0 is not a super.
@@ -223,6 +233,42 @@ type Move struct {
 	// default and the majority.
 	CancelInto uint16
 
+	// After makes the move a follow-up — a target combo step or the second
+	// stage of a special: the set of move indices it may come out of, one bit
+	// per index, and nowhere else. Zero is an ordinary move. A set rather than
+	// one index so one second stage can follow all three strengths of a
+	// special (D121).
+	//
+	// A follow-up is its own move with its own frame data and its own sprite
+	// tag, not a permission between two existing ones: that is what lets HP>HP
+	// exist without making HP>HP>HP>... a loop, and LP>LK>MP exist without
+	// making a bare LK>MP a combo.
+	After uint32
+
+	// Whiff lets the follow-up come out whether or not the source connected.
+	// Zero is the D74 rule, a connect required; a target combo wants that, a
+	// fireball's second stage cannot have it, since the fireball's move has no
+	// hitbox and its projectile lands long after the move is over.
+	Whiff int32
+
+	// WindowStart and WindowEnd bound the source frames the follow-up may come
+	// out on, half-open. WindowEnd zero is the default: from the source's
+	// first active frame when a connect is required — HasHit cannot be set
+	// earlier anyway — and from the end of its active frames when it is not,
+	// so a whiffable second stage cannot cut the first one's active frames
+	// short: the first stage plays out every hit it has before it can be
+	// followed.
+	WindowStart, WindowEnd int32
+
+	// Dir is the facing-relative numpad direction the follow-up's button must
+	// be pressed with, or 0 for none. Read at the frame of the press, like a
+	// motion.
+	//
+	// ponytail: follow-ups only. A command normal from neutral (6MP beside
+	// 5MP) needs a tie-break between the two on one press, and nothing asks
+	// for one yet.
+	Dir uint8
+
 	NumKeys int32
 	Keys    [MaxKeyframes]Keyframe
 
@@ -254,6 +300,9 @@ func (m *Move) Armored() bool { return m.Armor > 0 }
 // motion makes a move a special, and the absence of both makes it a normal — so
 // nothing has to say twice what it already is, and the two cannot disagree.
 func (m *Move) Category() uint16 {
+	if m.After != 0 {
+		return CancelTarget
+	}
 	if m.Super > 0 && m.Super < int32(len(superCancel)) {
 		return superCancel[m.Super]
 	}

@@ -6731,6 +6731,402 @@
         "h": 160
       },
       "duration": 100
+    },
+    {
+      "filename": "kai 216.aseprite",
+      "frame": {
+        "x": 1536,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 217.aseprite",
+      "frame": {
+        "x": 1728,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 218.aseprite",
+      "frame": {
+        "x": 1920,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 219.aseprite",
+      "frame": {
+        "x": 2112,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 220.aseprite",
+      "frame": {
+        "x": 2304,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 221.aseprite",
+      "frame": {
+        "x": 2496,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 222.aseprite",
+      "frame": {
+        "x": 2688,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 223.aseprite",
+      "frame": {
+        "x": 2880,
+        "y": 2080,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 224.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 225.aseprite",
+      "frame": {
+        "x": 192,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 226.aseprite",
+      "frame": {
+        "x": 384,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 227.aseprite",
+      "frame": {
+        "x": 576,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 228.aseprite",
+      "frame": {
+        "x": 768,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 229.aseprite",
+      "frame": {
+        "x": 960,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 230.aseprite",
+      "frame": {
+        "x": 1152,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 231.aseprite",
+      "frame": {
+        "x": 1344,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 232.aseprite",
+      "frame": {
+        "x": 1536,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
+    },
+    {
+      "filename": "kai 233.aseprite",
+      "frame": {
+        "x": 1728,
+        "y": 2240,
+        "w": 192,
+        "h": 160
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 192,
+        "h": 160
+      },
+      "sourceSize": {
+        "w": 192,
+        "h": 160
+      },
+      "duration": 100
     }
   ],
   "meta": {
@@ -6740,7 +7136,7 @@
     "format": "RGBA8888",
     "size": {
       "w": 3072,
-      "h": 2240
+      "h": 2400
     },
     "scale": "1",
     "origin": {
@@ -6951,6 +7347,24 @@
         "from": 302,
         "to": 305,
         "direction": "forward"
+      },
+      {
+        "name": "5LP>5LK",
+        "from": 306,
+        "to": 311,
+        "direction": "forward"
+      },
+      {
+        "name": "5LP>5LK>5MP",
+        "from": 312,
+        "to": 317,
+        "direction": "forward"
+      },
+      {
+        "name": "236P>6P",
+        "from": 318,
+        "to": 323,
+        "direction": "forward"
       }
     ],
     "moveTags": [
@@ -6980,7 +7394,10 @@
       "2HK",
       "jLP",
       "jHP",
-      "jHK"
+      "jHK",
+      "5LP>5LK",
+      "5LP>5LK>5MP",
+      "236P>6P"
     ]
   }
 }

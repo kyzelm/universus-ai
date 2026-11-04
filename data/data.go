@@ -604,6 +604,23 @@ type jsonMove struct {
 	// Absent means it does not cancel, which is most of the list.
 	Cancel []string `json:"cancel"`
 
+	// After makes the move a follow-up: the ids of the moves it comes out of,
+	// inside their cancel window. Absent on everything else. The three fields
+	// below are follow-up only and refused anywhere else.
+	After []string `json:"after"`
+
+	// NeedsHit false lets the follow-up come out of a source that whiffed.
+	// Absent means true, the D74 rule.
+	NeedsHit *bool `json:"needsHit"`
+
+	// Window is [start, end) in the source's frames. Absent means the
+	// default, see sim.Move.WindowEnd.
+	Window []int `json:"window"`
+
+	// Dir is the numpad direction the button must be pressed with, "1".."9",
+	// facing-relative. Absent means any.
+	Dir string `json:"dir"`
+
 	// Super level, 1 to 3. Absent on everything that is not one, which is the
 	// whole roster bar three moves per character.
 	Super int `json:"super"`
@@ -825,6 +842,65 @@ func (jc *jsonCharacter) convert() (sim.Character, error) {
 		return c, fmt.Errorf("%d throws with no motion: only one can be the tech input", plainThrows)
 	}
 	c.NumMoves = int32(len(jc.Moves))
+
+	// Target combos are resolved here, once every id has an index. The source
+	// gets the CancelTarget bit derived rather than authored, so a follow-up
+	// can never exist without a window to come out of.
+	index := make(map[string]int32, len(jc.Moves))
+	for i := range jc.Moves {
+		if _, dup := index[jc.Moves[i].ID]; dup {
+			return c, fmt.Errorf("move id %q appears twice", jc.Moves[i].ID)
+		}
+		index[jc.Moves[i].ID] = int32(i)
+	}
+	for i := range jc.Moves {
+		jm, m := &jc.Moves[i], &c.Moves[i]
+		if len(jm.After) == 0 {
+			if jm.NeedsHit != nil || jm.Window != nil || jm.Dir != "" {
+				return c, fmt.Errorf("move %q: needsHit, window and dir are for follow-ups (after)", jm.ID)
+			}
+			continue
+		}
+		if m.Motion != sim.MotionNone || m.Super > 0 || m.IsThrow() {
+			// A follow-up is a normal; a special or super already has its own
+			// cancel categories, and being both would make Category lie.
+			return c, fmt.Errorf("move %q: only a plain normal can be a follow-up", jm.ID)
+		}
+		if jm.NeedsHit != nil && !*jm.NeedsHit {
+			m.Whiff = 1
+		}
+		if jm.Dir != "" {
+			d := jm.Dir
+			if len(d) != 1 || d[0] < '1' || d[0] > '9' || d == "5" {
+				return c, fmt.Errorf("move %q: dir %q, want a numpad direction 1..9 other than 5", jm.ID, d)
+			}
+			m.Dir = d[0] - '0'
+		}
+		for _, after := range jm.After {
+			src, ok := index[after]
+			switch {
+			case !ok:
+				return c, fmt.Errorf("move %q: after %q, which is not a move", jm.ID, after)
+			case src == int32(i):
+				// The one cycle that is reachable: anything longer has no way in.
+				return c, fmt.Errorf("move %q follows itself", jm.ID)
+			}
+			m.After |= 1 << uint32(src)
+			c.Moves[src].CancelInto |= sim.CancelTarget
+
+			if len(jm.Window) != 0 {
+				if len(jm.Window) != 2 || jm.Window[0] < 0 || jm.Window[1] <= jm.Window[0] {
+					return c, fmt.Errorf("move %q: window wants a non-empty [start, end)", jm.ID)
+				}
+				// Checked against every source: a window past the end of one of
+				// them is a follow-up that never comes out of it.
+				if total := c.Moves[src].Total(); int32(jm.Window[1]) > total {
+					return c, fmt.Errorf("move %q: window ends at %d, but %q is %d frames", jm.ID, jm.Window[1], after, total)
+				}
+				m.WindowStart, m.WindowEnd = int32(jm.Window[0]), int32(jm.Window[1])
+			}
+		}
+	}
 
 	return c, nil
 }
