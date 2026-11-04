@@ -2,9 +2,7 @@ package sim
 
 import "testing"
 
-// Training mode (03 Game Design/Game Modes.md, D41). The lab: resources refill,
-// the clock does not run, the round never ends. Everything else is the same
-// game — which is the point of practising in it.
+// Training mode (03 Game Design/Game Modes.md, D41).
 
 func TestTrainingStopsTheClockAndTheRound(t *testing.T) {
 	s := NewTraining()
@@ -43,9 +41,7 @@ func TestTrainingRefillsResources(t *testing.T) {
 	}
 }
 
-// The refill waits for the consequences to finish. A bar that filled back in
-// during the combo would hide the damage the combo did, which is the number the
-// person practising is watching.
+// The refill waits for the consequences to finish.
 func TestTrainingDoesNotRefillMidCombo(t *testing.T) {
 	s := NewTraining()
 	s.Players[0].X, s.Players[1].X = FromInt(-20), FromInt(20)

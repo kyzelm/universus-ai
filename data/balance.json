@@ -1,5 +1,5 @@
 {
-  "_comment": "Global tunables — 03 Game Design/Resource System.md and Round Flow.md. Not character data: one set of numbers for the match. Drive and Super are in thousandths of a bar; rates are units per frame; percentages are out of 100.",
+  "_comment": "Global tunables — 03 Game Design/Resource System.md and Round Flow.md.",
 
   "drive": {
     "regen": 6,
@@ -69,7 +69,7 @@
   },
 
   "ai": {
-    "_comment": "The scripted opponent. Difficulty is reaction delay and decision randomness only - never extra damage, extra meter or perfect inputs, because an AI with privileges is transparently unfair and teaches the player nothing. Reaction is the honest lever: it models human perception latency directly, and 16 frames is roughly human. Ranges are distances between the two fighters, in whole units, and they are an ordering: close inside anti-air inside mid.",
+    "_comment": "The scripted opponent.",
     "decisionFrames": 8,
     "closeRange": 40,
     "midRange": 110,

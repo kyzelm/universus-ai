@@ -11,8 +11,7 @@ const ROSTER = [
 
 /**
  * The whole of what the menu is for: a mode and two fighters, handed over as
- * the same setup a URL describes. The second character is unreachable without
- * this screen, which is what makes it worth a check rather than a look.
+ * the same setup a URL describes.
  */
 test('picks a mode and a pair and hands over a setup', async () => {
   const user = userEvent.setup()

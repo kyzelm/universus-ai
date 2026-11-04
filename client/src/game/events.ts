@@ -1,22 +1,11 @@
 import {EVENT_RING} from '../sim/wasm'
 
-/**
- * Firing effects without firing them eight times.
- *
- * **The classic rollback bug is one hit sound playing once per replay.** The
- * sim avoids it by setting flags in state rather than firing anything (see
- * sim/events.go); this is the other half — the view fires effects only for
- * frames that can no longer be simulated again, and never fires a frame twice.
- *
- * Two rules and nothing else:
- *   1. Only frames at or below the confirmed line, because a predicted frame
- *      can still be rolled back and its events replaced.
- *   2. Only frames not already fired, because the confirmed line is read every
- *      display frame and mostly has not moved.
- */
+/** Firing effects without firing them eight times. */
 export interface Fired {
   frame: number
-  /** 0 or 1 — the player the effect happened *to*, which is where to draw it. */
+  /**
+   * 0 or 1 — the player the effect happened *to*, which is where to draw it.
+   */
   seat: number
   /** The EVENT_* bits set on that seat for that frame. */
   bits: number
@@ -25,7 +14,7 @@ export interface Fired {
 export interface Events {
   /** Fires everything settled since the last call, oldest frame first. */
   drain(confirmed: number, fire: (f: Fired) => void): void
-  /** Forgets what has been fired. For a new match, which starts at frame 0. */
+  /** Forgets what has been fired. */
   reset(): void
 }
 
@@ -39,9 +28,7 @@ export function createEvents(read: (frame: number) => readonly [number, number])
 
   return {
     drain(confirmed, fire) {
-      // A backgrounded tab can confirm hundreds of frames at once. The sim has
-      // long since overwritten them, so this is where the loop stops rather
-      // than a decision about how many effects are too many.
+      // A backgrounded tab can confirm hundreds of frames at once.
       const from = Math.max(firedThrough + 1, confirmed - EVENT_RING + 1)
 
       for (let f = from; f <= confirmed; f++) {

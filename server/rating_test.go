@@ -46,8 +46,7 @@ func TestTiersAreTheTableFromTheDesign(t *testing.T) {
 	}
 }
 
-// **A player cannot demote out of a tier.** Standard, kind, and it removes a
-// whole class of complaints.
+// A player cannot demote out of a tier.
 func TestALossNeverLeavesTheTier(t *testing.T) {
 	// One point into Sophomore, losing far more than that.
 	if got := applyLoss(1005, 50); got != 1000 {

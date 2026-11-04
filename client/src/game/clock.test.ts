@@ -6,8 +6,7 @@ test('a frame worth of time is exactly one step', () => {
   expect(c.tick(STEP_MS)).toBe(1)
 })
 
-// Exact step counts would be testing floating-point luck. The property that
-// matters is that the clock tracks real time without drifting away from it.
+// Exact step counts would be testing floating-point luck.
 function stepsOver(dtMs: number, ticks: number): number {
   const c = createClock()
   let steps = 0
@@ -16,7 +15,7 @@ function stepsOver(dtMs: number, ticks: number): number {
 }
 
 test('leftover time carries into the next frame instead of being lost', () => {
-  // 10 ms per tick, 16.67 ms per step: 1,1,2,1,1,2... never 0.6 steps.
+  // 10 ms per tick, 16.67 ms per step: 1,1,2,1,1,2...
   const steps = stepsOver(10, 600) // 6 seconds
   expect(steps).toBeGreaterThanOrEqual(359)
   expect(steps).toBeLessThanOrEqual(360)
@@ -44,9 +43,6 @@ test('sub-step deltas accumulate rather than stepping every call', () => {
   expect(c.tick(STEP_MS - 2)).toBe(1)
 })
 // A 60 Hz display driving a 60 Hz sim must be one step per frame, every frame.
-// Without snapping, sub-millisecond jitter makes ~3% of frames produce no step
-// at all — and a frame with no step never polls input, so that press lands
-// late. Average rate is fine either way; the latency is what suffers.
 test('a jittery 60Hz display produces exactly one step per frame', () => {
   const clock = createClock()
   const counts = new Map<number, number>()

@@ -2,8 +2,7 @@ package sim
 
 import "testing"
 
-// Numpad direction to bitfield, for a player facing right. Tests read as the
-// motions they describe rather than as bit arithmetic.
+// Numpad direction to bitfield, for a player facing right.
 var pad = map[uint8]uint16{
 	1: InDown | InLeft, 2: InDown, 3: InDown | InRight,
 	4: InLeft, 5: 0, 6: InRight,
@@ -11,7 +10,7 @@ var pad = map[uint8]uint16{
 }
 
 // feed advances the state one frame per direction, giving player 0 the input
-// and player 1 neutral. Buttons may be or-ed into the final frame.
+// and player 1 neutral.
 func feed(s *GameState, dirs ...uint8) {
 	for _, d := range dirs {
 		s.Advance([2]uint16{pad[d], 0})
@@ -52,14 +51,7 @@ func TestMotionsAreRecognised(t *testing.T) {
 		{"crouching", []uint8{2, 2, 2, 2}, MotionNone},
 		{"wrong order", []uint8{6, 3, 2}, MotionNone},
 
-		// ↓ → with no ↘ at all. The design note specifies QCF as three
-		// directions, and leniency means skipping *junk between* them, not
-		// dropping one of them — so this is a miss, deliberately.
-		//
-		// Worth revisiting for keyboard specifically: a diagonal costs two
-		// simultaneous keys, and dropping it is a far more common miss on
-		// keyboard than on a stick or a leverless. Loosening it is a game
-		// design decision and a Decision Log entry, not a quiet change here.
+		// ↓ → with no ↘ at all.
 		{"quarter circle with the diagonal dropped", []uint8{2, 6}, MotionNone},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -73,10 +65,7 @@ func TestMotionsAreRecognised(t *testing.T) {
 }
 
 // The classic bug in this system, and the reason the motion table is ordered
-// data rather than a chain of ifs. A DP is → ↓ ↘, which *contains* ↓ ↘ — the
-// quarter-circle forward. Match QCF first and every intended dragon punch comes
-// out as a fireball, which is the single most reported problem in amateur
-// fighting game engines.
+// data rather than a chain of ifs.
 func TestDPBeatsQCF(t *testing.T) {
 	s := New()
 	feed(&s, 6, 2, 3)
@@ -84,13 +73,7 @@ func TestDPBeatsQCF(t *testing.T) {
 		t.Fatalf("→↓↘ recognised as %d, want DP (%d)", got, MotionDP)
 	}
 
-	// The input where priority actually decides. A bare →↓↘ does not contain a
-	// QCF under a strict backward scan — QCF needs → *last* and here it comes
-	// first — so the case above proves less than it looks.
-	//
-	// The overlap is real the moment the player ends on forward, which is how
-	// a dragon punch is usually thrown: you finish holding toward the opponent.
-	// →↓↘→ satisfies both patterns, and only the table order picks the winner.
+	// The input where priority actually decides.
 	s = New()
 	feed(&s, 6, 2, 3, 6)
 
@@ -109,7 +92,6 @@ func TestDPBeatsQCF(t *testing.T) {
 
 // The dragon punch people actually make on a keyboard: forward, down, forward,
 // with the final diagonal missing because it needs two keys held at once (D89).
-// It is a table row, not a looser scanner — D73's rule.
 func TestDPShortcut(t *testing.T) {
 	s := New()
 	feed(&s, 6, 2, 6)
@@ -137,18 +119,7 @@ func TestShortcutLeavesTheFireballAlone(t *testing.T) {
 	}
 }
 
-// **Walking into a fireball comes out as a dragon punch, and it always has.**
-// Not the shortcut's doing and not a bug in the scanner: → ↓ ↘ → contains → ↓ ↘,
-// DP is scanned first (TestDPBeatsQCF), and "walk forward, then quarter-circle"
-// *is* that input. The two are indistinguishable by the time they reach the
-// recogniser — the player who finishes a dragon punch still holding toward the
-// opponent and the player who advances and then throws a fireball have pressed
-// the same keys in the same order.
-//
-// Pinned rather than fixed, because changing it is a decision and not a repair:
-// the DP row would have to require its diagonal to be the newest direction,
-// which buys the advancing fireball at the price of every dragon punch thrown
-// with forward still held — and that trade is TestDPBeatsQCF's whole subject.
+// Walking into a fireball comes out as a dragon punch, and it always has.
 func TestWalkingIntoAFireballIsADP(t *testing.T) {
 	s := New()
 	feed(&s, 6, 6, 6, 2, 3, 6)
@@ -225,8 +196,7 @@ func TestMotionExpiresWithItsWindow(t *testing.T) {
 	t.Error("QCF still matching 20 frames after it completed — the window is not bounded")
 }
 
-// P2 starts facing left, so a fireball is the mirrored physical input. If this
-// fails, half the roster cannot use its specials.
+// P2 starts facing left, so a fireball is the mirrored physical input.
 func TestMotionIsFacingRelative(t *testing.T) {
 	s := New()
 	for _, d := range []uint8{2, 1, 4} { // ↓ ↙ ← in absolute terms
@@ -242,7 +212,7 @@ func TestMotionIsFacingRelative(t *testing.T) {
 }
 
 // A history ring that is not in GameState reads as a rollback that replays a
-// fireball as a crouch. This is the test that would catch it.
+// fireball as a crouch.
 func TestInputHistoryRollsBack(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3)
@@ -334,9 +304,7 @@ func TestInputQueriesAreDeterministic(t *testing.T) {
 // ---- The pair window -------------------------------------------------------
 
 // Nothing makes a human press two keys on one frame, and a throw is a punch and
-// a kick. Without a window the faster finger decides: the single button selects
-// its own normal, the state stops being actionable, and the pair the player was
-// making never happens.
+// a kick.
 func TestASecondButtonLandingLateStillMakesThePair(t *testing.T) {
 	window := BalanceOf().PairFrames
 
@@ -375,8 +343,7 @@ func TestAnActiveMoveIsNeverTakenBackByAPair(t *testing.T) {
 }
 
 // A window that took any second button would be a free cancel out of every
-// light into anything with two buttons. The pair has to be one the move already
-// running is part of.
+// light into anything with two buttons.
 func TestAPairSharingNoButtonDoesNotOverride(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InMP, 0})

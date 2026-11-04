@@ -2,15 +2,14 @@ package sim
 
 import "testing"
 
-// The fixture's sweep and the input that selects it. Crouch plus HK: standing
-// HK is the short launcher on move 4, so the stance is doing real work here.
+// The fixture's sweep and the input that selects it.
 const (
 	sweepIndex = int32(11)
 	sweepInput = InDown | InHK
 )
 
 // sweep lands the fixture's knockdown strike on player 1 and returns the state
-// on the frame it connected. Player 1 holds nothing, so the low is not blocked.
+// on the frame it connected.
 func sweep(t *testing.T) GameState {
 	t.Helper()
 
@@ -80,11 +79,8 @@ func TestAPlainHitDoesNotKnockDown(t *testing.T) {
 	}
 }
 
-// **Invulnerable for the whole knockdown, and actionable on the frame the
-// invulnerability ends.** Any overlap the other way is a window in which the
-// defender can be hit and cannot block, and an attack timed into it knocks them
-// down again — a loop with no escape. One test, because the two halves are the
-// same boundary read from either side.
+// Invulnerable for the whole knockdown, and actionable on the frame the
+// invulnerability ends.
 func TestVulnerableAndActionableBeginTogether(t *testing.T) {
 	s := knockedDown(t)
 
@@ -119,8 +115,7 @@ func TestAReversalBufferedOnTheFloorComesOutOnTheRise(t *testing.T) {
 	s := knockedDown(t)
 	for range balance.KnockdownFrames + InputBuffer {
 		in := uint16(0)
-		// One press, late enough to still be live when they rise. A held button
-		// is not a fresh press, so this is one input and not many.
+		// One press, late enough to still be live when they rise.
 		if s.Players[1].State == StateKnockdown && s.Players[1].Stun == 2 {
 			in = InMP
 		}
@@ -156,8 +151,7 @@ func TestAThrowEndsOnTheFloor(t *testing.T) {
 	}
 }
 
-// A tech does not. It is symmetric, and a knockdown on either side of a
-// symmetric escape is an advantage the mechanic exists not to give.
+// A tech does not.
 func TestATechKnocksNobodyDown(t *testing.T) {
 	mv := &char().Moves[throwIndex]
 
@@ -184,11 +178,6 @@ func TestATechKnocksNobodyDown(t *testing.T) {
 // Being hit out of the hitstun replaces the old hit's consequences with the new
 // one's rather than stacking them: a swept player who is picked up by a second
 // hit is no longer on their way to the floor.
-//
-// Poked directly rather than staged as a real second hit. What is under test is
-// that entering a state clears the debt, and a two-hit sequence tuned to land
-// inside a 12-frame hitstun would fail the day anyone touches the fixture's
-// frame data, for a reason that has nothing to do with knockdowns.
 func TestANewHitCancelsTheOwedKnockdown(t *testing.T) {
 	s := sweep(t)
 	p := &s.Players[1]

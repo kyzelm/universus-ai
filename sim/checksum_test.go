@@ -2,8 +2,7 @@ package sim
 
 import "testing"
 
-// Published FNV-1a 32-bit vectors. If these drift, the hash is not FNV-1a any
-// more and every recorded checksum in testdata/ is worthless.
+// Published FNV-1a 32-bit vectors.
 func TestFNV1aMatchesKnownVectors(t *testing.T) {
 	for _, c := range []struct {
 		in   string
@@ -32,7 +31,6 @@ func TestChecksumTracksState(t *testing.T) {
 }
 
 // Rollback in miniature: save, run ahead, restore, replay the same inputs.
-// Landing on a different checksum means state is living outside GameState.
 func TestSaveLoadReplayReproducesChecksum(t *testing.T) {
 	inputs := inputSeq(60)
 

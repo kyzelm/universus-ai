@@ -1,18 +1,9 @@
-// Registration, login and the token that proves a request is somebody's
-// (02 Architecture/Backend Services.md).
+// Registration, login and the token that proves a request is somebody's (02
+// Architecture/Backend Services.md).
 //
 //	POST /api/auth/register  {email, password, displayName} -> {token, user}
 //	POST /api/auth/login     {email, password}              -> {token, user}
 //	GET  /api/profile                                       -> {user}
-//
-// Email and password, bcrypt, a JWT. No OAuth: it adds provider setup and
-// redirect handling for no thesis value, and it is the first thing to add if
-// time turns out to be abundant.
-//
-// **Offline play is never gated on any of this.** Training, local versus and
-// versus AI require no account (03 Game Design/Game Modes.md, D62), which is
-// also why the whole package degrades to 503 rather than refusing to start when
-// there is no database.
 package main
 
 import (
@@ -34,23 +25,15 @@ import (
 )
 
 const (
-	// The cost the design note fixes. It is a deliberate ~250 ms per login on
-	// modest hardware: the whole point of the parameter is to be slow, and at
-	// single-digit concurrency there is nothing for it to be slow against.
+	// The cost the design note fixes.
 	bcryptCost = 12
 
-	// **Passwords are bounded at 72 bytes because bcrypt silently truncates
-	// there.** A user who set a 100-character passphrase would be logging in
-	// with the first 72 and would never be told; rejecting is the honest half
-	// of that, and the limit is on *bytes* rather than characters because that
-	// is what bcrypt counts.
+	// Passwords are bounded at 72 bytes because bcrypt silently truncates
+	// there.
 	minPassword = 8
 	maxPassword = 72
 
-	// A token outlives a play session without outliving the evening. There is
-	// no refresh token: the design does not ask for one, and the cost of not
-	// having it is a login screen once a day rather than a second credential
-	// with its own storage, rotation and revocation story.
+	// A token outlives a play session without outliving the evening.
 	tokenLife = 24 * time.Hour
 
 	// A request body that is not a few hundred bytes is not one of these.
@@ -62,24 +45,15 @@ const (
 var displayNameOK = regexp.MustCompile(`^[A-Za-z0-9_-]{3,24}$`)
 
 // auth holds what the handlers need: the store, and the key tokens are signed
-// with. One value rather than package globals, so a test can stand up a second
-// one without the two fighting over the same secret.
+// with.
 type auth struct {
 	users  store
 	secret []byte
-	// Nil in the handler tests, which do not touch a match. The result endpoint
-	// is registered only when it is set, for the same reason the whole package
-	// is registered only when there is a database.
+	// Nil in the handler tests, which do not touch a match.
 	matches *matchStore
 }
 
 // jwtSecret is read from the environment, or generated.
-//
-// **There is no default secret and there must never be one**: a signing key in
-// source is a key every deployment shares, and anyone who has read the
-// repository can mint a token for any account. A generated one is the
-// development case and says so loudly — every token dies when the process
-// restarts, which is survivable locally and would be obvious in production.
 func jwtSecret(fromEnv string) []byte {
 	if fromEnv != "" {
 		return []byte(fromEnv)
@@ -96,10 +70,7 @@ func jwtSecret(fromEnv string) []byte {
 	return key
 }
 
-// routes registers the endpoints. Nothing is registered when there is no
-// database: an endpoint that exists and always fails is worse than one that
-// does not exist, and the client asks for a 404 exactly as it would ask for a
-// server that is only a room.
+// routes registers the endpoints.
 func (a *auth) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/login", a.login)
@@ -150,9 +121,7 @@ func (a *auth) register(w http.ResponseWriter, r *http.Request) {
 
 	u, err := a.users.createUser(r.Context(), email, string(hash), name)
 	if errors.Is(err, errTaken) {
-		// Which of the two is taken is deliberately not said. It is an account
-		// enumeration oracle either way, and "one of these is taken" is enough
-		// to act on.
+		// Which of the two is taken is deliberately not said.
 		httpError(w, http.StatusConflict, "that email or display name is already registered")
 		return
 	}
@@ -167,10 +136,7 @@ func (a *auth) register(w http.ResponseWriter, r *http.Request) {
 
 // dummyHash is compared against when the email is unknown, so that a login for
 // an account that does not exist costs the same as one for an account that
-// does. Without it the response time is an oracle for which emails are
-// registered, which is a list worth having if you intend to guess passwords.
-//
-// Generated once at startup from a value nobody can log in with.
+// does.
 var dummyHash = mustHash("not-a-password-this-is-a-timing-placeholder")
 
 func mustHash(s string) []byte {
@@ -225,9 +191,7 @@ func b2i(b bool) byte {
 	return 0
 }
 
-// profile is the account and its ladder standing. The rating is here rather
-// than on an endpoint of its own because it is the only thing anybody wants
-// alongside the name, and a second request for two numbers is a second request.
+// profile is the account and its ladder standing.
 func (a *auth) profile(w http.ResponseWriter, r *http.Request, u User) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user":   u,
@@ -253,7 +217,7 @@ func (a *auth) issue(w http.ResponseWriter, u User) {
 }
 
 // requireUser is the middleware: a bearer token, verified, resolved to the user
-// it names. Handlers behind it never see a request that is not somebody's.
+// it names.
 func (a *auth) requireUser(h func(http.ResponseWriter, *http.Request, User)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := a.userID(r.Header.Get("Authorization"))
@@ -281,8 +245,6 @@ func (a *auth) userID(header string) (int64, error) {
 }
 
 // userOf resolves a bare token — no Bearer prefix — to the account it names.
-// The WebSocket endpoints use it: a browser cannot set headers on a socket, so
-// the token arrives as the first frame instead (see hub.accept).
 func (a *auth) userOf(token string) (User, error) {
 	id, err := a.subjectOf(token)
 	if err != nil {
@@ -292,10 +254,7 @@ func (a *auth) userOf(token string) (User, error) {
 }
 
 func (a *auth) subjectOf(raw string) (int64, error) {
-	// **The algorithm is pinned.** Accepting whatever the token says it was
-	// signed with is how `alg: none` and the HMAC-verified-against-an-RSA-key
-	// trick both work; the parser enforces it rather than the caller checking
-	// afterwards.
+	// The algorithm is pinned.
 	claims := &jwt.RegisteredClaims{}
 	_, err := jwt.ParseWithClaims(strings.TrimSpace(raw), claims,
 		func(*jwt.Token) (any, error) { return a.secret, nil },
@@ -309,11 +268,8 @@ func (a *auth) subjectOf(raw string) (int64, error) {
 
 // normalizeEmail lowercases and trims, which is what makes the unique index
 // mean what people assume it means.
-//
 // ponytail: the shape check is one @ with something either side and a dot in
-// the domain. Anything stricter is a regex nobody can read that still accepts
-// addresses nobody can receive mail at; the real check is sending to it, and
-// there is no mail in this project.
+// the domain.
 func normalizeEmail(raw string) (string, error) {
 	email := strings.ToLower(strings.TrimSpace(raw))
 	if len(email) < 3 || len(email) > 254 {
@@ -338,8 +294,7 @@ func checkPassword(p string) error {
 	return nil
 }
 
-// readJSON decodes a bounded, strict body. Reports whether the handler should
-// carry on; it has already answered the request when it says no.
+// readJSON decodes a bounded, strict body.
 func readJSON(w http.ResponseWriter, r *http.Request, into any) bool {
 	return decodeBody(w, r, into, maxBody)
 }

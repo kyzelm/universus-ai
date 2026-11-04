@@ -3,9 +3,7 @@ package sim
 import "testing"
 
 // betweenRounds advances until the fight resumes or the match is over, and
-// reports how many frames that took. Every transition is simulation state with
-// a fixed length, so this terminates or the state machine is broken — the cap
-// is there to fail the test rather than hang it.
+// reports how many frames that took.
 func betweenRounds(t *testing.T, s *GameState) int {
 	t.Helper()
 
@@ -19,9 +17,7 @@ func betweenRounds(t *testing.T, s *GameState) int {
 	return 0
 }
 
-// koRound empties a player's health and runs the frame that notices. Health is
-// set directly rather than beaten off: what is under test is the round rule,
-// and the hit that produced the zero has its own tests.
+// koRound empties a player's health and runs the frame that notices.
 func koRound(s *GameState, loser int) {
 	s.Players[loser].Health = 0
 	s.Advance([2]uint16{})
@@ -48,8 +44,7 @@ func TestAKOEndsTheRoundAndAwardsIt(t *testing.T) {
 }
 
 // The freeze, the result and the intro are simulation state with fixed lengths,
-// because what they decide is when input resumes. A view that timed them would
-// resume input on a different frame on each machine.
+// because what they decide is when input resumes.
 func TestTheRoundTransitionTakesTheFramesTheBalanceSays(t *testing.T) {
 	s := New()
 	koRound(&s, 1)
@@ -63,8 +58,7 @@ func TestTheRoundTransitionTakesTheFramesTheBalanceSays(t *testing.T) {
 	}
 }
 
-// Nothing moves between rounds. Input is read into the history — it has to be,
-// or the ring has a hole in it — but nothing acts on it.
+// Nothing moves between rounds.
 func TestNothingHappensBetweenRounds(t *testing.T) {
 	s := New()
 	koRound(&s, 1)
@@ -84,9 +78,7 @@ func TestNothingHappensBetweenRounds(t *testing.T) {
 	}
 }
 
-// A timeout goes to the higher *percentage* of a player's own pool. The two
-// fixture characters have different pools, which is the only way this test can
-// tell the rule from the plausible one: player 1 has less health and more of it.
+// A timeout goes to the higher *percentage* of a player's own pool.
 func TestATimeoutIsDecidedOnPercentage(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -142,8 +134,6 @@ func TestADoubleKOIsADraw(t *testing.T) {
 }
 
 // The round resets what the next round starts fresh with, and nothing else.
-// Super carrying over is the rule that makes it the strategic gauge; the wins
-// and the match damage total have to survive for the match to mean anything.
 func TestANewRoundResetsHealthButCarriesSuper(t *testing.T) {
 	s := New()
 	s.Players[0].Super = 2 * BarUnits
@@ -198,7 +188,7 @@ func TestTwoRoundWinsTakeTheMatch(t *testing.T) {
 
 	// Terminal: the frame still advances, so the network and the checksum keep
 	// moving, and the input history keeps being recorded — the ring may not
-	// grow a hole in it just because the match is over. Nothing else moves.
+	// grow a hole in it just because the match is over.
 	before := s
 	for range 10 {
 		s.Advance([2]uint16{InLP, InLP})
@@ -220,8 +210,7 @@ func TestTwoRoundWinsTakeTheMatch(t *testing.T) {
 }
 
 // Draws are unbounded on their own: nobody is awarded a round, so draw and
-// replay is a loop with no exit. The cap ends it by the one value that is
-// already tracked and already deterministic — total damage dealt (D54).
+// replay is a loop with no exit.
 func TestTheRoundCapResolvesByDamageDealt(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -260,8 +249,7 @@ func TestTheRoundCapResolvesByDamageDealt(t *testing.T) {
 }
 
 // Damage dealt is what came off the bar, which is what the tiebreak above is
-// counting. Chip that stopped at 1 health counts what it removed and not what
-// the formula asked for.
+// counting.
 func TestDamageDealtTracksTheHealthBar(t *testing.T) {
 	s := facing(30)
 	s.Players[1].Health = 10

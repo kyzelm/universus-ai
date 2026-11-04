@@ -98,8 +98,7 @@ func TestPairAndForward(t *testing.T) {
 		t.Errorf("guest read (%v, %q), want (text, offer-blob)", typ, data)
 	}
 
-	// An input packet on the way back: binary, and unchanged. The relay is the
-	// transport once ICE has failed, so the bytes the sim reads come through here.
+	// An input packet on the way back: binary, and unchanged.
 	packet := []byte{1, 0, 0, 0, 7, 2, 0x11, 0x00, 0x22, 0x00}
 	send(t, guest, websocket.MessageBinary, packet)
 	typ, data = read(t, host)
@@ -116,8 +115,7 @@ func TestCodesDoNotMix(t *testing.T) {
 	a := dial(t, base+"room-a")
 	b := dial(t, base+"room-b")
 
-	// Neither is paired, so neither has been told a role. A leaked message would
-	// arrive well inside this window.
+	// Neither is paired, so neither has been told a role.
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 

@@ -9,8 +9,6 @@ import (
 )
 
 // User is a row of `users` as anything outside this file is allowed to see it.
-// **The password hash is deliberately not in it**: a struct that carries one is
-// a struct that eventually gets marshalled to JSON by somebody in a hurry.
 type User struct {
 	ID          int64  `json:"id"`
 	Email       string `json:"email"`
@@ -27,12 +25,6 @@ var errNoUser = errors.New("no such user")
 var errTaken = errors.New("already taken")
 
 // store is what the handlers need from the database and nothing else.
-//
-// An interface with one production implementation is usually a smell, and this
-// one earns its place: the second implementation is the fake the handler tests
-// run against. Auth is the code most worth testing and the code least worth
-// needing a live Postgres to test, and the alternative is either no tests or a
-// container in CI for four queries.
 type store interface {
 	// createUser returns errTaken if the email or display name is spoken for.
 	createUser(ctx context.Context, email, hash, name string) (User, error)
@@ -58,9 +50,7 @@ type Rating struct {
 
 type pgStore struct{ pool *pgxpool.Pool }
 
-// createUser writes the account and its starting rating together. A user with
-// no rating row is a profile that reads as an error the first time they open
-// it, and the two only exist because of each other.
+// createUser writes the account and its starting rating together.
 func (s pgStore) createUser(ctx context.Context, email, hash, name string) (User, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -102,8 +92,7 @@ func (s pgStore) ratingOf(ctx context.Context, id int64) int {
 	var lp int
 	// A rating that cannot be read is a match nobody gets rather than a player
 	// who queues at zero, unless it is read as zero — which is what a brand new
-	// account's is. Logged by the caller if it ever matters; the queue's job is
-	// to keep working.
+	// account's is.
 	if err := s.pool.QueryRow(ctx, `SELECT lp FROM ratings WHERE user_id = $1`, id).Scan(&lp); err != nil {
 		return 0
 	}

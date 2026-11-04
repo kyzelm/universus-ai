@@ -29,9 +29,7 @@ import {
 
 /**
  * Two drivers wired to each other through a delay queue — the closest thing to
- * a real match that runs headlessly. Seat 0 feeds the sim (mine, theirs) and
- * seat 1 feeds it (theirs, mine), so both stubs see the same argument order and
- * must agree on every hash.
+ * a real match that runs headlessly.
  */
 function match(frames: number, lagFrames = 3, corruptBAt = -1) {
   const simA = stubSim()
@@ -50,11 +48,7 @@ function match(frames: number, lagFrames = 3, corruptBAt = -1) {
   return {A, B, simA, simB}
 }
 
-/**
- * A stand-in for the sim that records what it was fed. `applied[f]` holds the
- * *last* inputs simulated for frame f, so after a replay it holds the corrected
- * ones — which is exactly the property the rollback tests care about.
- */
+/** A stand-in for the sim that records what it was fed. */
 function stubSim(corruptAt = -1, version = 0xda7a) {
   const applied: [number, number][] = []
   let frame = 0
@@ -188,8 +182,7 @@ test('stalls rather than outrunning the rollback window', () => {
   expect(net.stats.stalls).toBe(20 - MAX_ROLLBACK)
   expect(net.frame).toBe(MAX_ROLLBACK)
 
-  // A stalled frame still sends. Waiting silently would leave the other end
-  // with nothing to catch up on, and the stall would never end.
+  // A stalled frame still sends.
   expect(sent.length).toBe(20)
 })
 
@@ -299,7 +292,7 @@ test('a malformed packet is counted and dropped, never thrown', () => {
 /**
  * The property the whole design rests on: however late the remote inputs
  * arrive, once they have arrived every frame holds the input that really
- * happened. If this passes, the two machines agree.
+ * happened.
  */
 test('converges on the true remote inputs under lagged delivery', () => {
   const {sim, net} = harness()
@@ -323,10 +316,7 @@ test('converges on the true remote inputs under lagged delivery', () => {
   expect(net.stats.rollbacks).toBeGreaterThan(0) // and it did exercise rollback
 })
 
-// Character data is part of the simulation's identity. Two clients with
-// different frame data produce different states from identical inputs, and no
-// amount of checksum exchange can say why after the fact — so it is compared
-// once, before the first frame, and a mismatch refuses the match.
+// Character data is part of the simulation's identity.
 test('a peer with different character data is refused, not played', () => {
   const mine = stubSim(-1, 0xaaaa)
   const sent: ArrayBuffer[] = []
@@ -355,21 +345,7 @@ test('a peer with matching character data plays normally', () => {
 
 /**
  * The invariant the whole wire format rests on: the same bytes go to the sim,
- * the network and the replay (CLAUDE.md). A frame's input is therefore decided
- * exactly once — the moment that frame is simulated — and nothing may rewrite
- * it afterwards.
- *
- * The way to break it is to record the input *before* the guards that decide
- * whether the frame runs at all. A stalled or skipped tick then writes a second
- * value into a slot already on the wire, and the peer keeps the first copy it
- * saw (its redundancy check ignores a frame it already knows). The two ends
- * simulate the same frame from different inputs and the checksums disagree —
- * intermittently, because a difference that lands during an animation changes
- * nothing and the states silently converge again.
- *
- * Found by running two browsers at 100 ms: 73 mismatches in 60 seconds, never
- * sticky. testdata/ has no log of it because it is not reachable from a replay
- * — only a live stall can produce it.
+ * the network and the replay (CLAUDE.md).
  */
 test('a frame\'s input is decided once — a stall never rewrites what was sent', () => {
   const sent: ArrayBuffer[] = []
@@ -398,12 +374,7 @@ test('a frame\'s input is decided once — a stall never rewrites what was sent'
 /**
  * The netcode driven through the real impairment layer, which is the condition
  * it exists for: localhost produces one-frame rollbacks and never exercises the
- * window. 100 ms round trip, 15 ms of jitter and 5% loss is a cell of the
- * measurement matrix (01 Thesis/Measurement Methodology.md, M-B), and the two
- * ends must still agree on every frame they both simulated.
- *
- * Timers are faked, so the run is a few milliseconds of real time and the
- * seeded layer drops exactly the same packets every time it runs.
+ * window.
  */
 describe('under artificial network conditions', () => {
   afterEach(() => vi.useRealTimers())
@@ -418,7 +389,7 @@ describe('under artificial network conditions', () => {
     const simB = stubSim()
 
     // Each end's link impairs what *arrives* at it, which is where the real one
-    // sits. Different seeds, or both directions would suffer in lockstep.
+    // sits.
     let A!: ReturnType<typeof createNetplay>
     let B!: ReturnType<typeof createNetplay>
     const toB = createLink((d) => B.receive(d), cfg, 11)
@@ -452,13 +423,7 @@ describe('under artificial network conditions', () => {
 
 /**
  * Two ends on their own 60 Hz clocks, exchanging inputs and pings over a fixed
- * delay. Timers are faked including `performance`, so the ping measures the
- * simulated wire rather than the few microseconds a headless loop really takes
- * — which is the whole point: the flight correction is computed from the RTT.
- *
- * @param headStart frames the first end runs before the second one starts,
- * which is how two machines actually begin a match: whoever's channel opened
- * first is already simulating.
+ * delay.
  */
 function linked(frames: number, lagFrames: number, headStart = 0) {
   const simA = stubSim()
@@ -483,11 +448,7 @@ function linked(frames: number, lagFrames: number, headStart = 0) {
   return {A, B, simA, simB}
 }
 
-/**
- * Time synchronisation (02 Architecture/Rollback Netcode.md). Without it the
- * end that started first predicts frames the other has not reached for the rest
- * of the match, and pays for it in mispredictions and eventually in stalls.
- */
+/** Time synchronisation (02 Architecture/Rollback Netcode.md). */
 describe('time synchronisation', () => {
   afterEach(() => vi.useRealTimers())
   beforeEach(() => vi.useFakeTimers({toFake: ['performance', 'setTimeout', 'clearTimeout']}))
@@ -497,14 +458,13 @@ describe('time synchronisation', () => {
     const {A, B, simA, simB} = linked(400, 3, HEAD_START)
 
     expect(A.stats.skipped).toBeGreaterThan(0)
-    // **Never both.** The two readings are the same difference with opposite
-    // signs, so an end that is behind cannot decide to wait as well — that
-    // would be two clients politely deadlocking each other.
+    // Never both. The two readings are the same difference with opposite signs,
+    // so an end that is behind cannot decide to wait as well — that would be
+    // two clients politely deadlocking each other.
     expect(B.stats.skipped).toBe(0)
 
     // The claim, measured on the frame counters rather than on the instrument:
-    // the head start is gone. Without this it stays for the whole match, and
-    // the leading end predicts frames the other has not reached forever.
+    // the head start is gone.
     expect(simA.frame - simB.frame).toBeLessThanOrEqual(AHEAD_LIMIT)
 
     // And it stopped once level, over 400 frames in which it could have
@@ -513,9 +473,7 @@ describe('time synchronisation', () => {
   })
 
   test('a healthy connection never skips, however long the wire is', () => {
-    // 200 ms round trip. Their newest input is six frames old at all times, so
-    // an uncorrected comparison reads six frames of advantage that do not
-    // exist and skips forever.
+    // 200 ms round trip.
     const {A, B, simA, simB} = linked(400, 6)
 
     expect(A.stats.skipped).toBe(0)
@@ -534,11 +492,7 @@ describe('time synchronisation', () => {
   })
 })
 
-/**
- * **Every netplay session is a regression log.** A desync that cannot be
- * replayed offline has to be reproduced live, which is the expensive way to
- * find anything — and the corpus is worth more than any single test.
- */
+/** Every netplay session is a regression log. */
 test('the driver logs the confirmed inputs, in the replay format', () => {
   const {A, B, simA} = match(200)
 
@@ -554,12 +508,7 @@ test('the driver logs the confirmed inputs, in the replay format', () => {
   }
 })
 
-/**
- * The visualiser's data (01 Thesis/Supervisor Deliverables.md). Rollback is
- * invisible when it works, so what the strip draws has to be *recorded* rather
- * than inferred from a snapshot — by the time anything renders, the correction
- * has already happened and the state looks like it always did.
- */
+/** The visualiser's data (01 Thesis/Supervisor Deliverables.md). */
 describe('the rollback timeline', () => {
   const kindOf = (packed: number) => packed & 3
   const depthOf = (packed: number) => packed >> 2
@@ -580,12 +529,7 @@ describe('the rollback timeline', () => {
     expect(kindOf(net.sample(0))).toBe(FRAME_PREDICTED)
   })
 
-  /**
-   * And it keeps saying so. The replay that follows a correction runs with the
-   * input now known, so a frame that re-recorded itself on the way past would
-   * report itself clean — and the strip would show a match in which nothing
-   * was ever mispredicted, which is exactly the illusion it exists to break.
-   */
+  /** And it keeps saying so. */
   test('a guess that turned out wrong stays marked, replay and all', () => {
     const {net} = harness()
     net.receive(encodeInputs(0, [5]))
@@ -596,10 +540,7 @@ describe('the rollback timeline', () => {
     net.receive(encodeInputs(1, [9, 9, 9, 9]))
 
     expect(net.stats.rollbacks).toBe(1)
-    // **All of them stay marked, not just the one the rollback landed on.**
-    // The replay runs with the input now known, so a frame that re-recorded
-    // itself on the way past would report itself clean, and the strip would
-    // show a match in which almost nothing was ever mispredicted.
+    // All of them stay marked, not just the one the rollback landed on.
     for (const f of [1, 2, 3, 4]) {
       expect(kindOf(net.sample(f))).toBe(FRAME_CORRECTED)
     }
@@ -621,17 +562,8 @@ describe('the rollback timeline', () => {
 })
 
 // The checksum series goes to the server, which replays the log and compares
-// them in frame order. A Map iterates in insertion order and a rollback
-// rewrites an older frame's hash after a newer one was taken, so the order has
-// to be imposed rather than inherited.
-/**
- * **The cadence is the one coupling the determinism gate cannot cover.** The
- * gate proves native and WASM agree on the hash at every frame; what it cannot
- * prove is that the client samples the same *frames* the server replays to. The
- * two are one number in two languages — CHECKSUM_EVERY here, checksumEvery in
- * server/verify.go — and if they ever drift, every ranked match in the world
- * fails verification with a checkpoint-count mismatch.
- */
+// them in frame order.
+/** The cadence is the one coupling the determinism gate cannot cover. */
 test('the checkpoint cadence is the one the server replays to', () => {
   expect(CHECKSUM_EVERY).toBe(30)
 })
@@ -668,9 +600,8 @@ describe('liveness', () => {
   afterEach(() => vi.useRealTimers())
 
   /**
-   * **Three seconds of silence is a disconnect**, and what resets the clock is
-   * *anything at all* from the peer. A peer that is stalled but connected is
-   * still sending pings and checksums; a peer that has gone sends nothing.
+   * Three seconds of silence is a disconnect, and what resets the clock is
+   * *anything at all* from the peer.
    */
   test('silence is measured from the last packet of any kind', () => {
     const {net} = harness()
@@ -689,8 +620,7 @@ describe('liveness', () => {
     expect(net.silentMs()).toBe(0)
   })
 
-  // A packet that fails to decode is still evidence the peer is alive. Its bug,
-  // not its funeral.
+  // A packet that fails to decode is still evidence the peer is alive.
   test('even a malformed packet counts as the peer being there', () => {
     const {net} = harness()
     vi.advanceTimersByTime(4000)

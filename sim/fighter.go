@@ -1,11 +1,6 @@
 package sim
 
-// The character state machine. Every fighter is in exactly one state per frame,
-// and state plus StateFrame determines everything: which boxes are active, what
-// input is accepted, what happens next.
-//
-// The sim decides transitions. The view reads the state and draws it; it never
-// picks one.
+// The character state machine.
 
 // States. Values are part of the state's byte layout, so they are appended to,
 // never reordered.
@@ -21,32 +16,19 @@ const (
 	StateAttack
 	StateHitstun
 	StateBlockstun
-	// StateLanding is the recovery owed for coming down out of a move. It is
-	// stun as far as the state machine is concerned — a fixed count of frames
-	// that accept nothing — so it runs on the same counter.
+	// StateLanding is the recovery owed for coming down out of a move.
 	StateLanding
 	// StateThrown is being thrown, and it is also the recovery both players owe
-	// after a throw is teched. The same counter again: from the state machine's
-	// side every one of these is a fixed number of frames that accept nothing,
-	// and the difference between them is who is embarrassed.
+	// after a throw is teched.
 	StateThrown
 	// StateKnockdown is lying on the ground after a sweep or a throw, and it is
 	// the state okizeme is played against: the attacker knows exactly which
 	// frame the defender rises on, and that shared knowledge is the mechanic.
-	//
-	// **Invulnerable for the whole of it**, so the defender becomes vulnerable
-	// and actionable on the same frame. Any overlap between the two would be
-	// frames on which they can be hit and cannot block, and an attack timed
-	// into that gap knocks them down again — a loop nobody can escape. A meaty
-	// is an attack whose active frames cover the first *actionable* frame, and
-	// that is exactly the attack this leaves possible.
 	StateKnockdown
 )
 
-// absorbs reports whether this player's current move eats the hit about to
-// land on them: it has armour left, and it is still on the frames that carry
-// it. The recovery is deliberately exposed — armour that lasted the whole move
-// would make the move safe as well as strong.
+// absorbs reports whether this player's current move eats the hit about to land
+// on them: it has armour left, and it is still on the frames that carry it.
 func (p *PlayerState) absorbs() bool {
 	mv := p.move()
 	return mv != nil && mv.Armored() && p.Armor < mv.Armor &&
@@ -54,16 +36,9 @@ func (p *PlayerState) absorbs() bool {
 }
 
 // Airborne reports whether the player is off the ground.
-//
-// State alone stopped being enough the moment a move could carry the character
-// upward: a rising uppercut is airborne without being in StateAir, and gravity,
-// the landing check and the air hurtbox all have to agree about that. StateAir
-// stays in the test because a jump's first frame is still at ground level and
-// must keep behaving exactly as it did.
 func (p *PlayerState) Airborne() bool { return p.State == StateAir || p.Y > GroundY }
 
-// Actionable reports whether a state accepts a new action this frame. Dash and
-// backdash commit; attacks, stun and pre-jump run to completion.
+// Actionable reports whether a state accepts a new action this frame.
 func Actionable(state int32) bool {
 	switch state {
 	case StateIdle, StateWalkF, StateWalkB, StateCrouch:
@@ -74,9 +49,7 @@ func Actionable(state int32) bool {
 
 // stunned reports the states that are a fixed count of frames accepting no
 // input — hitstun, blockstun, landing recovery, a throw and its tech, and lying
-// on the floor. One list, because three places ask the same question: what may
-// be thrown, what keeps its pushback rather than having its velocity reset, and
-// what the corner rule counts as being pushed.
+// on the floor.
 func stunned(state int32) bool {
 	switch state {
 	case StateHitstun, StateBlockstun, StateLanding, StateThrown, StateKnockdown:
@@ -85,17 +58,12 @@ func stunned(state int32) bool {
 	return false
 }
 
-// enter puts the player into a state, resetting its frame counter. Everything
-// that changes state goes through here, so "state changed but the counter did
-// not" cannot happen.
+// enter puts the player into a state, resetting its frame counter.
 func (p *PlayerState) enter(state int32) {
 	p.State = state
 	p.StateFrame = 0
 	p.MoveIndex = -1
-	// The debt belongs to the move that incurred it. Anything that ends that
-	// move early — most of all being hit out of it — cancels the debt with it,
-	// or a player knocked out of an uppercut would land into recovery frames
-	// they never earned on top of the hitstun they did.
+	// The debt belongs to the move that incurred it.
 	p.Landing = 0
 	// The knockdown owed by the hit currently being served, cleared for the
 	// same reason and by the same rule: being hit out of hitstun replaces that
@@ -104,19 +72,14 @@ func (p *PlayerState) enter(state int32) {
 	p.Down = 0
 }
 
-// knockdown puts the player on the ground. **One duration for every knockdown
-// in the game** — the design note is explicit that varying wakeup timings are a
-// balance rabbit hole that buys the thesis nothing, so the number is one
-// balance value and not a per-move field.
+// knockdown puts the player on the ground.
 func (p *PlayerState) knockdown() {
 	p.enter(StateKnockdown)
 	p.Stun = balance.KnockdownFrames
 	p.Events |= EventKnockdown
 }
 
-// land ends an airborne action on touchdown, owing n frames of recovery. Zero
-// is the common case and means actionable immediately, which is what a jump
-// with no attack in it does.
+// land ends an airborne action on touchdown, owing n frames of recovery.
 func (p *PlayerState) land(n int32) {
 	if n <= 0 {
 		p.enter(StateIdle)
@@ -126,9 +89,7 @@ func (p *PlayerState) land(n int32) {
 	p.Stun = n
 }
 
-// hurt takes n damage, floored at zero. One place, because chip damage and a
-// clean hit must clamp the same way — a health value below zero is a bar that
-// draws backwards and a round that ends twice.
+// hurt takes n damage, floored at zero.
 func (p *PlayerState) hurt(n int32) {
 	p.Health -= n
 	if p.Health < 0 {
@@ -137,9 +98,7 @@ func (p *PlayerState) hurt(n int32) {
 }
 
 // stay is enter for a state the player may already be in: holding forward for
-// twenty frames is one walk, not twenty. Re-entering every frame would pin
-// StateFrame at zero and make "frames spent in this state" unusable for
-// anything that later needs it.
+// twenty frames is one walk, not twenty.
 func (p *PlayerState) stay(state int32) {
 	if p.State != state {
 		p.enter(state)
@@ -147,42 +106,25 @@ func (p *PlayerState) stay(state int32) {
 }
 
 // enterMove starts an attack on frame now, and spends every press up to and
-// including that frame: the press that started this move must not start
-// another one while it is still inside the buffer window.
-//
-// ponytail: one frame marker, not a per-button flag. Eating a simultaneous
-// press of a different button is the coarse part, and it is the right coarse
-// part — the newest press is the one the player meant, and a second live press
-// under the first would come out as a move the player never asked for.
+// including that frame: the press that started this move must not start another
+// one while it is still inside the buffer window.
+// ponytail: one frame marker, not a per-button flag.
 func (p *PlayerState) enterMove(index int32, now uint32) {
 	p.enter(StateAttack)
 	p.MoveIndex = index
 	p.HasHit = 0
 	p.Eaten = int32(now)
 
-	// A grounded move owns the character's velocity from here. Two things
-	// follow: a walk does not carry into the attack that came out of it, and a
-	// move with a launch sets its own and keeps it, so gravity turns it into an
-	// arc without the move having to describe one.
-	//
-	// An air move does not take the velocity over unless it asks to. The jump
-	// it came out of continues underneath it, which is what makes an air normal
-	// something you do during a jump rather than something that stops one.
+	// A grounded move owns the character's velocity from here.
 	mv := &CharacterAt(p.Char).Moves[index]
 
 	// The meter is spent here, on the frame the move starts, and nowhere else.
-	// moveFor has already refused a super the player cannot afford, so this is
-	// a deduction and not a check — one place that can take the bars, which is
-	// what keeps "it came out" and "it was paid for" from ever disagreeing.
 	p.Super -= mv.SuperCost()
 	if mv.Super > 0 {
 		p.Events |= EventSuper
 	}
 
-	// Drive is spent here for the same reason and in the same place. Spending
-	// the last of it enters Burnout — spendDrive is what decides that — so a
-	// special can be paid for with the bar that burns the player out, which is
-	// the gamble the gauge is supposed to offer.
+	// Drive is spent here for the same reason and in the same place.
 	if cost := mv.DriveCost(); cost > 0 {
 		p.spendDrive(cost)
 	}
@@ -198,25 +140,19 @@ func (p *PlayerState) enterMove(index int32, now uint32) {
 }
 
 // resolveInputs is step 1: turn this frame's bitfield into a state transition.
-//
-// Hitstop freezes both fighters mid-hit, so nothing here runs during it — that
-// is checked by the caller, not by every branch below.
 func (s *GameState) resolveInputs(i int, in uint16) {
 	p := &s.Players[i]
 	c := CharacterAt(p.Char)
 	now := s.Frame
 
-	// Letting go of up is what arms the next jump. Read from the raw bitfield
-	// and before anything below can return early, so releasing counts whatever
-	// the player is doing at the time — in the air, in stun, in a move.
+	// Letting go of up is what arms the next jump.
 	if in&InUp == 0 {
 		p.JumpHeld = 0
 	}
 
 	// A move that has connected stops being a commitment if its data says so:
 	// the cancel window accepts one thing, a move in a category the move being
-	// cancelled names. Zero everywhere else, which is every move that does not
-	// cancel and every state that is not an attack.
+	// cancelled names.
 	cancel := s.cancelMask(i)
 
 	dir := direction(in, p.Facing)
@@ -226,21 +162,15 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 	switch {
 	// Airborne rather than StateAir, for the cancel window's sake: a rising
 	// uppercut is off the ground without being in StateAir, and what it could
-	// cancel into up there is air moves. Grounded states sit exactly on
-	// GroundY, so nothing else reaching this line changes answer.
+	// cancel into up there is air moves.
 	case p.Airborne():
 		stance = StanceAir
 	case crouching:
 		stance = StanceCrouch
 	}
 
-	// **The second button of a two-button input lands late, and the move it was
-	// meant to be still comes out.** Nothing makes a human press two keys on
-	// one frame; the faster one selects its own normal, the state stops being
-	// actionable, and the throw or EX special the player was making never
-	// happens. Only a multi-button move may take over, only over a
-	// single-button one it shares a button with, and only while that one is
-	// still in startup — see pairLate.
+	// The second button of a two-button input lands late, and the move it was
+	// meant to be still comes out.
 	if p.State == StateAttack && !Actionable(p.State) {
 		if m := s.moveFor(i, stance, now, 0); m >= 0 &&
 			s.pairLate(i, in, CharacterAt(p.Char).Moves[m].Button) {
@@ -250,9 +180,6 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 	}
 
 	// Stun and commitment states tick down elsewhere; they accept no input.
-	// StateAir is the exception, and only for buttons: an air normal is the one
-	// thing a jump accepts. There is no air walking, no double jump and no air
-	// dash, so the direction half below is unreachable from up there.
 	if !Actionable(p.State) && p.State != StateAir && cancel == 0 {
 		return
 	}
@@ -264,15 +191,12 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 		return
 	}
 
-	// A cancel window is not an actionable state. Nothing below this line — no
-	// dash, no jump, no walk — comes out of the middle of an attack; the window
-	// exists for the one move the data named and for nothing else.
+	// A cancel window is not an actionable state.
 	if p.State == StateAttack {
 		return
 	}
 
-	// Dashes: two taps of the same direction inside the dash window. Read off
-	// the input history, so it rolls back with everything else.
+	// Dashes: two taps of the same direction inside the dash window.
 	if p.doubleTapped(now, DirFwd) {
 		p.enter(StateDash)
 		return
@@ -287,14 +211,11 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 	}
 
 	switch {
-	// One press, one jump. The hold that already produced this jump cannot
-	// produce another until it is released (see PlayerState.JumpHeld).
+	// One press, one jump.
 	case (dir == DirUp || dir == DirUpFwd || dir == DirUpBack) && p.JumpHeld == 0:
 		p.JumpHeld = 1
 		p.enter(StatePreJump)
 		// The jump direction is committed here, at the *start* of pre-jump.
-		// There is no air control, so this is the only frame it can be chosen,
-		// and committing early is what makes a jump a commitment.
 		switch dir {
 		case DirUpFwd:
 			p.JumpVX = c.JumpForwardVX.Mul(FromInt(int(p.Facing)))
@@ -318,32 +239,17 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 	}
 }
 
-// dashWindow is how close two taps must be to dash. A feel value.
+// dashWindow is how close two taps must be to dash.
 const dashWindow = 10
 
 // doubleTapped reports two clean presses of dir inside dashWindow.
-//
-// Reading history rather than storing a tap counter keeps the answer a function
-// of state, which is what makes it survive a rollback.
-//
-// **Strict: the taps must be the pure direction and the gap must be neutral.**
-// Anything else in the window ends the sequence — the opposite direction, a
-// diagonal, up, down. A looser rule reads intent that was never there: treating
-// any non-matching input as the gap makes back, forward, back a backdash, and
-// allowing a diagonal in the gap makes back, down, back one too. Both fire
-// while the player is doing something else entirely, and a dash you did not ask
-// for in a fighting game is worse than one you have to ask for twice.
-//
-// The cost is that a sloppy input does not dash. On a keyboard, where pure
-// directions are what the hardware produces anyway, that is the right trade.
 func (p *PlayerState) doubleTapped(now uint32, dir uint8) bool {
 	taps, released := 0, false
 
 	for back := uint32(0); back < dashWindow && back <= now; back++ {
 		switch d := direction(p.at(now, back), p.Facing); d {
 		case dir:
-			// Only a fresh press counts. Holding the direction down across
-			// several frames is one tap, not one per frame.
+			// Only a fresh press counts.
 			if back == 0 || released {
 				taps++
 				released = false
@@ -364,17 +270,6 @@ func (p *PlayerState) doubleTapped(now uint32, dir uint8) bool {
 
 // cancelMask is the set of categories the player's current move may be
 // cancelled into this frame, or zero for no cancel.
-//
-// Two conditions, both standard, both load-bearing. **The move must have
-// connected** — HasHit, which is set on block as much as on hit, so a blocked
-// normal cancels and a whiffed one does not; a whiff cancel would make every
-// cancelable button safe to throw out. And the window opens at the first active
-// frame, so a cancel cannot come out before the move it is cancelling has had a
-// chance to be one.
-//
-// The follow-up bit is the exception and is passed through regardless: a
-// follow-up judges its own window and its own connect rule (followOpen), and a
-// fireball's second stage has to be reachable from a fireball that hit nothing.
 func (s *GameState) cancelMask(i int) uint16 {
 	p := &s.Players[i]
 	mv := p.move()
@@ -409,55 +304,26 @@ func (p *PlayerState) followOpen(mv *Move) bool {
 }
 
 // moveFor finds the move a recent button press selects, or -1.
-//
-// **This is where the input buffer is consumed.** A press does not have to land
-// on a frame the player happens to be actionable: it stays live for InputBuffer
-// frames looking for a state that can act on it, so a jab pressed during
-// hitstop, hitstun or the tail of another move comes out on the first frame it
-// legally can instead of being dropped for being three frames early. Buffering
-// is most of what "responsive" means in this genre, and every one of those
-// frames is a frame the player was already committed to.
-//
-// The newest live press wins — the player's latest intention, not their oldest.
-// Presses at or before p.Eaten are spent and cannot win, which is what makes
-// one press one move; starting bestFrame at p.Eaten is the whole filter.
-//
-// Scanning the move list in index order — the same order on every machine — and
-// strictly newer beats equal, so a tie between two moves on the same frame goes
-// to the lower index. A character's move list is authored most-specific first.
-//
-// cancel restricts the search to the categories a cancel allows; zero is the
-// ordinary path and allows every move.
 func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int32 {
 	p := &s.Players[i]
 	c := CharacterAt(p.Char)
 
 	// Candidates are ranked press frame first and move tier second — super over
 	// special over normal — and the whole comparison is one integer: three
-	// ranks per frame, one per tier. A newer press therefore always outranks an
-	// older one whatever it was, which is the ordering in words and cheaper to
-	// read than the nested conditions it replaces.
-	//
-	// Starting the bar at the top rank of p.Eaten's frame is what spends a
-	// press: nothing at or before that frame can outrank it, at any tier.
+	// ranks per frame, one per tier.
 	best, bestRank := int32(-1), p.Eaten*tiers+tiers-1
 
 	for m := int32(0); m < c.NumMoves; m++ {
 		mv := &c.Moves[m]
 		special := mv.Motion != MotionNone
 
-		// A cancel takes only what the move being cancelled named. The category
-		// is the move's own nature — a level makes it a super, a motion makes
-		// it a special, neither makes it a chain — so the target needs no field
-		// of its own to say what it is.
+		// A cancel takes only what the move being cancelled named.
 		if cancel != 0 && cancel&mv.Category() == 0 {
 			continue
 		}
 
 		// A follow-up exists only inside the window of a move it was written
-		// for. Everywhere else its button belongs to the ordinary normal, which
-		// is why the check is not just the category above: on the ordinary path
-		// cancel is zero and would let it through.
+		// for.
 		if mv.After != 0 && (cancel&CancelTarget == 0 || !p.followOpen(mv)) {
 			continue
 		}
@@ -465,19 +331,15 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 		// The meter gates the super, and it gates it *here*, at selection: a
 		// level 3 the player cannot afford must not be picked and then fail,
 		// because a picked move has already beaten every cheaper one that
-		// shared the button. Refusing it in the search is what lets the fireball
-		// come out of the same input instead.
+		// shared the button.
 		if cost := mv.SuperCost(); cost > p.Super {
 			continue
 		}
 
 		// The Drive gauge gates EX specials the same way, and Burnout refuses
-		// them outright: **no EX at all while the gauge is refilling** is the
-		// design's own rule, and it is what makes running
-		// out of Drive a state worth avoiding rather than a slower meter. An EX
-		// fireball the player cannot pay for therefore comes out as the plain
-		// fireball sharing its motion, which is the same courtesy the super
-		// gets.
+		// them outright: no EX at all while the gauge is refilling is the
+		// design's own rule, and it is what makes running out of Drive a state
+		// worth avoiding rather than a slower meter.
 		if cost := mv.DriveCost(); cost > 0 && (p.Burnout != 0 || cost > p.Drive) {
 			continue
 		}
@@ -489,14 +351,7 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 			continue
 		}
 
-		// Beyond that, stance gates normals only. A special is identified by
-		// its motion, and requiring the stance as well would make the exact
-		// frame the button lands decide the move: press punch one frame early,
-		// while ↘ is still held, and a fireball becomes a crouching kick.
-		//
-		// The stance for a normal is this frame's, not the buffered frame's:
-		// holding down through a buffered jab gives the crouching attack, which
-		// is what a player still holding down is asking for.
+		// Beyond that, stance gates normals only.
 		if !special && mv.Stance != stance {
 			continue
 		}
@@ -509,14 +364,7 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 			continue
 		}
 		// The motion is checked at the frame of the *press*, not at the frame
-		// the move finally comes out. A buffered special is one the player
-		// completed several frames ago; asking whether the motion is still
-		// recognised now would drop exactly the inputs the buffer exists for.
-		//
-		// satisfies rather than equality, because a double quarter-circle is a
-		// quarter-circle that kept going: the same input offers the super and
-		// the fireball, and which one comes out is decided by the tier below
-		// and by whether the meter could pay for it.
+		// the move finally comes out.
 		if special && !s.MotionAt(i, uint32(f)).satisfies(mv.Motion) {
 			continue
 		}
@@ -529,20 +377,7 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 	return best
 }
 
-// The selection tiers. A super outranks a Drive move outranks a special
-// outranks a throw outranks a normal on the same press, which is what puts the
-// level 3 ahead of the fireball when one input describes both.
-//
-// The throw's tier is what makes LP+LK a throw rather than a jab. Both moves
-// see a fresh press on that frame — the jab's button is a subset of the
-// throw's — and the more specific input has to win, or a character with a
-// throw cannot press two buttons at once for anything else again.
-//
-// A Drive move sits above the special for exactly that reason: an EX fireball
-// is the same motion on two buttons, one of which is the light version's, so
-// the cheaper move would win every press if the tiers were equal. The gauge
-// check above is what keeps it honest — a Drive move the player cannot afford
-// never reaches the comparison at all.
+// The selection tiers.
 const tiers = 5
 
 func tierOf(m *Move) int32 {
@@ -561,46 +396,12 @@ func tierOf(m *Move) int32 {
 }
 
 // multiButton reports a button mask with more than one bit — a throw or an EX
-// special. Kernighan's trick: clearing the lowest set bit leaves nothing
-// behind for a single button.
+// special.
 func multiButton(mask uint16) bool { return mask&(mask-1) != 0 }
 
 // pairLate reports that the player is a frame or two into a single-button
 // attack and is now completing the two-button input pair, which that attack's
 // button is part of.
-//
-// **This reverses D89's first half.** That decision fixed the throw with a
-// macro key and rejected a sim rule, on the grounds that the macro bought
-// everything the rule would. Two mechanics arrived after it — Drive Parry and
-// Drive Impact, both a punch and a kick — and playing it says otherwise: a
-// stance that is *held* and that gates the Drive Rush is not a keypress, and a
-// player who reaches for the two buttons gets a medium punch every time. The
-// macros stay; this is the same leniency for everyone who does not use them.
-//
-// The parry and the Impact were later cut (D115). The rule stayed, because the
-// throw is LP+LK and every EX special is LP+MP: both are the same reach for two
-// buttons, and both lose to the light that lands first without it.
-//
-// It is a simulation rule rather than a client one for the usual reason: two
-// machines that disagreed about whether a throw came out have desynced. It
-// reads the input history every other rule reads, so it rolls back with the
-// rest of the state.
-//
-// Four conditions, each load-bearing:
-//
-//   - **Inside the window**, balance.PairFrames — and **still in startup**,
-//     whichever ends first. A move that has reached its active frames is a
-//     commitment; taking one back would be a retraction rather than room, and
-//     the per-move half means the window can be tuned for the slowest hand
-//     without ever reaching past the fastest jab.
-//   - **The move has not connected.** HasHit is set on block as much as on hit,
-//     so a jab that already touched somebody is never rewritten into a throw.
-//   - **The pair contains the running move's button.** Without it this would be
-//     a free cancel out of any light into anything with two buttons, for the
-//     length of the window.
-//   - **The pair is complete this frame.** The press edge for a mask already
-//     says "all of them down now, not all of them down before"; this is the
-//     state half of the same question.
 func (s *GameState) pairLate(i int, in, pair uint16) bool {
 	p := &s.Players[i]
 	if !multiButton(pair) || in&pair != pair {
@@ -631,12 +432,6 @@ func (s *GameState) advanceState(i int) {
 	case stunned(p.State):
 		// Pushback bleeds off on the ground and not in the air: friction is
 		// what ends a slide, and a launched defender has none until they land.
-		// Integer decay reaches exactly zero — Go truncates toward it — so the
-		// slide terminates rather than creeping by one unit forever.
-		//
-		// Not on the frame the push was given (StateFrame 0, which hitstop
-		// holds there until the freeze ends): friction bleeds a slide off, it
-		// does not take a bite out of the impulse before it has moved anyone.
 		if !p.Airborne() && p.StateFrame > 0 {
 			p.VX = Fix(int64(p.VX) * int64(balance.KnockbackDecay) / 100)
 		}
@@ -657,8 +452,7 @@ func (s *GameState) advanceState(i int) {
 		if p.State == StateBackdash {
 			frames, dist = c.BackdashFrames, -c.DashDistance
 		}
-		// Exit before applying velocity, not after. A state that lasts N frames
-		// must move on exactly N of them; checking afterwards spends one more.
+		// Exit before applying velocity, not after.
 		if p.StateFrame >= frames {
 			p.enter(StateIdle)
 			return
@@ -669,7 +463,7 @@ func (s *GameState) advanceState(i int) {
 		p.VX = dist.Div(FromInt(int(frames))).Mul(FromInt(int(p.Facing)))
 
 	case StatePreJump:
-		// Grounded, motionless, and throwable. The whole point of the state.
+		// Grounded, motionless, and throwable.
 		if p.StateFrame >= c.PreJumpFrames {
 			p.enter(StateAir)
 			p.VY = c.JumpVelocity
@@ -685,13 +479,8 @@ func (s *GameState) advanceState(i int) {
 		mv := p.move()
 		if mv == nil || p.StateFrame >= mv.Total() {
 			// A move that runs out while the character is still off the ground
-			// hands over to StateAir, not to idle: an idle player is actionable,
-			// and actionable in mid-air is a different game.
-			//
-			// The move is gone by the next frame, so what it owes on landing is
-			// recorded now. Anything else would need the state machine to
-			// remember which move a fall came out of, which is the same field
-			// under a worse name.
+			// hands over to StateAir, not to idle: an idle player is
+			// actionable, and actionable in mid-air is a different game.
 			if p.Y > GroundY {
 				p.JumpVX = p.VX // StateAir drives VX from this
 				owed := mv.Landing
@@ -704,12 +493,7 @@ func (s *GameState) advanceState(i int) {
 		}
 
 	case StateHitstun, StateBlockstun, StateLanding, StateThrown, StateKnockdown:
-		// **Hitstun taken in the air does not run out in the air.** A launched
-		// defender stays helpless until they touch the floor, where the landing
-		// turns it into a knockdown; the alternative is a juggle that ends with
-		// an opponent who becomes actionable in mid-air, which is a different
-		// game and was reachable by any air-to-air hit before launchers
-		// existed.
+		// Hitstun taken in the air does not run out in the air.
 		if p.State == StateHitstun && p.Airborne() {
 			break
 		}
@@ -719,9 +503,7 @@ func (s *GameState) advanceState(i int) {
 		if p.Stun == 0 {
 			// A hit that knocks down owes the knockdown at the end of its
 			// hitstun, not instead of it: the defender is struck, held for the
-			// move's frames, and only then goes to the floor. Carried as a debt
-			// on the player because the move is gone by then — the same shape
-			// as the landing recovery above it.
+			// move's frames, and only then goes to the floor.
 			if p.Down != 0 {
 				p.knockdown()
 			} else {
@@ -747,14 +529,11 @@ func (p *PlayerState) move() *Move {
 }
 
 // Hurtboxes writes the player's active hurtboxes into out and returns how many.
-// Attack states use the move's keyframes; everything else uses the stance box.
 func (s *GameState) Hurtboxes(i int, out *[MaxBoxes]Box) int32 {
 	p := &s.Players[i]
 	c := CharacterAt(p.Char)
 
-	// A player on the floor has no hurtboxes at all. See StateKnockdown: the
-	// invulnerability runs to the last frame of it, so vulnerable and
-	// actionable begin together.
+	// A player on the floor has no hurtboxes at all.
 	if p.State == StateKnockdown {
 		return 0
 	}
@@ -763,8 +542,6 @@ func (s *GameState) Hurtboxes(i int, out *[MaxBoxes]Box) int32 {
 		// An invulnerable frame has no hurtboxes at all, which is the whole
 		// mechanism: this is the one funnel every attack and every projectile
 		// asks, so a move that answers nothing here cannot be hit by anything.
-		// It is also what the debug overlay draws, so the window is visible
-		// without a second code path to disagree with this one.
 		if mv.Invulnerable(p.StateFrame) {
 			return 0
 		}
@@ -793,8 +570,6 @@ func (s *GameState) Hurtboxes(i int, out *[MaxBoxes]Box) int32 {
 }
 
 // Hitboxes writes the player's active hitboxes into out and returns how many.
-// A hit that has already connected has none: that is what stops one active
-// window from hitting twice. A multi-hit move re-arms with each new HitNum.
 func (s *GameState) Hitboxes(i int, out *[MaxBoxes]Box) int32 {
 	p := &s.Players[i]
 
@@ -820,10 +595,6 @@ func (s *GameState) Pushbox(i int) Box {
 
 // Blocking reports whether the player is holding away from the opponent and is
 // therefore blocking, given the attack level.
-//
-// Holding back *is* blocking — there is no block button. A player in an
-// actionable grounded state who is holding away blocks anything their stance
-// covers; airborne players cannot block at all.
 func (s *GameState) blocking(i int, in uint16, level int32) bool {
 	p := &s.Players[i]
 	if p.Airborne() || p.State == StatePreJump {

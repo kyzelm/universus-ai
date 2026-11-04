@@ -1,7 +1,7 @@
 {
   "id": 0,
   "name": "Kai",
-  "_comment": "M1/M2 placeholder. Two normals, two specials in three strengths each, rectangles, numbers chosen to be legible rather than balanced. Filenames are sorted and the order is the roster index, hence the numeric prefix.",
+  "_comment": "M1/M2 placeholder.",
 
   "health": 10000,
 
@@ -24,7 +24,7 @@
 
   "moves": [
     {
-      "_comment": "Level 1. QCF x2 + LP, one bar. A fireball ender: cheap, the lowest damage of the three, and the thing a cancelable normal is actually converting into. The double quarter-circle contains a single one, so the same input throws an ordinary fireball when the bar is not there — the meter is checked when the move is selected, not after it comes out. Like the fireball it is the projectile that hits; the move itself has no hitbox.",
+      "_comment": "Level 1. QCF x2 + LP, one bar.",
       "id": "236236LP",
       "input": { "stance": "stand", "button": "LP", "motion": "qcfx2" },
       "super": 1,
@@ -44,7 +44,7 @@
       "projectile": { "speed": 4.0, "life": 120, "spawn": [22, 14], "box": [0, 0, 28, 30] }
     },
     {
-      "_comment": "Level 2. QCF x2 + LK, two bars. The invincible reversal per the roster plan: invulnerable through startup and into the active frames, rising on a launch velocity like the uppercut does, gravity supplying the arc. Airtime is 46 frames at 8.5 up against 0.375 down and the move is 56, so it lands with recovery still to pay — the price that stops an invincible wake-up from being free.",
+      "_comment": "Level 2. QCF x2 + LK, two bars.",
       "id": "236236LK",
       "input": { "stance": "stand", "button": "LK", "motion": "qcfx2" },
       "super": 2,
@@ -65,7 +65,7 @@
       ]
     },
     {
-      "_comment": "Level 3. QCB x2 + LP, three bars, the round-closer: over a third of a health bar, and slow enough to be a read rather than a reaction. A different motion from the other two so all three fit on the punch and kick buttons the roster already uses without colliding with the fireball or the uppercut. Cinematic in the design note; here it is a large hitbox and a long recovery, because the camera work is art and the numbers are not.",
+      "_comment": "Level 3. QCB x2 + LP, three bars, the round-closer: over a third of a health bar, and slow enough to be a read rather than a reaction.",
       "id": "214214LP",
       "input": { "stance": "stand", "button": "LP", "motion": "qcbx2" },
       "super": 3,
@@ -84,7 +84,7 @@
       ]
     },
     {
-      "_comment": "EX fireball. Two bars, two punches, the same quarter-circle: faster than any of the three strengths and it hurts more. Nothing new in code — an EX special is a special with a Drive cost, and the cost is what puts it above the light version that shares its button.",
+      "_comment": "EX fireball.",
       "id": "236EX",
       "input": { "stance": "stand", "button": "LP+MP", "motion": "qcf" },
       "drive": 2,
@@ -105,7 +105,7 @@
       "projectile": { "speed": 4.5, "life": 120, "spawn": [22, 20], "box": [0, 0, 24, 16] }
     },
     {
-      "_comment": "EX uppercut. Two bars for the reversal that actually beats a meaty: invincible through the startup and into the active frames, where the heavy version is invincible for three frames of five. The anti-air that costs a resource is the one the design wants pressed at the right moment rather than every wakeup.",
+      "_comment": "EX uppercut.",
       "id": "623EX",
       "input": { "stance": "stand", "button": "LP+MP", "motion": "dp" },
       "drive": 2,
@@ -130,7 +130,7 @@
       ]
     },
     {
-      "_comment": "Fireball. QCF+P per the roster plan, three strength variants that are the same entry with different numbers — the data-driven claim, cheaply. The strengths differ in travel speed, light slowest, per the roster plan: a slow fireball is a wall to walk behind, a fast one is a poke. The move itself has no hitbox; everything that hits is the projectile.",
+      "_comment": "Fireball. QCF+P per the roster plan, three strength variants that are the same entry with different numbers — the data-driven claim, cheaply.",
       "id": "236LP",
       "input": { "stance": "stand", "button": "LP", "motion": "qcf" },
       "startup": 13,
@@ -185,7 +185,7 @@
       "projectile": { "speed": 4.5, "life": 90, "spawn": [22, 20], "box": [0, 0, 20, 14] }
     },
     {
-      "_comment": "Uppercut, DP+P. Rises on a launch velocity and gravity brings it down — the arc is not authored, it falls out of the same integration the jump uses. Airtime is 44/49/55 frames for the three strengths, and each move is six frames longer than that, so the last frames are spent on the ground as landing recovery. The hitbox is anchored below the feet and is tall: the character is already thirty units up on the first active frame, and a box authored at head height from there is an anti-air that cannot touch the grounded opponent it is supposed to be reversing. Invincible on the way up, and only there: the light is invincible through its startup and into the first active frames, which is what makes it a reversal, the medium through startup alone, and the heavy for three frames of a five-frame startup — an anti-air with a damage bonus, not an escape. The recovery is the price and it is the same for all three.",
+      "_comment": "Uppercut, DP+P.",
       "id": "623LP",
       "input": { "stance": "stand", "button": "LP", "motion": "dp" },
       "startup": 3,
@@ -252,7 +252,7 @@
       ]
     },
     {
-      "_comment": "The throw. LP and LK on the same frame, which is what makes it a decision rather than a button: press LP first and the jab comes out, and the throw is lost. Unblockable — that is the point of it, since blocking beats every strike in the game — but refused against anyone airborne or in stun, and escapable by pressing throw inside the tech window. It reaches a shade further than 5LP, so at jab range the defender is genuinely choosing between blocking and teching, and 23 frames of recovery is what guessing wrong costs the thrower.",
+      "_comment": "The throw. LP and LK on the same frame, which is what makes it a decision rather than a button: press LP first and the jab comes out, and the throw is lost.",
       "id": "LPLK",
       "input": { "stance": "stand", "button": "LP+LK" },
       "throw": true,
@@ -473,7 +473,7 @@
       ]
     },
     {
-      "_comment": "Sweep. Knocks down, which is what a sweep is for: it ends the combo and buys the oki window, and it is a low, so the defender has to be crouch-blocking to stop it. 22 frames of recovery is what a whiffed one costs.",
+      "_comment": "Sweep. Knocks down, which is what a sweep is for: it ends the combo and buys the oki window, and it is a low, so the defender has to be crouch-blocking to stop it.",
       "id": "2HK",
       "input": { "stance": "crouch", "button": "HK" },
       "knockdown": true,
@@ -493,7 +493,7 @@
       ]
     },
     {
-      "_comment": "Jumping normals. An overhead by nature — an airborne attack has to be blocked standing — and their recovery is the fall, so landing ends the move — and charges landing recovery for it, the heavier the button the longer, or a jump-in would be free on the way down as well as on the way in.",
+      "_comment": "Jumping normals.",
       "id": "jLP",
       "input": { "stance": "air", "button": "LP" },
       "startup": 5,
@@ -548,7 +548,7 @@
       ]
     },
     {
-      "_comment": "Target combo LP>LK>MP. Each follow-up is its own move with an after, so it exists only in its source's cancel window: a bare LK is still 5LK, and LK>MP is not a combo. Frame data copied from 5LK and 5MP; tune here.",
+      "_comment": "Target combo LP>LK>MP.",
       "id": "5LP>5LK",
       "after": ["5LP"],
       "input": { "stance": "stand", "button": "LK" },
@@ -587,7 +587,7 @@
       ]
     },
     {
-      "_comment": "Second stage of the fireball (D121): 6+LP after any strength throws another, whether or not the first hit anything (needsHit false). Window is the default, from the end of the first stage's active frames to the end of its recovery. Numbers copied from 236LP; tune here.",
+      "_comment": "Second stage of the fireball (D121): 6+LP after any strength throws another, whether or not the first hit anything (needsHit false).",
       "id": "236P>6P",
       "after": ["236LP", "236MP", "236HP"],
       "needsHit": false,

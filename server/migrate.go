@@ -14,14 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Migrations are numbered .sql files applied by this binary at startup. No
-// framework (CLAUDE.md, 02 Architecture/Database Schema.md): the whole of what
-// a framework would give us is the applied-set table below and a sort, and the
-// whole of what it would cost is a second tool to install on the deploy host.
-//
-// Embedded rather than read from disk, for the same reason the character data
-// is: the binary carries its own schema, so a container that starts is a
-// container that can migrate, and there is no directory to forget to copy.
+// Migrations are numbered .sql files applied by this binary at startup.
 //
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
@@ -39,11 +32,6 @@ type migration struct {
 }
 
 // loadMigrations reads the embedded directory in version order.
-//
-// **Duplicate versions are refused rather than ordered.** Two people adding
-// `002_` on separate branches is the ordinary way this goes wrong, and the
-// symptom without this check is a database that applied one of them and a
-// developer who cannot tell which.
 func loadMigrations(dir fs.FS) ([]migration, error) {
 	entries, err := fs.ReadDir(dir, "migrations")
 	if err != nil {
@@ -78,12 +66,6 @@ func loadMigrations(dir fs.FS) ([]migration, error) {
 }
 
 // migrate applies every migration the database has not seen, in order.
-//
-// **One transaction per migration, and the record of it is written inside that
-// same transaction.** A migration that fails halfway leaves the database as it
-// was and the run reports which file broke; a migration that succeeds cannot be
-// applied twice even if the process dies between the DDL and the bookkeeping,
-// because there is no between.
 func migrate(ctx context.Context, pool *pgxpool.Pool, dir fs.FS) (int, error) {
 	ms, err := loadMigrations(dir)
 	if err != nil {
@@ -151,10 +133,7 @@ func applyOne(ctx context.Context, pool *pgxpool.Pool, m migration) error {
 	return tx.Commit(ctx)
 }
 
-// openDB connects and migrates. A nil pool is not an error: the room, the
-// relay and every offline mode work without a database, and three of the five
-// game modes require no account at all (03 Game Design/Game Modes.md). Losing
-// the ranked ladder because Postgres is down should not lose the demo.
+// openDB connects and migrates.
 func openDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	if url == "" {
 		return nil, nil
@@ -165,8 +144,7 @@ func openDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("DATABASE_URL: %w", err)
 	}
 	// Single digits of concurrent users, and a free-tier Postgres with a
-	// connection cap measured in tens. A default-sized pool per instance is
-	// how a small deployment runs out of connections doing nothing.
+	// connection cap measured in tens.
 	cfg.MaxConns = 8
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -181,9 +159,6 @@ func openDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 // uniqueViolation reports Postgres's "a unique index said no" (SQLSTATE 23505).
-// Told apart from a database that is on fire because they are the same error to
-// anything that only checks for non-nil, and one of them is a 409 while the
-// other is a 500.
 func uniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"

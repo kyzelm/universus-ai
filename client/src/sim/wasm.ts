@@ -23,12 +23,12 @@ declare global {
   }
 }
 
-/** 16.16 fixed-point scale. The view divides by it; the sim never does. */
+/** 16.16 fixed-point scale. */
 const ONE = 65536
 
 /**
  * Snapshot layout — the contract with sim/snapshot.go, which cannot check it
- * from its side. These offsets and that file change together.
+ * from its side.
  */
 const MAX_BOXES = 4
 const MAX_PROJECTILES = 4
@@ -56,11 +56,7 @@ export const STATE_NAMES = [
   'knockdown',
 ]
 
-/**
- * Round phases, mirroring sim/round.go. Only PHASE_FIGHT runs the game; the
- * rest freeze both fighters and run their own clock, which is why the view can
- * key its announcement off the phase alone.
- */
+/** Round phases, mirroring sim/round.go. */
 export const PHASE_FIGHT = 0
 export const PHASE_KO = 1
 export const PHASE_ROUND_END = 2
@@ -72,32 +68,23 @@ export const NOBODY = -1
 
 /**
  * Resource maxima, mirroring sim/resource.go: a bar is a thousand units, and
- * the gauges are 6 and 3 bars. The HUD needs them to draw a fraction; the sim
- * is the only thing that may change them.
+ * the gauges are 6 and 3 bars.
  */
 export const DRIVE_BARS = 6
 export const SUPER_BARS = 3
 export const BAR_UNITS = 1000
 
-/** Counter-hit classes, mirroring sim/damage.go. Index is the snapshot value. */
+/** Counter-hit classes, mirroring sim/damage.go. */
 export const COUNTER_NAMES = ['', 'COUNTER', 'PUNISH COUNTER']
 
-/**
- * Effect flags, mirroring sim/events.go. The sim sets them in state and fires
- * nothing; the view fires effects for the flags on *confirmed* frames only,
- * which is what keeps one hit from being drawn once per rollback replay.
- */
+/** Effect flags, mirroring sim/events.go. */
 export const EVENT_HIT = 1 << 0
 export const EVENT_BLOCK = 1 << 1
 export const EVENT_THROWN = 1 << 2
 export const EVENT_KNOCKDOWN = 1 << 3
 export const EVENT_SUPER = 1 << 4
 
-/**
- * How many frames of events the sim keeps, mirroring sim/rollback.go. Anything
- * older reads as zero, so it is also how far back the view can usefully catch
- * up after a slow frame.
- */
+/** How many frames of events the sim keeps, mirroring sim/rollback.go. */
 export const EVENT_RING = 64
 
 export interface Box {
@@ -123,11 +110,7 @@ export interface PlayerSnapshot {
   combo: number
   /** Class of the most recent hit taken — index into COUNTER_NAMES. */
   counter: number
-  /**
-   * 1 while this player may act. The sim's own predicate, not a state list
-   * kept over here: the lab's frame advantage readout is measured off it, and
-   * it exists to check the frame data against what the game does.
-   */
+  /** 1 while this player may act. */
   actionable: number
   pushbox: Box
   hurtboxes: Box[]
@@ -140,7 +123,7 @@ export interface Snapshot {
   hitstop: number
   /** Round phase — one of the PHASE_* constants. */
   phase: number
-  /** The round clock, in frames. The view is what turns it into seconds. */
+  /** The round clock, in frames. */
   timer: number
   /** Rounds won, per seat. */
   wins: number[]
@@ -160,7 +143,7 @@ let mem: WebAssembly.Memory
 let view: DataView
 let loading: Promise<void> | undefined
 
-/** Fetches and starts the sim. Idempotent. */
+/** Fetches and starts the sim. */
 export function loadSim(): Promise<void> {
   return (loading ??= fetchAndInit())
 }
@@ -174,10 +157,7 @@ async function fetchAndInit(): Promise<void> {
   await initSim(res)
 }
 
-/**
- * Starts the sim from an already-obtained module. Exists so tests can run the
- * real module off disk without a server; the browser goes through loadSim.
- */
+/** Starts the sim from an already-obtained module. */
 export async function initSim(src: Response | BufferSource): Promise<void> {
   const go = new Go()
   const {instance} =
@@ -196,10 +176,7 @@ function newView(): DataView {
   return new DataView(mem.buffer, sim.snapshotPtr(), sim.snapshotLen())
 }
 
-/**
- * The snapshot buffer. Go's memory growth detaches every ArrayBuffer, so the
- * view is re-created when that happens rather than created fresh each frame.
- */
+/** The snapshot buffer. */
 function snapshot(): DataView {
   if (view.buffer !== mem.buffer) view = newView()
   return view
@@ -211,31 +188,18 @@ export function advance(p1: number, p2: number): void {
 
 /**
  * Restores the state at the start of `frame`; the caller replays with advance.
- * False means the frame is outside the rollback window and the correction
- * arrived too late to apply.
  */
 export function rewind(frame: number): boolean {
   return sim.rewind(frame)
 }
 
-/**
- * What happened on a frame, per seat. Zero for a frame that has aged out of the
- * sim's ring, which is the right answer: an effect nobody drew a second ago is
- * one nobody should be shown now.
- *
- * Ask only about frames the net layer has confirmed. A predicted frame can
- * still be simulated again, and firing on one is the rollback bug this whole
- * path exists to prevent.
- */
+/** What happened on a frame, per seat. */
 export function eventsAt(frame: number): [number, number] {
   const packed = sim.eventsAt(frame)
   return [packed & 0xffff, (packed >>> 16) & 0xffff]
 }
 
-/**
- * Difficulty tiers for the scripted opponent, mirroring sim/ai.go. Zero is a
- * seat a human is playing.
- */
+/** Difficulty tiers for the scripted opponent, mirroring sim/ai.go. */
 export const AI_TIERS = ['off', 'easy', 'normal', 'hard'] as const
 
 export type AITier = (typeof AI_TIERS)[number]
@@ -243,8 +207,7 @@ export type AITier = (typeof AI_TIERS)[number]
 /**
  * Everything about a match that is chosen before frame 0 and cannot be read
  * back out of its input log: which characters, which mode, whether seat 2 is
- * the scripted opponent. Written into the header of every saved log, because
- * two of the three generate inputs the caller never sent.
+ * the scripted opponent.
  */
 export interface Setup {
   training: boolean
@@ -252,22 +215,14 @@ export interface Setup {
   chars: [number, number]
 }
 
-/**
- * Starts a fresh match. Every field picks part of the *state* rather than being
- * kept out here: the lab is a different match, not a different way of drawing
- * one, and a seat the AI is driving is a different match too — the opponent's
- * inputs are generated inside the sim, from state, so nothing out here could
- * produce them.
- */
+/** Starts a fresh match. */
 export function reset(training = false, ai = 0, chars: [number, number] = [0, 0]): void {
   sim.reset(training, ai, chars[0], chars[1])
 }
 
 /**
  * The roster, as the character select needs it: index and display name, in the
- * order the sim holds them. That order is the filename order on both machines
- * (data/data.go), which is what lets one end send an index and the other draw
- * the right fighter.
+ * order the sim holds them.
  */
 export function roster(): {index: number; name: string}[] {
   return Array.from({length: numCharacters()}, (_, index) => ({
@@ -286,16 +241,12 @@ export function numCharacters(): number {
   return sim.numCharacters()
 }
 
-/** FNV-1a over the packed state. The number both machines must agree on. */
+/** FNV-1a over the packed state. */
 export function checksum(): number {
   return sim.checksum()
 }
 
-/**
- * Hash of the embedded character data. Compared at handshake: two clients with
- * different frame data desync on the first exchange and there is no way to work
- * out why from the checksums alone.
- */
+/** Hash of the embedded character data. */
 export function dataVersion(): number {
   return sim.dataVersion()
 }
@@ -318,8 +269,7 @@ function readBoxList(v: DataView, countOffset: number, cap = MAX_BOXES): Box[] {
   return out
 }
 
-// ponytail: allocates a small object graph per frame. 60/s is nothing; read the
-// DataView directly if a profile ever says otherwise.
+// ponytail: allocates a small object graph per frame.
 export function readSnapshot(): Snapshot {
   const v = snapshot()
   return {

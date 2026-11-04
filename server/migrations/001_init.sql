@@ -1,7 +1,4 @@
--- The schema (02 Architecture/Database Schema.md). Small, boring, sufficient:
--- the expected concurrent user count is in single digits, and every structure
--- here exists because something reads it rather than because a schema usually
--- has one.
+-- The schema (02 Architecture/Database Schema.md).
 CREATE TABLE users (
     id            BIGSERIAL PRIMARY KEY,
     email         TEXT UNIQUE NOT NULL,

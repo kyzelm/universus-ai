@@ -1,27 +1,8 @@
 package sim
 
 // Throws and throw tech (03 Game Design/Movement and Defense.md).
-//
-// A throw is what makes blocking a decision instead of an answer. Blocking
-// beats every strike in the game, so without something that beats blocking the
-// correct play is to hold back and wait; the throw is that something, and the
-// tech is what stops it being an unanswerable one.
-//
-// The rock-paper-scissors the design asks for falls out of three rules and no
-// more: a throw ignores blocking, a throw refuses anyone airborne — pre-jump is
-// grounded, which is what makes throws beat jump attempts — and a throw already
-// in progress can be teched by pressing throw within a few frames of it landing.
 
 // throwable reports whether the defender can be thrown at all.
-//
-// Not airborne, and not in stun. **Stun grants throw immunity**, and it is the
-// rule that keeps pressure honest: without it a blocked light leads to a throw
-// nobody can contest, since the defender is still in blockstun and cannot act
-// at the moment the throw would connect.
-//
-// Invulnerability needs no mention here. It is the absence of hurtboxes (D76)
-// and this runs behind the same funnel, so a move that cannot be hit cannot be
-// thrown either — one window, as that decision says.
 func (s *GameState) throwable(i int) bool {
 	p := &s.Players[i]
 	return !p.Airborne() && !stunned(p.State)
@@ -29,15 +10,6 @@ func (s *GameState) throwable(i int) bool {
 
 // techFrame is the frame on which the defender pressed throw inside the tech
 // window, or -1 for no escape.
-//
-// The window is scanned **backward from the connect**, which is what a tech
-// actually is: the defender committed to a throw of their own and the two
-// crossed. It is the same press edge the state machine uses, over its own
-// window — a throw is two buttons, and pressing them a frame apart is normal,
-// so the edge is "both down now, not both down before" (see pressed).
-//
-// A character with no throw of their own cannot tech, and that is the honest
-// answer rather than a special case: the input does not exist for them.
 func (s *GameState) techFrame(defender int, now uint32) int32 {
 	mv := throwOf(s.Players[defender].Char)
 	if mv == nil {
@@ -47,14 +19,7 @@ func (s *GameState) techFrame(defender int, now uint32) int32 {
 }
 
 // throwOf is the character's *ordinary* throw — the one with no motion — or
-// nil. Scanned in index order, so it is the same move on every machine.
-//
-// The motion is what tells the two kinds apart, and no third field is needed:
-// a throw you press with two buttons is the universal one every character has,
-// and a throw you press with a half-circle is a command throw. Only the first
-// is the tech input, which matters the moment a character has both — otherwise
-// the grappler would tech with a single punch, and every punch it threw while
-// being grabbed would escape.
+// nil.
 func throwOf(char int32) *Move {
 	c := CharacterAt(char)
 	for i := int32(0); i < c.NumMoves; i++ {
@@ -65,19 +30,13 @@ func throwOf(char int32) *Move {
 	return nil
 }
 
-// applyThrow resolves a throw that has connected. It replaces the block-and-hit
-// path entirely: a throw cannot be blocked, so there is nothing to ask about
-// holding back, and it cannot counter-hit, because the defender was not
-// attacking — being throwable is most of what "not attacking" means here.
+// applyThrow resolves a throw that has connected.
 func (s *GameState) applyThrow(attacker, defender int, mv *Move, now uint32) {
 	ap, dp := &s.Players[attacker], &s.Players[defender]
 
-	// **A command throw cannot be teched**, which is the genre's own rule and
-	// the whole reason a grappler is frightening: the throw that beats blocking
-	// is answerable, and the one that costs a motion is not. It is paid for in
-	// the data instead — slower, punishable on whiff, no invulnerability
-	// (03 Game Design/Roster Plan.md) — so the answer is to not be standing
-	// there rather than to press a button back.
+	// A command throw cannot be teched, which is the genre's own rule and the
+	// whole reason a grappler is frightening: the throw that beats blocking is
+	// answerable, and the one that costs a motion is not.
 	if mv.Motion == MotionNone && s.techFrame(defender, now) >= 0 {
 		s.tech(attacker, defender)
 		return
@@ -95,10 +54,7 @@ func (s *GameState) applyThrow(attacker, defender int, mv *Move, now uint32) {
 	}
 
 	// Through the same damage pipeline as everything else, so the scaling order
-	// has one implementation (D79). A throw always opens its own combo — the
-	// defender had to be actionable to be thrown, which means out of hitstun,
-	// which means the previous combo has already ended — so the starter it
-	// captures is its own.
+	// has one implementation (D79).
 	dp.ComboStarter = starterScale(mv)
 	dp.Combo++
 	dp.Counter = CounterNone
@@ -118,10 +74,6 @@ func (s *GameState) applyThrow(attacker, defender int, mv *Move, now uint32) {
 
 // tech is the escape: both players push apart, neither takes damage, and both
 // owe the same recovery.
-//
-// **Symmetric on purpose.** A tech that left either side at an advantage would
-// make the throw either free or unusable, and the point of the mechanic is that
-// contesting a throw resets the situation rather than winning it.
 func (s *GameState) tech(attacker, defender int) {
 	push := FromInt(int(balance.ThrowTechPush))
 

@@ -22,6 +22,6 @@ test('changes often enough to mispredict — the reason it exists', () => {
   const changes = frames.filter((bits, i) => i > 0 && bits !== frames[i - 1]).length
 
   // Prediction repeats the last input, so a change is the only chance of a
-  // rollback. Once a second would be a measurement of nothing.
+  // rollback.
   expect(changes).toBeGreaterThan(frames.length / 10)
 })

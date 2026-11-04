@@ -6,30 +6,16 @@ import (
 )
 
 // Sim tests run against a fixture, not against the shipped character file.
-//
-// They cannot import package data — that package imports this one — but the
-// stronger reason is that a test asserting "a jump lasts 43 frames" against
-// live balance data fails every time someone tunes a number, and the failure
-// says nothing. The fixture uses round numbers chosen to make the arithmetic
-// checkable by hand. data's own tests cover the shipped file.
 func TestMain(m *testing.M) {
-	// Two entries, the second identical bar a smaller health pool. It exists
-	// for one test — a timeout is decided on the *percentage* of a pool, and a
-	// roster where both pools are the same size cannot tell that rule from the
-	// wrong one — but it is loaded for every test, because a roster that
-	// changes between tests is a roster the tests can disagree about.
+	// Two entries, the second identical bar a smaller health pool.
 	small := testCharacter()
 	small.Health /= 2
-	// It is also the entry **without a dragon punch** — the last move, dropped
-	// by shortening the list. The AI's anti-air rule asks what the character
-	// owns rather than assuming the archetype it was written against, and a
-	// roster where every entry owns the same moves cannot tell that rule from
-	// the one it replaced.
+	// It is also the entry without a dragon punch — the last move, dropped by
+	// shortening the list.
 	small.NumMoves--
-	// And the entry without a **projectile**, for the same reason: the rule
-	// that throws a fireball at range must be told by what the character owns,
-	// or a grappler stands at full screen pressing a motion it does not have.
-	// Between them these two omissions make entry 1 the other archetype.
+	// And the entry without a projectile, for the same reason: the rule that
+	// throws a fireball at range must be told by what the character owns, or a
+	// grappler stands at full screen pressing a motion it does not have.
 	small.Moves[2].Proj = ProjectileSpec{}
 
 	if !LoadCharacters([]Character{testCharacter(), small}) {
@@ -42,9 +28,6 @@ func TestMain(m *testing.M) {
 // The balance fixture, in round numbers for the same reason as the character
 // one: a test that asserts "eight blocked hits burn you out" must not fail
 // because someone tuned the block cost.
-//
-// One bar per blocked hit, 100 units of regeneration a frame, and a Burnout
-// that refills in exactly 20 frames.
 func testBalance() Balance {
 	return Balance{
 		DriveRegen:      10,
@@ -53,9 +36,7 @@ func testBalance() Balance {
 		DriveRegenBurnout: DriveMax / 20,
 		DriveBlockCost:    BarUnits,
 
-		// The pair window, in frames. Round, like everything else here; the
-		// shipped value is tuned for a keyboard and the tests only need a
-		// window that exists.
+		// The pair window, in frames.
 		PairFrames: 4,
 
 		// Wider than the screen, so the screen-edge walls are reachable
@@ -164,14 +145,7 @@ func testCharacter() Character {
 		NumMoves: 18,
 	}
 
-	// A standing jab: 4 startup, 3 active, 6 recovery. Reaches 40 units, which
-	// is further than the players start apart in the hit tests below.
-	// It also cancels into specials, which makes it the fixture's designated
-	// cancelable normal: the jab and the special on move 2 share a button, so
-	// the cancel is told from a fresh press by the motion and by nothing else.
-	// It feeds the level 1 super as well — the design gives level 1 to
-	// cancelable normals and to nothing else, and move 1 below is the source
-	// that proves the tiering by not having it.
+	// A standing jab: 4 startup, 3 active, 6 recovery.
 	c.Moves[0] = Move{
 		Startup: 4, Active: 3, Recovery: 6,
 		Damage: 100, Hitstun: 14, Blockstun: 11, Hitstop: 6,
@@ -189,9 +163,6 @@ func testCharacter() Character {
 
 	// A crouching low, so the block-level tests have something that must be
 	// blocked crouching.
-	// It cancels into the level 3 super and nothing else, which is the heavy's
-	// tier: level 3 comes out of anything, level 1 only out of the normals that
-	// were cancelable to begin with.
 	c.Moves[1] = Move{
 		Startup: 5, Active: 2, Recovery: 9,
 		Damage: 80, Hitstun: 12, Blockstun: 9, Hitstop: 5,
@@ -219,8 +190,7 @@ func testCharacter() Character {
 	c.Moves[2].Keys[1].Hurt[0] = c.StandHurt
 
 	// Everything that hits is the projectile; the move itself has no hitbox,
-	// like the shipped fireball. Round numbers again: 4 units a frame for 60
-	// frames is 240, more than the stage is wide.
+	// like the shipped fireball.
 	c.Moves[2].Proj = ProjectileSpec{
 		Speed:  FromInt(4),
 		Life:   60,
@@ -229,9 +199,7 @@ func testCharacter() Character {
 		Box:    Box{X: 0, Y: 0, W: FromInt(20), H: FromInt(14)},
 	}
 
-	// A launcher: rises on its own velocity, gravity brings it back. Airborne
-	// for ~32 frames at 8.0 up and 0.5 down, and the move is longer than that,
-	// so it lands with recovery to spare.
+	// A launcher: rises on its own velocity, gravity brings it back.
 	c.Moves[3] = Move{
 		Startup: 3, Active: 8, Recovery: 25,
 		Damage: 300, Hitstun: 20, Blockstun: 14, Hitstop: 10,
@@ -247,8 +215,6 @@ func testCharacter() Character {
 
 	// The same, but far too short to land in: it exists to exercise a move that
 	// runs out while the character is still in the air.
-	// It owes landing recovery for it: the fall is not free just because the
-	// move ended halfway up.
 	c.Moves[4] = Move{
 		Startup: 2, Active: 2, Recovery: 2,
 		Damage: 100, Hitstun: 12, Blockstun: 9, Hitstop: 5,
@@ -271,8 +237,7 @@ func testCharacter() Character {
 	c.Moves[5].Keys[0] = Keyframe{Frame: 0, NumHurt: 1}
 	c.Moves[5].Keys[0].Hurt[0] = c.StandHurt
 
-	// An air normal. No launch: it rides the jump it came out of, and it costs
-	// four frames on the way down.
+	// An air normal.
 	c.Moves[6] = Move{
 		Startup: 3, Active: 4, Recovery: 8,
 		Damage: 200, Hitstun: 16, Blockstun: 12, Hitstop: 8,
@@ -288,9 +253,7 @@ func testCharacter() Character {
 
 	// An invincible reversal: no hurtboxes at all for its startup and the first
 	// two active frames, so an attack that would beat it on frames alone loses
-	// to it anyway. On a real character this carries a DP motion; here it is on
-	// its own button, because what is under test is the window and not the
-	// recogniser, which has its own tests.
+	// to it anyway.
 	c.Moves[7] = Move{
 		Startup: 5, Active: 4, Recovery: 20,
 		Damage: 250, Hitstun: 20, Blockstun: 14, Hitstop: 8,
@@ -310,8 +273,6 @@ func testCharacter() Character {
 	c.Moves[7].Keys[2].Hurt[0] = c.StandHurt
 
 	// The level 1 super, on the jab's button and the fireball's motion doubled.
-	// Three moves share InLP and only the motion and the meter tell them apart,
-	// which is the whole selection rule in one button.
 	c.Moves[8] = Move{
 		Startup: 6, Active: 3, Recovery: 12,
 		Damage: 400, Hitstun: 20, Blockstun: 14, Hitstop: 8,
@@ -345,13 +306,7 @@ func testCharacter() Character {
 	c.Moves[9].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
 	c.Moves[9].Keys[2].Hurt[0] = c.StandHurt
 
-	// A throw, on two buttons. It is the move that makes blocking a decision
-	// rather than an answer, and the pair of buttons is what the tech is
-	// pressed with — so the fixture's throw is also the fixture's tech input.
-	//
-	// Its box reaches 34 units, a little further than the jab: a throw whiffing
-	// where a jab connects would make every test below a range test by
-	// accident.
+	// A throw, on two buttons.
 	c.Moves[10] = Move{
 		Startup: 5, Active: 3, Recovery: 20,
 		Damage: 400, Hitstun: 40, Hitstop: 8,
@@ -366,10 +321,7 @@ func testCharacter() Character {
 	c.Moves[10].Keys[1].Hurt[0] = c.StandHurt
 	c.Moves[10].Keys[1].Hit[0] = Box{X: FromInt(12), Y: FromInt(10), W: FromInt(22), H: FromInt(30)}
 
-	// A sweep: the fixture's knockdown strike. Same shape as the crouching low
-	// on move 1 — the knockdown is what is under test, so everything else is
-	// deliberately ordinary — on its own button so no other test can select it
-	// by accident.
+	// A sweep: the fixture's knockdown strike.
 	c.Moves[11] = Move{
 		Startup: 5, Active: 2, Recovery: 9,
 		Damage: 80, Hitstun: 12, Blockstun: 9, Hitstop: 5,
@@ -386,13 +338,7 @@ func testCharacter() Character {
 	// The anti-air launcher: it throws the *defender* into the air and stays on
 	// the ground itself, which is the only shape a juggle can be tested from —
 	// a move that launches its own owner (move 3) leaves nobody in a position
-	// to follow up. Six up against the fixture's half a unit of gravity is 24
-	// frames of hang time, long enough to juggle in.
-	//
-	// Straight up, with no horizontal component: an anti-air that carried the
-	// defender away would carry them out of range of the follow-up, and the
-	// horizontal half of knockback is what every other move in the fixture
-	// already tests.
+	// to follow up.
 	c.Moves[12] = Move{
 		Startup: 4, Active: 3, Recovery: 8,
 		Damage: 200, Hitstun: 16, Blockstun: 12, Hitstop: 6,
@@ -410,10 +356,7 @@ func testCharacter() Character {
 	c.Moves[12].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
 	c.Moves[12].Keys[2].Hurt[0] = c.StandHurt
 
-	// The armoured move, paid for in Drive. One bar, one hit of armour, on two
-	// buttons of its own so nothing else can select it. Slow
-	// enough that a jab thrown at it lands during the startup, which is the
-	// window armour is about.
+	// The armoured move, paid for in Drive.
 	c.Moves[13] = Move{
 		Startup: 12, Active: 3, Recovery: 20,
 		Damage: 200, Hitstun: 20, Blockstun: 12, Hitstop: 6,
@@ -432,9 +375,7 @@ func testCharacter() Character {
 	c.Moves[13].Keys[2].Hurt[0] = c.StandHurt
 
 	// The EX special: the fixture's two-bar version of move 2, sharing its
-	// motion and one of its buttons. That sharing is the whole test — the
-	// cheaper special is what the same input produces when the gauge cannot
-	// pay, and only the tier and the price tell them apart.
+	// motion and one of its buttons.
 	c.Moves[14] = Move{
 		Startup: 4, Active: 3, Recovery: 8,
 		Damage: 300, Hitstun: 18, Blockstun: 12, Hitstop: 8,
@@ -451,13 +392,10 @@ func testCharacter() Character {
 	c.Moves[14].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
 	c.Moves[14].Keys[2].Hurt[0] = c.StandHurt
 
-	// Slot 15 is empty: it was the Drive Reversal, cut by D115. A zero button
-	// mask is never pressed, so the slot is never selected, and leaving it
-	// keeps every index after it where the tests expect it.
+	// Slot 15 is empty: it was the Drive Reversal, cut by D115.
 
 	// A dragon punch: the invincible reversal, and the move the AI's anti-air
-	// rule reaches for. It exists on this entry and **not** on the second one,
-	// which is what lets a test ask what a character without one does instead.
+	// rule reaches for.
 	c.Moves[17] = Move{
 		Startup: 4, Active: 8, Recovery: 30,
 		Damage: 200, Hitstun: 20, Blockstun: 14, Hitstop: 10,
@@ -475,10 +413,6 @@ func testCharacter() Character {
 	c.Moves[17].Keys[1].Hit[0] = Box{X: FromInt(4), Y: FromInt(-4), W: FromInt(28), H: FromInt(70)}
 
 	// A command throw: the grappler's move, and the fixture's second throw.
-	// Deliberately the same shape and reach as move 10 so the only difference
-	// between them is the motion — which is the whole thing under test, since
-	// the motion is what makes a throw untechable and what keeps it out of the
-	// tech-input lookup.
 	c.Moves[16] = Move{
 		Startup: 5, Active: 3, Recovery: 20,
 		Damage: 400, Hitstun: 40, Hitstop: 8,
@@ -499,8 +433,7 @@ func testCharacter() Character {
 
 // jabFirstHit is what move 0 actually deals as the clean opening hit of a
 // combo: 100 base, scaled by the light starter's 80% and by the first hit's
-// 100%. Written out rather than computed, so a test asserting it cannot agree
-// with a broken formula by running the same broken formula.
+// 100%.
 const jabFirstHit = 80
 
 // char is the fixture as the sim sees it, for tests that need its numbers.

@@ -1,9 +1,7 @@
 /**
  * WebRTC DataChannel with manual signalling: the offer and answer blobs are
- * carried between the two ends by hand (copy, paste). M0 only has to prove the
- * transport works; the signalling server is M3's job.
+ * carried between the two ends by hand (copy, paste).
  *
- * Flow:
  *   host                              guest
  *   host() -> localBlob  ─────────────> guest(blob) -> localBlob
  *   accept(blob)         <─────────────┘
@@ -12,33 +10,18 @@
 
 const CHANNEL = 'inputs'
 
-/**
- * Unreliable and unordered on purpose. A retransmitted input arrives after the
- * frame it belonged to has already been simulated, and every packet already
- * carries the last 8 frames, so there is nothing worth retransmitting.
- */
+/** Unreliable and unordered on purpose. */
 const CHANNEL_INIT: RTCDataChannelInit = {ordered: false, maxRetransmits: 0}
 
 /**
  * STUN only, no TURN — a relay costs bandwidth and adds a hop, and the fallback
  * for peers that cannot hole-punch is the WebSocket relay we run ourselves.
- *
- * This does reach a Google server to learn our public address, which is how
- * every WebRTC app discovers it. Swap it for our own STUN in M3.
  */
 const ICE: RTCConfiguration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]}
 
 /**
  * `?ice=off` makes ICE genuinely unable to connect, so the relay fallback can
- * be exercised (Decision Log D15, D88). A relay-only policy with no TURN server
- * gathers no candidates at all — this is the browser refusing to connect, not a
- * flag the code reads to take a different path, which is the only version of
- * this switch worth having: the fallback has to be reached the way a blocked
- * network reaches it.
- *
- * It exists because 15-20% of networks cannot hole-punch and one of them may be
- * the one the defense happens on. There is no other way to meet that case on
- * demand from a desk.
+ * be exercised (Decision Log D15, D88).
  */
 function iceConfig(): RTCConfiguration {
   if (new URLSearchParams(location.search).get('ice') === 'off') {
@@ -101,9 +84,7 @@ function wire(ch: RTCDataChannel, onMessage: (data: ArrayBuffer) => void): Promi
   ch.onmessage = (e) => onMessage(e.data as ArrayBuffer)
 
   const peer: Peer = {
-    // Sending on a channel that is not open throws. Dropping instead is
-    // correct here: this channel drops packets by design and the next one
-    // carries the same inputs again.
+    // Sending on a channel that is not open throws.
     send: (data) => {
       if (ch.readyState === 'open') ch.send(data)
     },
@@ -124,16 +105,6 @@ function wire(ch: RTCDataChannel, onMessage: (data: ArrayBuffer) => void): Promi
  * Waits for ICE candidates to stop arriving, so the blob carries all of them
  * and there is nothing left to trickle — which is what makes copy-paste
  * signalling possible at all.
- *
- * Deliberately not waiting for iceGatheringState 'complete'. Measured on this
- * machine: the host candidate lands at 1 ms and the server-reflexive one at
- * 48 ms, and then gathering sits in 'gathering' forever — still not complete
- * after 8 s. Waiting for the state change means every connection pays a
- * fixed timeout.
- *
- * So: finish once no new candidate has arrived for quietMs. That is generous
- * against a slow STUN server (the timer restarts on every candidate) and still
- * connects in about a second rather than three.
  */
 function gathered(pc: RTCPeerConnection, quietMs = 1000, capMs = 5000): Promise<void> {
   if (pc.iceGatheringState === 'complete') return Promise.resolve()

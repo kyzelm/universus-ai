@@ -34,9 +34,9 @@ func kinds(found []anomaly, seat int) map[string]anomaly {
 	return out
 }
 
-// **An honest match must not be flagged**, and this is the test that matters
-// most: every check here is probabilistic, and a false positive costs a real
-// player a place in a review queue they did not earn.
+// An honest match must not be flagged, and this is the test that matters most:
+// every check here is probabilistic, and a false positive costs a real player a
+// place in a review queue they did not earn.
 func TestAPlayedMatchIsNotFlagged(t *testing.T) {
 	logBytes, _, _, _ := playedMatch(t)
 	parsed, err := replaylog.Decode("test", logBytes)
@@ -49,9 +49,7 @@ func TestAPlayedMatchIsNotFlagged(t *testing.T) {
 	}
 }
 
-// A window of inputs repeated byte for byte. The one check that needs no
-// simulation, and the hardest to argue with: a hand does not press the same
-// twenty frames twice, let alone three times.
+// A window of inputs repeated byte for byte.
 func TestAMacroIsCaught(t *testing.T) {
 	// A 40-frame loop with movement and a button in it, played five times.
 	loop := []uint16{
@@ -144,8 +142,7 @@ func TestMedianAndDeviation(t *testing.T) {
 func isInf(f float64) bool { return f > 1e300 }
 
 // botLog plays a match where one seat is driven by a rule rather than a hand,
-// and returns the log a client would have uploaded. The checks below need a bot
-// to catch, and a bot is the only honest way to produce one.
+// and returns the log a client would have uploaded.
 func botLog(t *testing.T, frames int, decide func(st *sim.GameState, f int) [2]uint16) replaylog.Log {
 	t.Helper()
 	version := loadRoster()
@@ -166,9 +163,7 @@ func botLog(t *testing.T, frames int, decide func(st *sim.GameState, f int) [2]u
 	return parsed
 }
 
-// **The check that catches something reading state rather than a screen.** A
-// bot blocking three frames after an attack begins is doing it faster than a
-// person can see the attack, every single time.
+// The check that catches something reading state rather than a screen.
 func TestABotThatBlocksFasterThanSightIsFlagged(t *testing.T) {
 	// Seat 1 attacks on a loop with a human-looking scatter; seat 2 blocks
 	// three frames after each attack starts and neutral otherwise.
@@ -213,9 +208,8 @@ func TestABotThatBlocksFasterThanSightIsFlagged(t *testing.T) {
 	}
 }
 
-// **The check that catches a bot deliberately slow enough to pass the reaction
-// floor.** It presses late, but it presses late by exactly the same amount
-// every time, and a hand does not.
+// The check that catches a bot deliberately slow enough to pass the reaction
+// floor.
 func TestAPerfectlyConsistentPressIsFlagged(t *testing.T) {
 	const offset = 5
 	actionableSince := -1
@@ -281,15 +275,7 @@ func TestAScatteredPressIsNotFlagged(t *testing.T) {
 	}
 }
 
-// **The project's own scripted opponent, run through check 3.** It is a real
-// bot rather than a stand-in for one: the same rule list a player faces in
-// versus-AI, played as a device so its presses land in the log the way a
-// cheating client's would (03 Game Design/AI Opponent.md).
-//
-// Whatever it reports is worth knowing. It is deliberately imperfect — a roll
-// throws the rule list away some of the time, and reaction delay is one of the
-// two difficulty levers — so an opponent tuned to be beatable is also one tuned
-// to look human, which is the more interesting half of the result.
+// The project's own scripted opponent, run through check 3.
 func TestWhatTheScriptedOpponentLooksLike(t *testing.T) {
 	loadRoster()
 
@@ -312,15 +298,8 @@ func TestWhatTheScriptedOpponentLooksLike(t *testing.T) {
 	found := kinds(plausibility(parsed), 2)
 	t.Logf("the scripted opponent at Hard: %+v", found)
 
-	// **A real bot is caught, and it is the macro check that catches it** —
-	// the one needing no simulation and no threshold judgement. The two
-	// probabilistic checks let it through, and that is not a failure of theirs:
-	// reaction delay and decision randomness are its difficulty levers, so an
-	// opponent tuned to be beatable is also one tuned to look human on exactly
-	// the two axes they measure.
-	//
-	// Retuning the AI can legitimately move this. A failure here is a prompt to
-	// look at what changed rather than a bug on its own.
+	// A real bot is caught, and it is the macro check that catches it — the one
+	// needing no simulation and no threshold judgement.
 	if _, ok := found["macro"]; !ok {
 		t.Errorf("nothing caught the project's own bot: %+v", found)
 	}

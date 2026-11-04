@@ -10,7 +10,7 @@ beforeAll(async () => {
   await initSim(readFileSync('public/main.wasm'))
 })
 
-/** Only the fields the dummy reads. The real ones come from the sim below. */
+/** Only the fields the dummy reads. */
 function seen(opts: {facing?: number; actionable?: boolean; attacking?: boolean} = {}): Snapshot {
   const {facing = -1, actionable = true, attacking = false} = opts
   return {
@@ -30,11 +30,7 @@ test('the plain behaviours are one held input', () => {
   expect(dummyIn('jump')).toBe(IN_UP)
 })
 
-/**
- * Held away *only* while the attacker is in a move. A dummy holding back all
- * match is one walking into the corner, and the setting exists to give a
- * stationary target that blocks.
- */
+/** Held away *only* while the attacker is in a move. */
 test('block holds away at an attack and nothing otherwise', () => {
   expect(dummyIn('block', seen({facing: -1, attacking: true}))).toBe(IN_RIGHT)
   expect(dummyIn('block', seen({facing: 1, attacking: true}))).toBe(IN_LEFT)
@@ -46,9 +42,7 @@ test('reversal blocks while it can act and works the motion while it cannot', ()
   d.setMode('reversal')
   expect(d.poll(seen({actionable: true, attacking: true}), 0)).toBe(IN_RIGHT)
 
-  // Facing left, so forward is LEFT. The motion is the shortcut → ↓ →, with
-  // no diagonal: looping the full → ↓ ↘ spells a double quarter-circle across
-  // two turns and reverses with a super.
+  // Facing left, so forward is LEFT.
   const stunned = seen({facing: -1, actionable: false})
   expect(d.poll(stunned, 0)).toBe(IN_LEFT)
   expect(d.poll(stunned, 0)).toBe(IN_DOWN)
@@ -56,15 +50,10 @@ test('reversal blocks while it can act and works the motion while it cannot', ()
 })
 
 /**
- * **The assumption the whole reversal setting rests on**, checked against the
- * real sim rather than argued: a dummy that knows nothing about how long a
- * knockdown lasts still reverses on wakeup, because the input buffer holds the
- * press and spends it on the first actionable frame. If the buffer, the motion
- * table or the wakeup rules move, this is what fails.
- *
- * The dummy leaving the ground is what makes it a *dragon punch* and not a
- * buffered jab: nothing else it presses in this mode rises, and a reversal that
- * came out as a jab would be the motion silently not registering.
+ * The assumption the whole reversal setting rests on, checked against the real
+ * sim rather than argued: a dummy that knows nothing about how long a knockdown
+ * lasts still reverses on wakeup, because the input buffer holds the press and
+ * spends it on the first actionable frame.
  */
 test('the dummy reverses out of a knockdown', () => {
   reset(true)
@@ -78,9 +67,7 @@ test('the dummy reverses out of a knockdown', () => {
   }
 
   // Walk into range, then sweep — 2HK is the roster's knockdown strike, so the
-  // dummy ends up on the floor with a wakeup to reverse on. It is set to stand
-  // for this half: a reversal dummy blocks, and a blocked sweep knocks nobody
-  // down.
+  // dummy ends up on the floor with a wakeup to reverse on.
   for (let f = 0; f < 60; f++) step(IN_RIGHT)
   let knocked = false
   for (let f = 0; f < 60 && !knocked; f++) {
@@ -111,8 +98,7 @@ test('a take is recorded, passed through, and looped', () => {
   expect(d.frames()).toBe(3)
 
   d.setMode('playback')
-  // Twice through, to show the loop rather than the first pass. The keyboard
-  // is pressing something else meanwhile and is ignored.
+  // Twice through, to show the loop rather than the first pass.
   const played = [...take, ...take].map(() => d.poll(snap, IN_UP))
   expect(played).toEqual([...take, ...take])
 })
@@ -141,8 +127,10 @@ test('recording again replaces the previous take', () => {
   expect(d.poll(snap, 0)).toBe(IN_LP)
 })
 
-/** The cap stops appending rather than wrapping: a take that dropped its own
- * beginning would play back a setup nobody performed. */
+/**
+ * The cap stops appending rather than wrapping: a take that dropped its own
+ * beginning would play back a setup nobody performed.
+ */
 test('a take stops at the cap', () => {
   const d = createDummy()
   const snap = seen()
@@ -155,12 +143,7 @@ test('a take stops at the cap', () => {
   expect(d.poll(snap, 0)).toBe(IN_DOWN)
 })
 
-/**
- * The jump setting has to keep jumping. One press is one jump (D100), so a
- * dummy that held up would leave the ground once and then stand there for the
- * rest of the session — which looks like the setting working until you watch it
- * for four seconds.
- */
+/** The jump setting has to keep jumping. */
 test('the jumping dummy keeps jumping', () => {
   reset(true)
   const d = createDummy()

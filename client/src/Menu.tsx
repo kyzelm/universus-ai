@@ -21,17 +21,7 @@ export interface MenuProps {
   onStart(setup: RunSetup): void
 }
 
-/**
- * Title, then a character select. Two screens, because a mode and a pair of
- * fighters are the only two decisions a run needs — everything else the game
- * has is either a per-user setting, which belongs in a settings screen nobody
- * has asked for yet, or a URL parameter a measurement run passes.
- *
- * **The URL still starts a run directly** (see App): this screen is what a
- * person gets, and the parameters are what CI, the measurement harness and a
- * shared link get. Neither is a special case of the other, and the menu builds
- * exactly the setup the parameters build.
- */
+/** Title, then a character select. */
 export default function Menu({roster, onStart}: MenuProps) {
   const [mode, setMode] = useState<Mode | null>(null)
   const [ai, setAI] = useState(AI_TIERS.indexOf('normal'))

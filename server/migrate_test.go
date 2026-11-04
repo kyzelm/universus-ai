@@ -58,9 +58,8 @@ func TestMigrationsAreOrderedByNumberNotByName(t *testing.T) {
 	}
 }
 
-// **Two files claiming the same version is the ordinary way this goes wrong**:
-// two branches each adding 002. Applying one of them and recording the version
-// leaves the other silently skipped forever, on one database and not another.
+// Two files claiming the same version is the ordinary way this goes wrong: two
+// branches each adding 002.
 func TestDuplicateVersionsAreRefused(t *testing.T) {
 	_, err := loadMigrations(fstest.MapFS{
 		"migrations/002_one.sql": {Data: []byte("SELECT 1")},

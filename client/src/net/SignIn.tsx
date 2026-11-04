@@ -3,11 +3,7 @@ import {account, signIn, signOut, type Account} from './account'
 
 /**
  * Sign in or register, in the net panel where the thing that needs an account
- * is. **Nothing offline is behind it**: training, local versus and versus AI
- * never ask (D62), and this whole section is invisible until somebody wants to
- * play a stranger or a friend.
- *
- * One form for both, switched by a checkbox, because they differ by one field.
+ * is.
  */
 export default function SignIn({onChange}: {onChange(a: Account | null): void}) {
   const [who, setWho] = useState<Account | null>(account)

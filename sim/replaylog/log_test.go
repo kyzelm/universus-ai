@@ -26,7 +26,7 @@ func inputs(n int) [][2]uint16 {
 }
 
 // A mis-parsed log makes the determinism gate compare the wrong thing and pass,
-// which is worse than failing. Pin the round trip.
+// which is worse than failing.
 func TestRoundTrip(t *testing.T) {
 	// Not the zero setup: a header that survives only because every field
 	// happens to be zero proves nothing.
@@ -55,9 +55,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// The offsets, asserted literally. The writer is in TypeScript in another
-// process, and nothing catches a reader that drifts from it except a test on
-// each side pinning the same numbers (client/src/game/log.test.ts).
+// The offsets, asserted literally.
 func TestTheByteLayoutIsTheDocumentedOne(t *testing.T) {
 	b := Encode(sim.Setup{Training: true, AI: 2, Chars: [2]int32{1, 0}}, 0x01020304,
 		[][2]uint16{{0x0201, 0x0010}})

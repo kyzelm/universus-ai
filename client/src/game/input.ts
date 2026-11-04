@@ -1,10 +1,4 @@
-/**
- * Devices to input bitfield. Bits mirror sim/state.go — the same uint16 goes
- * to the sim, the network, the replay and the server, so this file and that
- * one change together.
- *
- * Bits 7 and 11-15 are reserved and must stay clear.
- */
+/** Devices to input bitfield. */
 export const IN_UP = 1 << 0
 export const IN_DOWN = 1 << 1
 export const IN_LEFT = 1 << 2
@@ -16,20 +10,7 @@ export const IN_LK = 1 << 8
 export const IN_MK = 1 << 9
 export const IN_HK = 1 << 10
 
-/**
- * Two buttons on one key, which is how throws are played everywhere.
- *
- * A throw is LP+LK *on the same frame*, and the sim's press edge is generous
- * about which frame that is — the pair completing is the press. What it cannot
- * help with is the frame before: LP alone is a jab, the jab starts, and the LK
- * arriving a frame later finds a player who is no longer actionable. Pressing
- * both keys in the same 16.6 ms is the hard part, and one key does it exactly.
- *
- * This belongs here and nowhere else: a macro is a per-user binding, and the
- * invariant is that every local setting resolves before the bitfield is built
- * (CLAUDE.md). The sim sees LP+LK and cannot tell which key produced them, so
- * a player who prefers the two keys is playing the same game.
- */
+/** Two buttons on one key, which is how throws are played everywhere. */
 const THROW = IN_LP | IN_LK
 
 /** KeyboardEvent.code to bit — or to a mask, for the macro. */
@@ -61,14 +42,7 @@ const P2_KEYS: Record<string, number> = {
   Numpad0: THROW,
 }
 
-/**
- * Standard Gamepad mapping, button index to bit. The six-attack layout every
- * fighting game uses: punches on the top row, kicks on the bottom.
- *
- * A leverless controller presents as an ordinary gamepad and needs nothing
- * special here — correct SOCD is the whole of its handling, and that already
- * happens below.
- */
+/** Standard Gamepad mapping, button index to bit. */
 const PAD_BUTTONS: Record<number, number> = {
   12: IN_UP,
   13: IN_DOWN,
@@ -84,17 +58,10 @@ const PAD_BUTTONS: Record<number, number> = {
   4: THROW,  // L1 / LB — where every fighting game puts throw
 }
 
-/**
- * Stick deflection past which an axis counts as held. Generous, because this
- * is a digital reading of an analog stick, and half-committed diagonals are
- * the enemy of clean motions.
- */
+/** Stick deflection past which an axis counts as held. */
 const DEADZONE = 0.5
 
-/**
- * Reads one gamepad into a bitfield. Floats live here and stop here: the sim
- * never sees an axis, only the bit this produced.
- */
+/** Reads one gamepad into a bitfield. */
 export function packPad(pad: Gamepad): number {
   let bits = 0
   for (const index in PAD_BUTTONS) {
@@ -110,14 +77,7 @@ export function packPad(pad: Gamepad): number {
   return bits
 }
 
-/**
- * Simultaneous Opposite Cardinal Directions. Left+right resolves to neutral,
- * up beats down.
- *
- * This runs client-side, before packing, on purpose: the sim must never see a
- * value that depends on a local setting. When negative edge and rebinding
- * arrive they resolve here too.
- */
+/** Simultaneous Opposite Cardinal Directions. */
 export function resolveSOCD(bits: number): number {
   if (bits & IN_LEFT && bits & IN_RIGHT) bits &= ~(IN_LEFT | IN_RIGHT)
   if (bits & IN_UP && bits & IN_DOWN) bits &= ~IN_DOWN
@@ -139,21 +99,11 @@ export interface Input {
   dispose(): void
 }
 
-/**
- * Tracks held keys and packs them on demand.
- *
- * The loop *polls* this once per fixed step — it is never driven by the key
- * events themselves. A tap and a release inside one frame is a real input the
- * player made, and an event-driven path would either drop it or apply it to
- * the wrong frame. Both are desyncs that surface days later.
- */
+/** Tracks held keys and packs them on demand. */
 export function createInput(target: EventTarget = window): Input {
   const held = new Set<string>()
 
-  // Keys pressed since the last poll, whether or not they are still down. A
-  // tap that starts and ends between two polls is a real input the player
-  // made; without this latch it lands on no frame at all and vanishes. It is
-  // held for exactly one frame, which is the finest the sim can represent.
+  // Keys pressed since the last poll, whether or not they are still down.
   const tapped = new Set<string>()
 
   const down = (e: Event) => {
@@ -183,9 +133,7 @@ export function createInput(target: EventTarget = window): Input {
       const pressed = new Set([...held, ...tapped])
       tapped.clear()
 
-      // First two connected pads take seat 0 and seat 1. getGamepads returns a
-      // sparse array with holes for disconnected slots, so filter before
-      // indexing or unplugging pad 1 silently promotes pad 2.
+      // First two connected pads take seat 0 and seat 1.
       const connected = pads().filter((p): p is Gamepad => p !== null)
 
       // Resolve SOCD once more after merging: each device is clean on its own,

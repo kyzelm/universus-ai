@@ -9,7 +9,7 @@ func u32(b []byte) uint32 {
 func i32(b []byte) int32 { return int32(u32(b)) }
 
 // The layout is a contract with the TypeScript reader, which has no way to
-// check it. If these offsets move, client/src/sim/wasm.ts moves with them.
+// check it.
 func TestSnapshotLayout(t *testing.T) {
 	s := New()
 	s.Frame = 0x01020304
@@ -101,9 +101,7 @@ func TestSnapshotCarriesActionability(t *testing.T) {
 	}
 }
 
-// The overlay must show the boxes the sim actually collides. Reading them from
-// anywhere else would let the picture agree with itself and disagree with the
-// game.
+// The overlay must show the boxes the sim actually collides.
 func TestSnapshotCarriesTheCollidingBoxes(t *testing.T) {
 	s := New()
 	// Step to the first active frame of the jab.

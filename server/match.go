@@ -1,16 +1,7 @@
-// Match results and what they do to the ladder
-// (02 Architecture/Anti-Cheat and Verification.md, 03 Game Design/Game Modes.md).
+// Match results and what they do to the ladder (02 Architecture/Anti-Cheat and
+// Verification.md, 03 Game Design/Game Modes.md).
 //
 //	POST /api/match/{id}/result
-//
-// **Both clients upload independently**, and the server compares what they sent
-// before it believes either of them. That comparison is check 1 of three: the
-// two input logs are the same bytes or at least one client is lying. Check 2 is
-// re-simulation and check 3 is input plausibility; both are their own task, and
-// this endpoint queues the job that will run them.
-//
-// There is no authority during a peer-to-peer match and this does not pretend
-// otherwise. It detects after the fact.
 package main
 
 import (
@@ -26,22 +17,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// A match is under 20 KB packed (02 Architecture/WASM Boundary.md). The cap is
-// an order of magnitude above that: generous for a long match, mean for a
-// client that has decided to send us its hard drive.
+// A match is under 20 KB packed (02 Architecture/WASM Boundary.md).
 const maxUpload int64 = 256 << 10
 
 type result struct {
-	// 1 or 2 — the seat, not the account. The server knows which account sat
-	// in which seat and does not need the client to tell it twice.
+	// 1 or 2 — the seat, not the account.
 	Winner   int    `json:"winner"`
 	EndFrame int    `json:"endFrame"`
 	Chars    [2]int `json:"chars"`
 
 	// The match ended because the other side stopped sending, rather than by a
-	// KO or a timeout. **A disconnect is a loss for the disconnecting player**
-	// and rage-quit and pulled cable are treated identically, because they are
-	// not distinguishable per incident (D50).
+	// KO or a timeout.
 	Disconnect bool `json:"disconnect"`
 
 	// Measurement, and the reason these columns exist: the P2P-versus-relay
@@ -79,9 +65,7 @@ type matchRow struct {
 
 type matchStore struct{ pool *pgxpool.Pool }
 
-// create records a pairing. Called when the queue introduces two players, which
-// is before either has chosen a character — see migration 002 for why those
-// columns are nullable rather than zero.
+// create records a pairing.
 func (m matchStore) create(ctx context.Context, mode string, p1, p2 int64) (int64, error) {
 	var id int64
 	err := m.pool.QueryRow(ctx,
@@ -161,9 +145,6 @@ func (r storedResult) into(s *submission) {
 }
 
 // settle writes the agreed result, applies the ladder, and queues verification.
-//
-// **One transaction.** A match that counted for one player and not the other is
-// the worst outcome available here, and it is the one a partial failure gives.
 func (m matchStore) settle(ctx context.Context, r matchRow, s submission) error {
 	tx, err := m.pool.Begin(ctx)
 	if err != nil {
@@ -215,9 +196,7 @@ func (m matchStore) settleTx(ctx context.Context, tx pgx.Tx, r matchRow, s submi
 			r.id, p1Change, p2Change); err != nil {
 			return err
 		}
-		// The job the re-simulation will pick up. Queued here rather than run
-		// here: re-simulating a match takes tens of milliseconds and belongs in
-		// a worker, not in the request the player is waiting on.
+		// The job the re-simulation will pick up.
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO verification_jobs (match_id) VALUES ($1) ON CONFLICT DO NOTHING`,
 			r.id); err != nil {
@@ -230,8 +209,7 @@ func (m matchStore) settleTx(ctx context.Context, tx pgx.Tx, r matchRow, s submi
 	return nil
 }
 
-// nullable writes a value or SQL NULL. A column nobody filled in has to read as
-// "not measured" rather than as a measurement of zero.
+// nullable writes a value or SQL NULL.
 func nullable[T any](ok bool, v T) any {
 	if !ok {
 		return nil
@@ -240,12 +218,6 @@ func nullable[T any](ok bool, v T) any {
 }
 
 // recordDisconnect keeps the two counts the policy rests on.
-//
-// **Neither is a punishment.** A pulled cable and a rage-quit produce identical
-// signals per incident and the policy says so; what carries signal is the rate
-// across many matches. A player at 40% is quitting and one at 2% has bad wifi,
-// and only the counts can tell you which — so they are kept, and read by a
-// person (02 Architecture/Disconnect and Match Integrity.md).
 func recordDisconnect(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) error {
 	winner, loser := r.p1, r.p2
 	if winnerSeat == 2 {
@@ -261,12 +233,6 @@ func recordDisconnect(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int
 }
 
 // applyLadder moves both ratings.
-//
-// **LP is applied on cross-client agreement, not after re-simulation**, and the
-// verification job may take it back. The alternative is a player finishing a
-// ranked match and seeing nothing happen until a worker gets to them, which
-// reads as a broken ladder — every game in the genre pays provisionally for the
-// same reason. What verification buys is the correction, not the delay.
 func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (int, int, error) {
 	winner, loser := r.p1, r.p2
 	if winnerSeat == 2 {
@@ -320,15 +286,14 @@ func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (in
 		}
 	}
 
-	// Signed, per seat, and **not the same magnitude**: the loser's is floored
-	// at their tier boundary, so they may have paid less than the winner gained.
+	// Signed, per seat, and not the same magnitude: the loser's is floored at
+	// their tier boundary, so they may have paid less than the winner gained.
 	changes := map[int64]int{winner: newWinner - lp[winner], loser: newLoser - lp[loser]}
 	return changes[r.p1], changes[r.p2], nil
 }
 
 // void is what a disagreement costs: no winner, no LP, and both accounts
-// flagged for a person to look at. **Flagged, never banned** — check 1 catches
-// a liar and a missed desync equally well, and it cannot tell them apart.
+// flagged for a person to look at.
 func (m matchStore) void(ctx context.Context, r matchRow) error {
 	tx, err := m.pool.Begin(ctx)
 	if err != nil {
@@ -392,9 +357,7 @@ func (a *auth) submitResult(w http.ResponseWriter, r *http.Request, u User) {
 	}
 
 	if other == nil {
-		// One upload is not a result. It is also what a disconnect looks like,
-		// which is why the timeout that accepts one provisionally belongs with
-		// disconnect handling rather than here.
+		// One upload is not a result.
 		writeJSON(w, http.StatusAccepted, map[string]string{"status": "waiting for the other player"})
 		return
 	}
@@ -415,13 +378,7 @@ func (a *auth) submitResult(w http.ResponseWriter, r *http.Request, u User) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "settled"})
 }
 
-// agree is check 1: **do the two uploaded input logs match?** A disagreement
-// means at least one client lied, or a desync went undetected — and either way
-// the match is void, because nothing here can tell those two apart.
-// **The measurement fields are deliberately not compared.** RTT, the rollback
-// average and even which transport each end believes it used are observations
-// of the connection from one side, and two ends legitimately disagree about
-// them. What has to match is the match: the inputs, the hashes and the outcome.
+// agree is check 1: do the two uploaded input logs match?
 func agree(a, b submission) bool {
 	return a.winner == b.winner && a.endFrame == b.endFrame && a.chars == b.chars &&
 		bytes.Equal(a.inputLog, b.inputLog) && bytes.Equal(a.checksums, b.checksums)

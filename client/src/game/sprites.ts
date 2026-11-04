@@ -1,16 +1,4 @@
-/**
- * Sprite sheets: Aseprite's export read into per-tag texture runs.
- *
- * The tag naming rule is D113 — an attack draws from a tag named after the
- * move's id, everything else from a tag named after the sim's state. Neither
- * name is invented here, which is the point: the view looks up names the
- * simulation already had.
- *
- * Nothing in this file writes sim state and nothing it computes travels back.
- * Animation is chosen from the render snapshot alone, so it costs nothing on a
- * rollback — a frame resimulated eight times picks the same texture eight
- * times.
- */
+/** Sprite sheets: Aseprite's export read into per-tag texture runs. */
 
 import {Assets, Rectangle, Texture} from 'pixi.js'
 
@@ -29,26 +17,16 @@ export interface SheetMeta {
 export interface Sheet {
   /**
    * The sheet's origin as a Pixi anchor, so a sprite placed at the fighter's
-   * simulated position lands with its feet there. Computed here rather than at
-   * the call site because it is a property of the sheet, and a sheet whose
-   * cells changed size would otherwise move every character half a frame.
+   * simulated position lands with its feet there.
    */
   readonly anchor: {x: number; y: number}
-  /** The texture a fighter in this state is on. Never throws. */
+  /** The texture a fighter in this state is on. */
   texture(state: number, stateFrame: number, moveIndex: number): Texture
 }
 
 const ATTACK = STATE_NAMES.indexOf('attack')
 
-/**
- * State to tag. Two states borrow another's animation rather than owning
- * one — a pre-jump and a landing are both a crouch — which is the cheapest
- * frames in the budget (D113).
- *
- * Keyed by name rather than by index so that appending a state to
- * sim/fighter.go, which is the only way that list ever changes, fails here at
- * startup instead of quietly rendering the new state as an idle.
- */
+/** State to tag. */
 const STATE_TAG: Record<string, string> = {
   idle: 'idle',
   walkF: 'walk_f',
@@ -66,12 +44,7 @@ const STATE_TAG: Record<string, string> = {
   knockdown: 'knockdown',
 }
 
-/**
- * Tags that cycle for as long as the state lasts. Everything else plays once
- * and holds its last frame, which is right for an attack's recovery, a crouch
- * settling, or a body on the floor — and wrong for standing and walking,
- * which have no end and would freeze after their first cycle.
- */
+/** Tags that cycle for as long as the state lasts. */
 const LOOPS = new Set(['idle', 'walk_f', 'walk_b'])
 
 /** Which frame of a run of `length` a fighter `stateFrame` frames in shows. */
@@ -86,15 +59,7 @@ export function tagFor(meta: SheetMeta, state: number, moveIndex: number): strin
   return STATE_TAG[STATE_NAMES[state]] ?? ''
 }
 
-/**
- * Every tag the sheet is asked for but does not carry, deduplicated.
- *
- * An empty result is the only acceptable one, and it is checked at load rather
- * than on the frame that needs it: **a missing animation must fail loudly at
- * startup, not render as an invisible character mid-match.** The failure it
- * exists for is the boring one — a move added to the character JSON and the
- * sheet not regenerated.
- */
+/** Every tag the sheet is asked for but does not carry, deduplicated. */
 export function missingTags(meta: SheetMeta): string[] {
   const have = new Set(meta.meta.frameTags.map((t) => t.name))
   const want = new Set<string>()
@@ -132,10 +97,9 @@ export function buildSheet(meta: SheetMeta, base: Texture): Sheet {
   return {
     anchor: {x: meta.meta.origin.x / cell.w, y: meta.meta.origin.y / cell.h},
     texture(state, stateFrame, moveIndex) {
-      // Startup validation means every tag resolves, so the fallbacks below
-      // are for the two things it cannot cover: a move index of -1, which the
-      // sim uses for "no move", and a state frame that has outrun its
-      // animation. Neither is an error and neither may throw on a frame.
+      // Startup validation means every tag resolves, so the fallbacks below are
+      // for the two things it cannot cover: a move index of -1, which the sim
+      // uses for "no move", and a state frame that has outrun its animation.
       const tag = tagFor(meta, state, moveIndex)
       const run = runs.get(tag) ?? idle
       return run[frameOf(runs.has(tag) ? tag : 'idle', stateFrame, run.length)]
@@ -150,7 +114,7 @@ export async function loadSheet(name: string): Promise<Sheet> {
   const meta = (await res.json()) as SheetMeta
   const base: Texture = await Assets.load(`/sprites/${name}.png`)
   // The renderer draws at display resolution, so sprites are magnified on the
-  // GPU now, not by the browser's CSS scale. Nearest keeps pixel art crisp.
+  // GPU now, not by the browser's CSS scale.
   base.source.scaleMode = 'nearest'
   return buildSheet(meta, base)
 }

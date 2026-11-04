@@ -12,9 +12,7 @@ import (
 )
 
 // The roster and the balance data are part of the simulation's identity, and
-// main loads them before anything touches the sim. A test binary has its own
-// entrypoint, so it has to do the same or every match is played by characters
-// who cannot move.
+// main loads them before anything touches the sim.
 func TestMain(m *testing.M) {
 	if err := loadRoster(); err != nil {
 		fmt.Fprintln(os.Stderr, "replay:", err)
@@ -24,8 +22,7 @@ func TestMain(m *testing.M) {
 }
 
 // The file half of the round trip: the tool writes a log and reads it back,
-// stamped with the data version this build was compiled against. The byte
-// layout itself is pinned in universus/sim/replaylog, which owns it.
+// stamped with the data version this build was compiled against.
 func TestLogRoundTripThroughAFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.inputs")
 	want := gen(97)
@@ -57,9 +54,7 @@ func TestLogRoundTripThroughAFile(t *testing.T) {
 }
 
 // The whole reason the header exists: the same inputs replayed under a
-// different setup are a different match. If these checksums ever matched, the
-// setup would not be reaching the sim and a lab log would silently replay as a
-// normal one.
+// different setup are a different match.
 func TestSetupChangesWhatTheSameInputsReplayAs(t *testing.T) {
 	in := gen(240)
 

@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// The dump is only worth having if it names the field that differs. A checksum
-// already says two states are not equal; this is the part that says how.
+// The dump is only worth having if it names the field that differs.
 func TestDumpNamesTheDifferingField(t *testing.T) {
 	a := New()
 	b := New()
@@ -43,8 +42,7 @@ func TestDumpIsStable(t *testing.T) {
 	}
 }
 
-// Every field must appear, including ones added later. The field nobody
-// remembered to print is the one causing the desync.
+// Every field must appear, including ones added later.
 func TestDumpCoversEveryField(t *testing.T) {
 	start := New()
 	out := start.Dump()
@@ -62,9 +60,7 @@ func TestDumpCoversEveryField(t *testing.T) {
 	}
 }
 
-// The input history is 32 entries per player and mostly zero. Sixty lines of
-// "0" per dump buries the two that matter, so runs collapse — but a differing
-// run length still has to show up as a difference.
+// The input history is 32 entries per player and mostly zero.
 func TestDumpCollapsesZeroRunsWithoutHidingThem(t *testing.T) {
 	a := New()
 	if !strings.Contains(a.Dump(), "Inputs[0:32] = zero") {

@@ -3,10 +3,6 @@ package sim
 import "testing"
 
 // A fixed, varied input pattern — no clock, no rand, reproducible anywhere.
-//
-// Attack buttons are in here as well as directions. A directions-only sequence
-// never enters an attack, a hitstun or a hitstop, so it would exercise the
-// rollback machinery over about a third of the state and report success.
 func inputSeq(n int) [][2]uint16 {
 	buttons := [...]uint16{InLP, InMP, InHP, InLK, InMK, InHK}
 	in := make([][2]uint16, n)
@@ -27,12 +23,7 @@ func inputSeq(n int) [][2]uint16 {
 	return in
 }
 
-// The rollback correctness test. Run 100 frames straight; run the same 100
-// frames again while forcing rollbacks of depth 1..8 along the way. The final
-// checksums must be identical.
-//
-// This fails immediately if any gameplay state ever lives outside GameState,
-// which is the only reason it is worth having.
+// The rollback correctness test.
 func TestRollbackReplayMatchesStraightRun(t *testing.T) {
 	const frames = 100
 	in := inputSeq(frames)
@@ -110,7 +101,7 @@ func BenchmarkAdvance(b *testing.B) {
 }
 
 // One frame plus a full-depth correction — 9 sim steps, the worst case that
-// still has to fit in 16.6 ms. Target: < 4 ms in WASM.
+// still has to fit in 16.6 ms.
 func BenchmarkAdvanceWithRollback8(b *testing.B) {
 	s, in := NewSession(), inputSeq(64)
 	for i := range MaxRollback * 2 {

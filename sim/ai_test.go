@@ -3,9 +3,8 @@ package sim
 import "testing"
 
 // The rule tests run with the imperfection roll switched off, because it exists
-// to make the AI *not* take the rule it found: with it on, "anti-airs a jump-in"
-// is a statement about a percentage rather than about the rule list. The roll
-// has a test of its own below.
+// to make the AI *not* take the rule it found: with it on, "anti-airs a
+// jump-in" is a statement about a percentage rather than about the rule list.
 func certain(t *testing.T) {
 	t.Helper()
 	b := testBalance()
@@ -18,8 +17,7 @@ func certain(t *testing.T) {
 }
 
 // A seat nobody is driving presses nothing, and the input passed for it is
-// still the input it gets. The AI is opt-in per seat or it is a bug in every
-// match ever played.
+// still the input it gets.
 func TestAHumanSeatIsUntouched(t *testing.T) {
 	s := New()
 	if got := s.aiInput(0); got != 0 {
@@ -32,9 +30,9 @@ func TestAHumanSeatIsUntouched(t *testing.T) {
 	}
 }
 
-// **The property the whole design rests on**: the AI decides inside the sim,
-// from state, with the state's own generator — so the same match setup plays
-// out identically every time, and an AI match is a replayable one.
+// The property the whole design rests on: the AI decides inside the sim, from
+// state, with the state's own generator — so the same match setup plays out
+// identically every time, and an AI match is a replayable one.
 func TestAnAIMatchIsReproducible(t *testing.T) {
 	play := func() uint32 {
 		s := NewAIMatch(AIHard)
@@ -51,8 +49,7 @@ func TestAnAIMatchIsReproducible(t *testing.T) {
 
 // A rollback replays the AI's decisions rather than re-rolling them: its plan
 // and the generator it drew from are both in the state, so rewinding takes them
-// back together. This is the same test the rollback gate runs on human input,
-// pointed at the one input source that is generated inside the sim.
+// back together.
 func TestAIDecisionsRollBack(t *testing.T) {
 	s := NewAIMatch(AIHard)
 	s.Players[0].AI = AIEasy
@@ -135,9 +132,9 @@ func TestAIAntiAirsAJumpIn(t *testing.T) {
 	}
 }
 
-// **Reaction delay is the honest difficulty lever** (D63), so it has to
-// actually delay something: an attack the AI has not had time to see is one it
-// does not block, whatever its block percentage says.
+// Reaction delay is the honest difficulty lever (D63), so it has to actually
+// delay something: an attack the AI has not had time to see is one it does not
+// block, whatever its block percentage says.
 func TestAIDoesNotReactBeforeItCouldHaveSeen(t *testing.T) {
 	certain(t)
 
@@ -192,14 +189,12 @@ func TestTheImperfectionRollIgnoresTheRules(t *testing.T) {
 }
 
 // Difficulty is the two levers and nothing else, so a harder tier must show up
-// as behaviour: it blocks more of what it sees. Counted over many decisions,
-// because one roll says nothing.
+// as behaviour: it blocks more of what it sees.
 func TestHarderTiersBlockMoreOften(t *testing.T) {
 	blocks := func(tier int32) int {
 		s := NewAIMatch(tier)
 		// Beyond close range on purpose: inside it, a recovering attack is a
-		// punish and the block rule is never reached. The distance is what
-		// separates the two rules, and this test is about the block one.
+		// punish and the block rule is never reached.
 		s.Players[0].X = FromInt(-40)
 		s.Players[1].X = FromInt(40)
 		s.Players[0].State = StateAttack
@@ -225,7 +220,7 @@ func TestHarderTiersBlockMoreOften(t *testing.T) {
 // The dragon punch is pressed with the shortcut motion, and that is not a
 // convenience: two of them in a row would otherwise spell a double
 // quarter-circle across the gap between them, and the supers are scanned first
-// (D78, D96). Read as directions, the AI's anti-air must contain no diagonal.
+// (D78, D96).
 func TestTheAIsDragonPunchHasNoDiagonal(t *testing.T) {
 	for age := int32(0); age < 3; age++ {
 		bits := aiPress(aiDP, age, 1)
@@ -286,8 +281,7 @@ func TestTheAIDeviceDecidesWithoutTouchingTheMatch(t *testing.T) {
 		t.Error("the device pressed nothing at all in 40 frames")
 	}
 
-	// Same tier, same seed, same state: the same opponent. A harness run that
-	// did not repeat could not bisect the desync it found.
+	// Same tier, same seed, same state: the same opponent.
 	again := NewAIDevice(AIHard, 7)
 	for f, want := range pressed {
 		if got := again.Press(&s, 1); got != want {
@@ -319,13 +313,7 @@ func pressedSomething(in []uint16) bool {
 	return false
 }
 
-// **A round reset is not a new match.** startRound copies a fresh player over
-// each seat to clear health, position and resources, and it used to take the
-// difficulty tier with it — so the opponent stood still from round 2 onward,
-// which is most of a best-of-three. The tier is match setup, like the character.
-//
-// The tests above all played inside round 1 and every one of them passed while
-// this was broken, which is why this one exists at the round boundary.
+// A round reset is not a new match.
 func TestTheAISurvivesARoundReset(t *testing.T) {
 	s := NewAIMatch(AIHard)
 
@@ -342,8 +330,7 @@ func TestTheAISurvivesARoundReset(t *testing.T) {
 		t.Fatalf("the tier is %d after the round reset, want %d", got, AIHard)
 	}
 
-	// And it is pressing buttons, not merely configured to. Its presses are
-	// recorded in the history ring like anybody's, which is where they show.
+	// And it is pressing buttons, not merely configured to.
 	pressed := false
 	for f := 0; f < 60 && !pressed; f++ {
 		s.Advance([2]uint16{0, 0})
@@ -356,12 +343,7 @@ func TestTheAISurvivesARoundReset(t *testing.T) {
 	}
 }
 
-// **The rule list asks what the character owns.** A grappler has no dragon
-// punch and no fireball, and the list was written against a Shoto — pressing
-// either is a plan that produces a jab or nothing at all, which from outside
-// is an opponent standing still at the range it exists to close.
-//
-// Fixture entry 1 is the entry with no dragon punch (see TestMain).
+// The rule list asks what the character owns.
 func TestAICharacterWithoutADPAntiAirsWithANormal(t *testing.T) {
 	certain(t)
 
@@ -379,8 +361,7 @@ func TestAICharacterWithoutADPAntiAirsWithANormal(t *testing.T) {
 }
 
 // Out of blockstun the answer is the same question asked again: the dragon
-// punch if there is one. A character without one has no reversal since D115 cut
-// the Drive Reversal, and must not press a motion it does not own.
+// punch if there is one.
 func TestAICharacterWithoutADPDoesNotReverse(t *testing.T) {
 	certain(t)
 
@@ -408,12 +389,7 @@ func TestAICharacterWithoutADPDoesNotReverse(t *testing.T) {
 	}
 }
 
-// A fireball is refused outright rather than pressed and dropped. The plan that
-// takes its place at full screen is the approach, which is exactly what a
-// character with no projectile should be doing about the distance.
-//
-// Both halves, because "it approached" is also what a broken rule looks like if
-// the fireball never fires for anybody.
+// A fireball is refused outright rather than pressed and dropped.
 func TestAICharacterWithoutAProjectileWalksIn(t *testing.T) {
 	certain(t)
 

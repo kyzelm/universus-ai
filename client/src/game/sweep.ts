@@ -5,32 +5,22 @@ import {createSamples} from './stats'
 /**
  * M-A, measured deliberately rather than waited for: frame time at forced
  * rollback depths 0 through 8 (01 Thesis/Measurement Methodology.md).
- *
- * **Why forcing beats observing.** The per-depth buckets in the netplay stats
- * report what a real match happened to cost, and a real match decides its own
- * depths — a healthy connection never produces a depth-8 frame at all, so the
- * one cell the 16.6 ms budget is really about is the cell a session is least
- * likely to fill. Here every depth is run on demand, on a fixed input stream,
- * so the table is complete and repeatable.
- *
- * **Why it runs in the browser.** `tools/bench.mjs` measures the same shapes in
- * Node, and M0 recorded them there — same binary, same V8, but no compositor,
- * no page and no rAF. The result chapter's M-A figure has to come from the host
- * the game actually runs in, and this is that harness.
  */
 export interface SweepSim {
-  /** Restarts the match. Called between batches, never inside a timed one. */
+  /** Restarts the match. */
   reset(): void
   advance(p1: number, p2: number): void
-  /** Restores the state at the start of `frame`; false is outside the window. */
+  /**
+   * Restores the state at the start of `frame`; false is outside the window.
+   */
   rewind(frame: number): boolean
 }
 
 export interface SweepRow {
   depth: number
-  /** Timed batches. The distribution is over batches, not over single frames. */
+  /** Timed batches. */
   samples: number
-  /** Frames per batch. Varies by depth — see `batchFor`. */
+  /** Frames per batch. */
   batch: number
   /** Milliseconds per frame at this depth, including the replay it forced. */
   p25: number
@@ -66,11 +56,6 @@ const DEFAULTS: Required<SweepOptions> = {
  * One frame at depth `d` costs `d + 1` sim steps, so a fixed frame count per
  * batch would do nine times the work at depth 8 that it does at depth 0 — and
  * the depths would then be timed against different amounts of clock noise.
- * Dividing keeps the work per batch roughly constant instead.
- *
- * A single frame is far below timer resolution (`performance.now` is coarsened
- * deliberately in every browser), which is why anything is batched at all: the
- * distribution catches sustained stalls, GC and deopt, and hides one-off spikes.
  */
 export function batchFor(depth: number, stepsPerBatch: number): number {
   return Math.max(1, Math.round(stepsPerBatch / (depth + 1)))
@@ -78,7 +63,7 @@ export function batchFor(depth: number, stepsPerBatch: number): number {
 
 /**
  * Runs the sweep, yielding to the event loop often enough that a page can draw
- * its progress. `onDepth` is called before each depth starts.
+ * its progress.
  */
 export async function runSweep(
   sim: SweepSim,
@@ -101,8 +86,7 @@ async function measureDepth(
   cfg: Required<SweepOptions>,
 ): Promise<SweepRow> {
   // The same stream every depth sees, and the same one twice if the sweep is
-  // re-run: a measurement that cannot be repeated is an anecdote. Two seeds,
-  // because two seats pressing identical buttons is not a match.
+  // re-run: a measurement that cannot be repeated is an anecdote.
   const p1 = createBot(1)
   const p2 = createBot(2)
   const bits: number[] = []
@@ -112,8 +96,7 @@ async function measureDepth(
     const a = p1.poll()
     const b = p2.poll()
     // Kept because the replay has to feed the sim what it fed it the first
-    // time. Replaying different inputs would measure a different match, and
-    // the rollback the net layer performs replays the frames it already ran.
+    // time.
     bits[frame * 2] = a
     bits[frame * 2 + 1] = b
     sim.advance(a, b)
@@ -170,17 +153,7 @@ async function measureDepth(
   }
 }
 
-/**
- * Hands the event loop one turn, so the page can paint what depth it is on.
- *
- * A `setTimeout` would be clamped to a second or more the moment the tab stops
- * being visible — the same throttling that gave a hidden guest `frame p50
- * 100 ms` while verifying the HUD (01 Thesis/Measurement Methodology.md). A
- * message port is not clamped, so a sweep left running behind another window
- * finishes in the time the work takes rather than the time the clamp imposes.
- * Nothing timed happens here either way: the batches are measured around a
- * synchronous loop, and this runs between them.
- */
+/** Hands the event loop one turn, so the page can paint what depth it is on. */
 function yieldNow(): Promise<void> {
   return new Promise((resolve) => {
     const {port1, port2} = new MessageChannel()
@@ -192,13 +165,7 @@ function yieldNow(): Promise<void> {
   })
 }
 
-/**
- * The rows as a file, with the run's own conditions in the first line.
- *
- * Every chart states its own measurement method, and the reporting rules ask
- * for the host and the trial count beside every figure — a CSV that carries
- * neither becomes an orphan the week after it is saved.
- */
+/** The rows as a file, with the run's own conditions in the first line. */
 export function toCSV(rows: readonly SweepRow[], note: string): string {
   const head = `# ${note}`
   const cols = 'depth,samples,batch,p25_ms,p50_ms,p75_ms,p99_ms,max_ms'

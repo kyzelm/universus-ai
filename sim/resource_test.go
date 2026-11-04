@@ -4,13 +4,10 @@ import "testing"
 
 // The gauges are fields of GameState, so they roll back with everything else —
 // that is covered by the layout invariant and the rollback test, not repeated
-// here. What is tested here is the arithmetic: what a block costs, when Burnout
-// starts and ends, and who builds meter from a hit.
+// here.
 
 // blocked runs player 0's jab into a player 1 who is holding away, and stops on
-// the frame the block lands. Stopping there matters: blockstun expires, and a
-// check made after the move recovered would pass for a build that produced no
-// blockstun at all.
+// the frame the block lands.
 func blocked(t *testing.T, s *GameState) {
 	t.Helper()
 	s.Advance([2]uint16{InLP, InRight})
@@ -38,8 +35,7 @@ func TestDriveStartsFullAndSuperStartsEmpty(t *testing.T) {
 	}
 }
 
-// Blocking spends Drive. This is the pressure loop: defence costs a resource,
-// and the resource running out is Burnout.
+// Blocking spends Drive.
 func TestBlockingSpendsDrive(t *testing.T) {
 	s := facing(30)
 	blocked(t, &s)
@@ -57,8 +53,7 @@ func TestBlockingSpendsDrive(t *testing.T) {
 	}
 }
 
-// Regeneration is slow in neutral, faster walking in. The asymmetry is the
-// point: moving forward is rewarded.
+// Regeneration is slow in neutral, faster walking in.
 func TestDriveRegeneratesFasterWalkingForward(t *testing.T) {
 	b := BalanceOf()
 
@@ -82,8 +77,7 @@ func TestDriveRegeneratesFasterWalkingForward(t *testing.T) {
 	}
 }
 
-// Blockstun pauses regeneration. Without this the gauge the attacker is
-// draining refills between their hits and the pressure loop never closes.
+// Blockstun pauses regeneration.
 func TestBlockstunPausesDriveRegen(t *testing.T) {
 	s := facing(30)
 	blocked(t, &s)
@@ -114,9 +108,7 @@ func TestBurnoutStartsWhenTheGaugeEmpties(t *testing.T) {
 	}
 }
 
-// Burnout ends when the gauge is *full*, not when it is above zero. Ending it
-// early would hand the Drive mechanics back for one bar and make being burnt
-// out a formality.
+// Burnout ends when the gauge is *full*, not when it is above zero.
 func TestBurnoutEndsOnlyWhenTheGaugeIsFull(t *testing.T) {
 	s := New()
 	s.Players[0].Drive, s.Players[0].Burnout = 0, 1
@@ -208,9 +200,7 @@ func TestBurnoutChipsOnlyOnSpecials(t *testing.T) {
 	})
 }
 
-// A burnt-out gauge is already empty and refilling. Taking from it again would
-// extend Burnout for as long as the pressure lasts, which is a loop with no
-// exit.
+// A burnt-out gauge is already empty and refilling.
 func TestBurnoutTakesNoFurtherDrive(t *testing.T) {
 	s := facing(30)
 	s.Players[1].Drive, s.Players[1].Burnout = 0, 1
@@ -283,8 +273,7 @@ func TestALandedSpecialPaysItsBonus(t *testing.T) {
 	}
 }
 
-// Super does not regenerate. That asymmetry with Drive is deliberate: Drive is
-// a per-round tactical resource, Super a per-match strategic one.
+// Super does not regenerate.
 func TestSuperNeverRegenerates(t *testing.T) {
 	s := New()
 	run(&s, 300, [2]uint16{0, 0})
@@ -302,8 +291,6 @@ func TestSuperIsCapped(t *testing.T) {
 }
 
 // A bar is a round number of units so that a half-bar cost is an exact integer.
-// The design note is explicit about it, and the fractional Drive costs depend
-// on it.
 func TestABarIsAnEvenNumberOfUnits(t *testing.T) {
 	if BarUnits%2 != 0 {
 		t.Errorf("BarUnits is %d: a half-bar cost would not be an integer", BarUnits)

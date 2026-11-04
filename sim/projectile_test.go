@@ -3,7 +3,7 @@ package sim
 import "testing"
 
 // fireball puts player 0 through QCF+LP and returns the state on the frame the
-// projectile appears. The fixture's special is the third move.
+// projectile appears.
 func fireball(t *testing.T) GameState {
 	t.Helper()
 	s := New()
@@ -88,8 +88,7 @@ func TestFireballTravelsAtItsSpeed(t *testing.T) {
 	}
 }
 
-// Facing is the direction of travel, taken at the spawn. The owner may turn
-// around afterwards; the fireball does not turn with them.
+// Facing is the direction of travel, taken at the spawn.
 func TestFireballMirrorsWithFacing(t *testing.T) {
 	s := New()
 	for _, d := range []uint8{2, 3} {
@@ -230,8 +229,7 @@ func TestAProjectileHitDoesNotSpendTheOwnersMove(t *testing.T) {
 	}
 }
 
-// A full pool drops the new one. Evicting a live fireball instead would let a
-// player's own input delete a projectile already on screen.
+// A full pool drops the new one.
 func TestPoolIsBounded(t *testing.T) {
 	s := New()
 	mv := &char().Moves[2]
@@ -244,8 +242,7 @@ func TestPoolIsBounded(t *testing.T) {
 	}
 }
 
-// Projectiles are state, so they roll back. This is the test that fails if the
-// pool is ever moved out of GameState for tidiness.
+// Projectiles are state, so they roll back.
 func TestProjectilesRollBack(t *testing.T) {
 	sess := NewSession()
 	for _, in := range [][2]uint16{{pad[2], 0}, {pad[3], 0}, {pad[6] | InLP, 0}} {
@@ -278,13 +275,7 @@ func TestProjectilesRollBack(t *testing.T) {
 
 // Point blank, a projectile is born inside the defender and resolves on its
 // spawn frame — it is never alive at the end of a frame, and the view never
-// draws it. That is correct, and it is also the case a playtest found.
-//
-// What it pins down is the frame after: the hit's hitstop parks the state
-// machine on the spawn frame for several frames, and the move must not fire a
-// second projectile on each of them. Nothing enforces that but the order of
-// Advance, which returns during hitstop before advanceProjectiles can run —
-// so this test is what will notice if that order ever changes.
+// draws it.
 func TestHitstopOnTheSpawnFrameCannotRespawn(t *testing.T) {
 	s := New()
 	s.Players[1].X = FromInt(-30) // inside where the fireball appears

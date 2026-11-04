@@ -3,7 +3,7 @@ package sim
 import "testing"
 
 // facing puts the two players at a distance where move 0 reaches, both on the
-// ground, facing each other. Returns the state ready for frame 1.
+// ground, facing each other.
 func facing(gap int) GameState {
 	s := New()
 	s.Players[0].X = FromInt(-gap / 2)
@@ -109,8 +109,7 @@ func TestAttackConnectsAndDealsDamage(t *testing.T) {
 	}
 }
 
-// One active window, one hit. Without this a three-frame active window deals
-// its damage three times.
+// One active window, one hit.
 func TestOneActiveWindowHitsOnce(t *testing.T) {
 	s := facing(30)
 	full := s.Players[1].Health
@@ -145,10 +144,7 @@ func TestBlockingCostsNoHealthAndGivesBlockstun(t *testing.T) {
 	mv := &char().Moves[0]
 	full := s.Players[1].Health
 
-	// Player 1 faces left, so holding right is holding away. Stop on the frame
-	// the block lands: blockstun is 11 frames and checking after the move has
-	// fully recovered would find it already expired, which would pass for a
-	// build that produced no blockstun at all.
+	// Player 1 faces left, so holding right is holding away.
 	s.Advance([2]uint16{InLP, InRight})
 	blocked := false
 	for range 60 {
@@ -173,8 +169,7 @@ func TestBlockingCostsNoHealthAndGivesBlockstun(t *testing.T) {
 	}
 }
 
-// Standing blocks mids and highs; a low must be blocked crouching. Getting this
-// wrong makes one of the two attack levels meaningless.
+// Standing blocks mids and highs; a low must be blocked crouching.
 func TestBlockLevels(t *testing.T) {
 	low := &char().Moves[1] // crouching low, must be blocked crouching
 
@@ -207,8 +202,7 @@ func TestBlockLevels(t *testing.T) {
 	}
 }
 
-// Hitstop freezes both fighters. It is not cosmetic: it changes when the next
-// action can happen, which is why it is in the sim at all.
+// Hitstop freezes both fighters.
 func TestHitstopFreezesBothFighters(t *testing.T) {
 	s := facing(30)
 	mv := &char().Moves[0]
@@ -242,9 +236,7 @@ func TestHitstopFreezesBothFighters(t *testing.T) {
 	}
 }
 
-// A trade is both attacks landing on the same frame. The fixed P1-then-P2 order
-// exists so this resolves identically on both machines instead of depending on
-// which player the loop reached first.
+// A trade is both attacks landing on the same frame.
 func TestSimultaneousHitsTrade(t *testing.T) {
 	s := facing(30)
 	mv := &char().Moves[0]
@@ -257,8 +249,7 @@ func TestSimultaneousHitsTrade(t *testing.T) {
 	}
 
 	// Both were attacking when they were hit, so both hits are counter hits:
-	// the jab's 80 at the fixture's 150%. A trade is the one exchange where
-	// that is true of both players at once.
+	// the jab's 80 at the fixture's 150%.
 	const traded = jabFirstHit * 150 / 100
 	for i := range s.Players {
 		if got := full[i] - s.Players[i].Health; got != traded {
@@ -268,9 +259,7 @@ func TestSimultaneousHitsTrade(t *testing.T) {
 }
 
 // Detection is separated from resolution so both directions see the same
-// positions. If resolution ran inline, player 0's hit would put player 1 in
-// hitstun before player 1's hitboxes were ever tested, and the trade above
-// would silently become a one-sided hit.
+// positions.
 func TestTradeDoesNotDependOnPlayerOrder(t *testing.T) {
 	mirror := func(s GameState) GameState {
 		s.Players[0], s.Players[1] = s.Players[1], s.Players[0]
@@ -303,8 +292,7 @@ func TestHealthNeverGoesNegative(t *testing.T) {
 	}
 }
 
-// Frame advantage is computed from the frame data, never authored. A
-// hand-entered number drifts the moment anything is tuned.
+// Frame advantage is computed from the frame data, never authored.
 func TestAdvantageIsDerived(t *testing.T) {
 	m := Move{Startup: 4, Active: 3, Recovery: 6, Hitstun: 14, Blockstun: 11}
 	if got, want := m.Total(), int32(13); got != want {
@@ -341,8 +329,7 @@ func TestBoxesAtPersistsBetweenKeyframes(t *testing.T) {
 }
 
 // Facing is not cosmetic: it decides which way is forward, which way motions
-// read, which way boxes mirror, and which direction blocks. A player who has
-// been crossed up and still faces the old way cannot block at all.
+// read, which way boxes mirror, and which direction blocks.
 func TestPlayersTurnToFaceEachOther(t *testing.T) {
 	s := New()
 	s.Players[0].X = FromInt(40)
@@ -408,8 +395,7 @@ func TestAttackerDoesNotTurnMidMove(t *testing.T) {
 }
 
 // The bug this pair exists to catch: after a side swap, "hold away" must still
-// be away. Blocking is read from facing, so a stale facing means the defender
-// eats everything while holding what looks like block.
+// be away.
 func TestBlockingWorksAfterASideSwap(t *testing.T) {
 	s := New()
 	// Swap them: player 1 is now on the left, so its "away" is right-to-left.
@@ -440,8 +426,7 @@ func TestBlockingWorksAfterASideSwap(t *testing.T) {
 }
 
 // Crouch-blocking: down-back blocks both lows and mids, down alone blocks
-// nothing. This is the combination that is easy to get wrong by treating
-// "crouching" and "holding back" as separate states.
+// nothing.
 func TestCrouchBlockingCoversLowsAndMids(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -477,8 +462,7 @@ func TestCrouchBlockingCoversLowsAndMids(t *testing.T) {
 }
 
 // Invincible frames are the absence of hurtboxes, and Hurtboxes is the one
-// funnel every attack and every projectile asks. A move inside its window
-// answers nothing, so there is nothing to hit.
+// funnel every attack and every projectile asks.
 func TestInvulnerableFramesHaveNoHurtboxes(t *testing.T) {
 	s := New()
 	mv := &char().Moves[7]
@@ -497,8 +481,7 @@ func TestInvulnerableFramesHaveNoHurtboxes(t *testing.T) {
 }
 
 // The point of the window: a reversal beats an attack that would beat it on
-// frames alone. The jab is faster and connects first; the reversal is not there
-// to be hit, and comes back down on the player who threw it.
+// frames alone.
 func TestAReversalBeatsAFasterAttack(t *testing.T) {
 	s := facing(30)
 	rev, jab := &char().Moves[7], &char().Moves[0]
@@ -527,8 +510,7 @@ func TestAReversalBeatsAFasterAttack(t *testing.T) {
 	}
 }
 
-// And the other half: past the window the same attack connects. Otherwise the
-// test above would pass on a move that simply never gets hit.
+// And the other half: past the window the same attack connects.
 func TestTheWindowEnds(t *testing.T) {
 	s := facing(300) // far enough that the reversal itself whiffs
 	rev := &char().Moves[7]

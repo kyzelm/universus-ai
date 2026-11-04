@@ -3,10 +3,6 @@ package sim
 import "testing"
 
 // The supers are three things at once: a motion, a price and a cancel target.
-// Each is tested on its own, because each fails differently — a motion that is
-// not recognised is a move nobody can do, a price that is not checked is a
-// level 3 on every press, and a cancel tier that is not enforced is the combo
-// system with its tiering removed.
 
 // qcfx2 and qcbx2 input the double motion and press button on the final frame,
 // the way every other motion test in this package does: the last direction and
@@ -29,8 +25,7 @@ func TestSuperMotionsAreRecognised(t *testing.T) {
 	}{
 		{"double quarter-circle forward", []uint8{2, 3, 6, 2, 3, 6}, MotionQCFx2},
 		{"double quarter-circle back", []uint8{2, 1, 4, 2, 1, 4}, MotionQCBx2},
-		// One quarter-circle is not two. The meter would otherwise be the only
-		// thing between a fireball input and a level 3.
+		// One quarter-circle is not two.
 		{"a single quarter-circle is not a super motion", []uint8{2, 3, 6}, MotionQCF},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -44,8 +39,7 @@ func TestSuperMotionsAreRecognised(t *testing.T) {
 }
 
 // The doubles must be scanned before DP, and this is the reason: read backward,
-// ↓↘→↓↘→ offers →, ↓, ↘ in exactly the order a dragon punch wants. A super
-// motion checked after DP is a dragon punch every time.
+// ↓↘→↓↘→ offers →, ↓, ↘ in exactly the order a dragon punch wants.
 func TestSuperMotionBeatsDP(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3, 6, 2, 3, 6)
@@ -62,7 +56,7 @@ func TestSuperMotionBeatsDP(t *testing.T) {
 }
 
 // A double quarter-circle is a quarter-circle that kept going, so the same
-// input has to be able to produce the cheaper move. Never the other way round.
+// input has to be able to produce the cheaper move.
 func TestDoubleMotionSatisfiesTheSingle(t *testing.T) {
 	for _, tc := range []struct {
 		got, want Motion
@@ -101,8 +95,6 @@ func TestCancelCategoryIsDerived(t *testing.T) {
 }
 
 // The meter is checked when the move is *selected*, not after it comes out.
-// That is what lets one input produce the fireball when the bar is not there:
-// a super refused during the search leaves the cheaper move to win the press.
 func TestASuperWithoutTheMeterIsTheSpecial(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -162,8 +154,7 @@ func TestPerformingASuperSpendsItsBars(t *testing.T) {
 
 // connect runs player 0's move until it has connected and the hitstop it caused
 // has run out, which is when the cancel window is open *and* inputs are being
-// read again. Hitstop freezes the state machine, so a motion input entirely
-// inside it never reaches resolveInputs.
+// read again.
 func connect(t *testing.T, s *GameState, in uint16) {
 	t.Helper()
 	s.Advance([2]uint16{in, 0})
@@ -176,9 +167,7 @@ func connect(t *testing.T, s *GameState, in uint16) {
 	t.Fatal("the move never connected, so no cancel window opened")
 }
 
-// The tiering is data: a source move names the levels it feeds. A cancelable
-// normal feeds level 1; the fixture's low feeds level 3 and nothing else, which
-// is the heavy's tier.
+// The tiering is data: a source move names the levels it feeds.
 func TestCancelTiersComeFromTheSource(t *testing.T) {
 	t.Run("a cancelable normal reaches the level 1", func(t *testing.T) {
 		s := facing(30)

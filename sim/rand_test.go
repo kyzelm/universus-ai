@@ -17,9 +17,7 @@ func TestSameSeedSameSequence(t *testing.T) {
 	}
 }
 
-// The reason the generator lives in GameState and not beside it. Save, draw,
-// restore, draw again: the second run must repeat the first exactly, or a
-// rollback would silently change every random outcome after it.
+// The reason the generator lives in GameState and not beside it.
 func TestRandRollsBackWithTheState(t *testing.T) {
 	s := New()
 	for range 20 {
@@ -60,8 +58,7 @@ func TestRandAdvancesAndNeverSticks(t *testing.T) {
 }
 
 // A hand-built GameState{} has a zero generator, which is xorshift's fixed
-// point. Rand guards it; without the guard this returns zero forever and every
-// random decision in a test-built state silently collapses to the same branch.
+// point.
 func TestZeroStateStillGenerates(t *testing.T) {
 	var s GameState
 	if got := s.Rand(); got == 0 {
@@ -87,8 +84,7 @@ func TestRandNStaysInRange(t *testing.T) {
 }
 
 // Multiply-shift is easy to get wrong in a way that stays in range — a shift of
-// 31 or 33 biases hard toward one end while every value still looks legal. Every
-// bucket getting hit is the cheapest check that catches it.
+// 31 or 33 biases hard toward one end while every value still looks legal.
 func TestRandNCoversItsRange(t *testing.T) {
 	s := New()
 	var seen [6]int

@@ -1,8 +1,4 @@
-# The determinism gate, in CI. Minutes, not hours — a gate nobody waits for is
-# a gate nobody runs.
-#
-# Order matters and mirrors CLAUDE.md: the cheap static checks fail first, then
-# the unit tests, then the differential that is the point of the whole project.
+# The determinism gate, in CI.
 name: CI
 
 on:
@@ -14,10 +10,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
-    # Postgres for the migration and store tests. Without it they skip, and the
-    # schema is a file nobody has ever run — the one part of the backend a fake
-    # store cannot check is whether the SQL is valid and the constraints the
-    # schema promises are really enforced. A service container costs seconds.
+    # Postgres for the migration and store tests.
     services:
       postgres:
         image: postgres:16-alpine
@@ -52,8 +45,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: client/pnpm-lock.yaml
 
-      # For tools/sprites.py. A managed interpreter rather than the runner's
-      # system python, which refuses `pip install` outside a virtualenv.
+      # For tools/sprites.py.
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -70,15 +62,7 @@ jobs:
           fi
 
       # The sprite sheets carry a move-index-to-tag table (D113), because the
-      # view gets a moveIndex and sim.Move has no name to give it. Nothing at
-      # runtime proves that table still matches the embedded character data:
-      # add a move, forget to regenerate, and the wrong animation plays with no
-      # error anywhere. Regenerating here and refusing a diff makes the drift
-      # impossible rather than merely detectable.
-      #
-      # Only the JSON is compared. The PNGs are pixels out of whatever Pillow
-      # the runner installed, and byte-identical output across versions is not
-      # a promise anyone made — the tags are the thing that can silently rot.
+      # view gets a moveIndex and sim.Move has no name to give it.
       - name: Sprite tags match the roster
         run: |
           python3 -m pip install --quiet Pillow
@@ -109,18 +93,14 @@ jobs:
       - run: pnpm lint
         working-directory: client
 
-      # The WASM binary and wasm_exec.js are build output, so they are not in the
-      # repo — and src/sim/wasm.test.ts loads the real one, because a byte layout
-      # agreed with a mock is a layout nobody checked. Built here rather than in
-      # `pnpm build`, which runs after the tests that need it.
+      # The WASM binary and wasm_exec.js are build output, so they are not in
+      # the repo — and src/sim/wasm.test.ts loads the real one, because a byte
+      # layout agreed with a mock is a layout nobody checked.
       - run: pnpm wasm
         working-directory: client
 
       # Includes the bot-vs-bot harness (D49): two headless clients, two real
-      # WASM sims, scripted inputs and 100 ms / 15 ms jitter / 5% loss. With one
-      # machine and no partner on call it is the primary desync detector, so CI
-      # plays three seeded matches rather than one — each is about a second, and
-      # BOT_SEEDS raises it for an unattended soak.
+      # WASM sims, scripted inputs and 100 ms / 15 ms jitter / 5% loss.
       - run: pnpm exec vitest run
         working-directory: client
         env:

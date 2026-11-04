@@ -11,9 +11,7 @@ import (
 	"universus/sim/replaylog"
 )
 
-// The shipped roster, loaded once. The verification worker re-simulates with
-// the same character data the clients played on, so a test of it has to be
-// running the same sim the server does rather than a fixture.
+// The shipped roster, loaded once.
 var loadRoster = sync.OnceValue(func() uint32 {
 	cs, err := data.Load()
 	if err != nil || !sim.LoadCharacters(cs) {
@@ -43,8 +41,7 @@ func playedMatch(t *testing.T) (logBytes, checksums []byte, winner, endFrame int
 
 	var inputs [][2]uint16
 	var sums []uint32
-	// Seat 1 walks in and swings; seat 2 stands there. The match ends by KO
-	// rather than by timeout, which keeps the log short enough to read.
+	// Seat 1 walks in and swings; seat 2 stands there.
 	for s.State().Winner == sim.RoundNobody {
 		in := [2]uint16{sim.InRight, 0}
 		if len(inputs)%12 < 2 {
@@ -78,10 +75,7 @@ func TestAnHonestMatchVerifies(t *testing.T) {
 	}
 }
 
-// **The comparison is the checkpoint hashes, not the final state.** A match
-// that diverges in the middle and lands somewhere plausible is still a match
-// that did not happen, and the frame they first disagree on is the only
-// diagnostic worth having.
+// The comparison is the checkpoint hashes, not the final state.
 func TestATamperedChecksumIsCaughtAtTheFrameItHappened(t *testing.T) {
 	logBytes, checksums, winner, endFrame := playedMatch(t)
 	v := verifier{dataVersion: loadRoster()}
@@ -120,8 +114,7 @@ func TestAMisreportedOutcomeIsCaught(t *testing.T) {
 }
 
 // A log recorded against different frame data replays into a different match
-// through no fault of either player. **Not a verdict about them**, which is why
-// it is a reason rather than a mismatch anybody gets flagged for.
+// through no fault of either player.
 func TestDataFromAnotherBuildIsNotAnAccusation(t *testing.T) {
 	logBytes, checksums, winner, endFrame := playedMatch(t)
 
@@ -170,9 +163,7 @@ func TestTheCheckpointCountsHaveToAgree(t *testing.T) {
 }
 
 // A disconnect match's log stops mid-match by definition: the winner was
-// decided by policy rather than by the simulation. Asking the replay who won
-// would fail every honest disconnect, so it is not asked — and what is still
-// checked is that the log replays to its own hashes.
+// decided by policy rather than by the simulation.
 func TestADisconnectIsNotAskedWhoWon(t *testing.T) {
 	logBytes, checksums, _, endFrame := playedMatch(t)
 	v := verifier{dataVersion: loadRoster()}

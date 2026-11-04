@@ -15,12 +15,6 @@ import (
 
 // The migration runner and the store against a real Postgres.
 //
-// **Skipped unless TEST_DATABASE_URL is set**, because the unit tests beside it
-// must run on any machine with a Go toolchain and nothing else. What this adds
-// is the half a fake cannot check: that the SQL is valid, that the constraints
-// the schema promises are really enforced, and that running the migrations
-// twice is not running them twice.
-//
 //	docker run --rm -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=universus -p 55432:5432 postgres:16-alpine
 //	TEST_DATABASE_URL=postgres://postgres:dev@localhost:55432/universus go test ./server/
 func testPool(t *testing.T) (context.Context, *pgxpool.Pool) {
@@ -117,10 +111,6 @@ func TestTheStoreEnforcesWhatTheSchemaPromises(t *testing.T) {
 }
 
 // --- match results and the ladder ------------------------------------------
-//
-// Tested against a real Postgres rather than a fake, because what is under test
-// *is* the SQL: two transactions, a unique index doing the "already submitted"
-// check, and a rating that has to move for exactly two accounts.
 
 func twoPlayers(t *testing.T, ctx context.Context, p *pgxpool.Pool) (pgStore, matchStore, User, User) {
 	t.Helper()
@@ -239,9 +229,7 @@ func TestACasualResultChangesNoRating(t *testing.T) {
 	}
 }
 
-// **Two clients that disagree void the match and flag both accounts.** Check 1
-// cannot tell a liar from a desync that went undetected, which is exactly why
-// the consequence is a flag for a person to look at rather than a ban.
+// Two clients that disagree void the match and flag both accounts.
 func TestADisagreementVoidsTheMatchAndFlagsBoth(t *testing.T) {
 	ctx, p := testPool(t)
 	users, matches, a, b := twoPlayers(t, ctx, p)
@@ -393,8 +381,7 @@ func TestAnHonestMatchSurvivesVerification(t *testing.T) {
 	}
 }
 
-// **The correction.** LP was paid on cross-client agreement (D109); this is
-// where a match that could not be replayed takes it back.
+// The correction.
 func TestAMatchThatFailsResimulationIsReversed(t *testing.T) {
 	ctx, p := testPool(t)
 	// Both clients upload the same tampered checksum series, which is what
@@ -463,9 +450,7 @@ func TestTwoWorkersDoNotClaimTheSameJob(t *testing.T) {
 
 // --- disconnects ------------------------------------------------------------
 
-// **The grace period is the mechanism.** Without it, whichever client's packet
-// arrived first would decide the match, and a quitter fabricating a counter
-// claim would be racing the player they quit on.
+// The grace period is the mechanism.
 func TestALoneSubmissionWaitsBeforeItCounts(t *testing.T) {
 	ctx, p := testPool(t)
 	users, matches, a, b := twoPlayers(t, ctx, p)
@@ -566,10 +551,7 @@ func TestTheSweepLeavesAMatchThatSettledItself(t *testing.T) {
 	_ = b
 }
 
-// **A plausibility anomaly flags an account and changes nothing about the
-// match.** An assist bot plays a real match: every hash it reports is correct,
-// so checks 1 and 2 have nothing to say, and voiding the result would punish
-// the opponent for somebody else's client.
+// A plausibility anomaly flags an account and changes nothing about the match.
 func TestAnImplausibleMatchIsFlaggedButStillCounts(t *testing.T) {
 	ctx, p := testPool(t)
 	users, matches, a, b := twoPlayers(t, ctx, p)

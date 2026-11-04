@@ -7,8 +7,7 @@ import (
 )
 
 // The state must stay flat and fixed-size: saveState/loadState are memcpys and
-// the checksum is a hash over a byte range. This fails the moment someone adds
-// a slice, a map or a pointer — which is exactly when it should fail.
+// the checksum is a hash over a byte range.
 func TestGameStateIsFlatAndFixedSize(t *testing.T) {
 	// Comparable at all: a slice/map/func field would make this line not compile.
 	if New() == (GameState{}) {
@@ -26,10 +25,6 @@ func TestGameStateIsFlatAndFixedSize(t *testing.T) {
 // is a byte of uninitialised memory in the hash — two machines agree on every
 // field and still disagree on the checksum, which presents as a desync with no
 // cause visible anywhere in the gameplay code.
-//
-// Walking the layout by reflection rather than pinning a hand-computed size:
-// the point is that *adding a field* cannot introduce padding unnoticed, and a
-// magic constant only tells you the size changed, not whether it is sound.
 func TestGameStateHasNoImplicitPadding(t *testing.T) {
 	assertPacked(t, reflect.TypeOf(GameState{}), "GameState")
 }
@@ -139,8 +134,7 @@ func TestWalkUsesCharacterSpeed(t *testing.T) {
 	}
 }
 
-// Pre-jump frames are grounded. This is what makes throws beat jump attempts,
-// so it is a rule and not an animation detail.
+// Pre-jump frames are grounded.
 func TestPreJumpIsGrounded(t *testing.T) {
 	s := New()
 	c := char()
@@ -271,8 +265,7 @@ func TestBackdashGoesBackwards(t *testing.T) {
 	}
 }
 
-// A single tap is a walk. Without this the dash test passes for a recogniser
-// that dashes on any forward input at all.
+// A single tap is a walk.
 func TestSingleTapDoesNotDash(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InRight, 0})
@@ -361,11 +354,6 @@ func TestCameraFollowsAndStopsAtTheWalls(t *testing.T) {
 }
 
 // Dash recognition, including the sequences that must NOT dash.
-//
-// The reported bug: back, forward, back came out as a backdash. Any rule that
-// treats the gap as "not the dash direction" does that — the player walked one
-// way, walked the other, and got a dash they never asked for. The opposite
-// direction is a different intent, not a pause inside one input.
 func TestDashRecognition(t *testing.T) {
 	// Numpad, from player 0's point of view (it starts facing right).
 	const N, F, B, D, U = 5, 6, 4, 2, 8
@@ -377,17 +365,14 @@ func TestDashRecognition(t *testing.T) {
 	}{
 		{"forward, gap, forward", []uint8{F, N, F}, StateDash},
 		{"back, gap, back", []uint8{B, N, B}, StateBackdash},
-		// Only a clean tap-neutral-tap dashes. A diagonal or a crouch in the
-		// middle is the player doing something else, and dashing there is a
-		// dash nobody asked for.
+		// Only a clean tap-neutral-tap dashes.
 		{"forward, down, forward", []uint8{F, D, F}, StateWalkF},
 		{"back, down, back", []uint8{B, D, B}, StateWalkB},
 		{"forward, down-forward, forward", []uint8{F, 3, F}, StateWalkF},
 		{"down-forward twice is not a dash", []uint8{3, N, 3}, StateCrouch},
 
 		// Up in the middle is a jump, not a gap: pre-jump is not actionable, so
-		// the third input is correctly ignored. Listed because it looks like it
-		// belongs with the cases above and does not.
+		// the third input is correctly ignored.
 		{"back, up, back", []uint8{B, U, B}, StatePreJump},
 
 		{"back, forward, back", []uint8{B, F, B}, StateWalkB},
@@ -425,8 +410,7 @@ func TestDashIsFacingRelative(t *testing.T) {
 
 // The input buffer is only worth having if the state machine consumes it: a
 // press three frames before the recovery ends must come out, not be dropped for
-// being early. This is the test that fails if moveFor goes back to reading only
-// the current frame.
+// being early.
 func TestPressBuffersThroughRecovery(t *testing.T) {
 	s := New()
 	mv := &char().Moves[0]
@@ -452,9 +436,7 @@ func TestPressBuffersThroughRecovery(t *testing.T) {
 	t.Errorf("the buffered press never came out: state %d", s.Players[0].State)
 }
 
-// One press, one move. The press stays in the history for the whole buffer
-// window, so without Eaten the same tap starts a new move on every actionable
-// frame it can still see.
+// One press, one move.
 func TestOnePressFiresOneMove(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InLP, 0})
@@ -480,8 +462,7 @@ func TestOnePressFiresOneMove(t *testing.T) {
 	}
 }
 
-// The buffer is state, so it rolls back with everything else. A press eaten on
-// a frame that gets rewound is live again.
+// The buffer is state, so it rolls back with everything else.
 func TestEatenRollsBack(t *testing.T) {
 	sess := NewSession()
 
@@ -500,9 +481,7 @@ func TestEatenRollsBack(t *testing.T) {
 }
 
 // A special and the normal on the same button are told apart by the motion and
-// nothing else. Without the gate, QCF+LP is a jab and the character has no
-// specials; without the ranking, LP after a quarter-circle is a jab and the
-// player's fireball is eaten by their own light punch.
+// nothing else.
 func TestMotionSelectsTheSpecial(t *testing.T) {
 	const jab, special = int32(0), int32(2)
 
@@ -521,8 +500,7 @@ func TestMotionSelectsTheSpecial(t *testing.T) {
 }
 
 // The motion identifies the move, so the stance the button happens to land on
-// does not. Pressing punch one frame early, while ↘ is still held, must not
-// turn a fireball into whatever the crouching move on that button is.
+// does not.
 func TestSpecialIgnoresStance(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3, 6)
@@ -562,8 +540,7 @@ func TestSpecialBuffersThroughRecovery(t *testing.T) {
 	t.Error("the buffered special never came out")
 }
 
-// A motion with no button is not a move. The player walks a quarter-circle
-// constantly; only the press makes it an input.
+// A motion with no button is not a move.
 func TestMotionAloneDoesNothing(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3, 6, 6, 6)
@@ -574,7 +551,7 @@ func TestMotionAloneDoesNothing(t *testing.T) {
 
 // cancelWindow runs the jab into the opponent and returns the state on the
 // first frame after hitstop, with the cancel window open and the jab still
-// running. Both cancel tests need exactly this setup.
+// running.
 func cancelWindow(t *testing.T, gap int) GameState {
 	t.Helper()
 	s := facing(gap)
@@ -593,9 +570,7 @@ func cancelWindow(t *testing.T, gap int) GameState {
 }
 
 // A cancelable normal that connected is not a commitment any more: the special
-// comes out of it instead of waiting for its recovery. This is the mechanism
-// combos are made of, and the frames it saves are exactly the recovery the
-// normal would otherwise owe.
+// comes out of it instead of waiting for its recovery.
 func TestACancelableNormalCancelsIntoASpecial(t *testing.T) {
 	s := cancelWindow(t, 30)
 	jab := &char().Moves[0]
@@ -613,9 +588,7 @@ func TestACancelableNormalCancelsIntoASpecial(t *testing.T) {
 	}
 }
 
-// A whiff does not cancel. Without the connect requirement every cancelable
-// button is safe to throw out at nothing, since its recovery could always be
-// covered by the special that follows it.
+// A whiff does not cancel.
 func TestAWhiffedNormalDoesNotCancel(t *testing.T) {
 	s := cancelWindow(t, 300) // out of range: the jab hits nothing
 	if s.Players[0].HasHit != 0 {
@@ -632,9 +605,7 @@ func TestAWhiffedNormalDoesNotCancel(t *testing.T) {
 	}
 }
 
-// The cancel takes what the move being cancelled named and nothing else. The
-// jab names specials, so the reversal — a normal, whatever else it is — has to
-// wait, and so does everything that is not a move at all.
+// The cancel takes what the move being cancelled named and nothing else.
 func TestACancelTakesOnlyTheCategoriesTheMoveNames(t *testing.T) {
 	s := cancelWindow(t, 30)
 
@@ -651,8 +622,7 @@ func TestACancelTakesOnlyTheCategoriesTheMoveNames(t *testing.T) {
 
 // withTargetCombo adds a follow-up to the jab on the jab's own button — the
 // HP>HP shape, which is the hard case: the same press must be the jab from
-// neutral and the follow-up out of the jab. Restored after the test, since the
-// roster is global.
+// neutral and the follow-up out of the jab.
 func withTargetCombo(t *testing.T) int32 {
 	t.Helper()
 	c := char()
@@ -693,9 +663,7 @@ func TestATargetComboComesOutOfItsSource(t *testing.T) {
 }
 
 // Outside the window the follow-up does not exist: not from neutral, and not
-// after a whiff, which opens no window at all. Moved to crouching LP, which
-// the fixture leaves empty — on the jab's own input a tie goes to the lower
-// index and the jab would win whether the gate worked or not.
+// after a whiff, which opens no window at all.
 func TestATargetComboNeedsItsWindow(t *testing.T) {
 	f := withTargetCombo(t)
 	char().Moves[f].Stance = StanceCrouch
@@ -715,7 +683,7 @@ func TestATargetComboNeedsItsWindow(t *testing.T) {
 
 // withSecondStage gives the fireball (move 2) a second stage on 6+LP, the
 // fireball again, the way a rekka is written: a follow-up that may come out
-// whether or not the first stage connected. Restored after the test.
+// whether or not the first stage connected.
 func withSecondStage(t *testing.T) int32 {
 	t.Helper()
 	c := char()
@@ -830,8 +798,7 @@ func TestASecondStageWaitsForTheFirstToPlayOut(t *testing.T) {
 }
 
 // A multi-hit move connects once per hit number: hit 2 re-arms a move hit 1
-// spent. Without the number the same hitboxes connect once, which is the rule
-// every single-hit move relies on.
+// spent.
 func TestAMultiHitMoveHitsOncePerNumber(t *testing.T) {
 	c := char()
 	saved := *c
@@ -860,9 +827,7 @@ func TestAMultiHitMoveHitsOncePerNumber(t *testing.T) {
 	}
 }
 
-// **The camera has a dead zone.** Walking toward a player who is standing still
-// must not move the camera, or the standing player slides across the screen
-// and reads as moving too — which is exactly what the midpoint camera did.
+// The camera has a dead zone.
 func TestCameraHoldsWhileOnePlayerWalksIn(t *testing.T) {
 	s := New()
 	cam := s.CamX

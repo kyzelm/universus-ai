@@ -3,7 +3,7 @@ package sim
 import "testing"
 
 // jump puts player 0 in the air and returns the state on the first airborne
-// frame. Pre-jump is grounded, so this waits it out.
+// frame.
 func jump(t *testing.T, dir uint8) GameState {
 	t.Helper()
 	s := New()
@@ -15,8 +15,6 @@ func jump(t *testing.T, dir uint8) GameState {
 }
 
 // An air normal comes out in the air and the jump carries on underneath it.
-// Without the velocity handover being skipped, pressing a button in mid-air
-// would stop the jump dead.
 func TestAnAirNormalRidesTheJump(t *testing.T) {
 	s := jump(t, 9) // up-forward, so there is horizontal travel to lose
 
@@ -39,8 +37,7 @@ func TestAnAirNormalRidesTheJump(t *testing.T) {
 	}
 }
 
-// An air move's recovery is the fall. It has no business continuing once the
-// character is standing on the ground.
+// An air move's recovery is the fall.
 func TestLandingEndsAnAirNormal(t *testing.T) {
 	s := jump(t, 8)
 
@@ -83,8 +80,7 @@ func TestLandingEndsAnAirNormal(t *testing.T) {
 }
 
 // A move that ran out on the way up still owes its landing frames on the way
-// down. The move itself is long gone by then — the debt is carried in the state
-// precisely because the thing that incurred it is not there to be asked.
+// down.
 func TestAMoveThatExpiredInTheAirOwesItsLandingRecovery(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InHK, 0}) // move 4: six frames long, ~32 in the air
@@ -108,8 +104,7 @@ func TestAMoveThatExpiredInTheAirOwesItsLandingRecovery(t *testing.T) {
 	}
 }
 
-// A plain jump owes nothing. Landing recovery is the price of the move, not of
-// the jump, and a jump with no button in it is actionable the frame it lands.
+// A plain jump owes nothing.
 func TestAJumpWithNoAttackLandsActionable(t *testing.T) {
 	s := jump(t, 8)
 	for range 60 {
@@ -123,9 +118,7 @@ func TestAJumpWithNoAttackLandsActionable(t *testing.T) {
 	}
 }
 
-// Being hit out of the fall cancels the debt. It belongs to the move, and the
-// hit already ended the move — charging it on top of the hitstun would make
-// getting hit out of an air normal worse than the air normal landing.
+// Being hit out of the fall cancels the debt.
 func TestAStateChangeClearsTheLandingDebt(t *testing.T) {
 	var p PlayerState
 	p.Landing = 5
@@ -200,8 +193,7 @@ func TestAJumpAcceptsNoDirections(t *testing.T) {
 }
 
 // The quarter-circle is still on the stick when the character leaves the
-// ground. Without the ground/air gate in moveFor, the jump would throw a
-// fireball.
+// ground.
 func TestAGroundSpecialCannotComeOutInTheAir(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3, 6) // the motion, then jump before the button
@@ -231,11 +223,7 @@ func TestAnAirNormalIsNotAvailableOnTheGround(t *testing.T) {
 	}
 }
 
-// **One press is one jump.** Holding up jumps once and then waits for the
-// player to let go, rather than jumping again the moment they touch down. The
-// genre's own default is the opposite, so this is a decision and not an
-// accident (D100), and it is the same rule the input buffer already applies to
-// buttons: one press produces one action.
+// One press is one jump.
 func TestHoldingUpJumpsOnce(t *testing.T) {
 	s := New()
 
@@ -269,10 +257,7 @@ func TestHoldingUpJumpsOnce(t *testing.T) {
 	t.Error("releasing up and pressing it again did not jump")
 }
 
-// The rule must not cost the buffered jump. Up pressed a few frames early —
-// during blockstun, during a landing, on a wakeup — still comes out on the
-// first actionable frame, which is why this is a hold flag and not a press
-// edge: an edge fires on one exact frame and is gone.
+// The rule must not cost the buffered jump.
 func TestAJumpHeldThroughStunStillComesOut(t *testing.T) {
 	s := New()
 	s.Players[0].enter(StateHitstun)

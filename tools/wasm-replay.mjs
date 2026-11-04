@@ -1,21 +1,10 @@
-// Runs an input log through the WASM build of the sim and prints
-// "<frame> <checksum>" per line — byte-identical output to `replay run`, which
-// is what tools/determinism.sh compares.
-//
-// With a third argument it instead prints the full state at that frame, one
-// field per line — the WASM half of the gate's state diff.
-//
-// Usage: node tools/wasm-replay.mjs <main.wasm> <log.inputs> [dumpFrame]
+// Runs an input log through the WASM build of the sim and prints "<frame>
+// <checksum>" per line — byte-identical output to `replay run`, which is what
+// tools/determinism.sh compares.
 import {readFileSync} from 'node:fs'
 import {loadSim} from './wasm-load.mjs'
 
-/**
- * The log header, documented in tools/replay/main.go. Sixteen bytes of setup in
- * front of the input pairs: which characters, which mode, and whether seat 2 is
- * the scripted opponent. The gate compares this build against the native one,
- * so a header read differently on this side is a divergence with no cause
- * anywhere in the sim — the one failure that costs a night to find.
- */
+/** The log header, documented in tools/replay/main.go. */
 const HEADER = 16
 const MAGIC = 'UNIV'
 

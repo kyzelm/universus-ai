@@ -14,8 +14,7 @@ import {
   SUPER_BARS,
 } from './wasm'
 
-// The Go build and the TypeScript reader agree on a byte layout or they do
-// not. This runs the real module off disk and checks that they do.
+// The Go build and the TypeScript reader agree on a byte layout or they do not.
 beforeAll(async () => {
   // Relative to the vitest root (client/); import.meta.url is an http URL here.
   const wasm = readFileSync('public/main.wasm')
@@ -47,8 +46,7 @@ test('frame 0 is readable before the first advance', () => {
 })
 
 // The gauges are read from the same block as health and one field further
-// along. A wrong offset here reads the pushbox as a resource, which draws a
-// full Drive gauge for a player who is in Burnout.
+// along.
 test('the resource gauges cross the boundary', () => {
   reset()
   const start = readSnapshot()
@@ -68,16 +66,14 @@ test('the resource gauges cross the boundary', () => {
     for (let i = 0; i < 60; i++) advance(RIGHT, LEFT)
   }
 
-  // Blocking spends Drive. Player 1 faces left, so RIGHT is holding away.
+  // Blocking spends Drive.
   walkIn()
   for (let i = 0; i < 40; i++) advance(i === 0 ? LP : 0, RIGHT)
   const blocked = readSnapshot()
   expect(blocked.players[1].drive).toBeLessThan(DRIVE_BARS * BAR_UNITS)
   expect(blocked.players[1].health).toBe(start.players[1].health)
 
-  // Landing one builds Super for both of them, at different rates. Stop on the
-  // frame it connects: the combo readout below only exists while the defender
-  // is still in hitstun, which is the whole meaning of a combo.
+  // Landing one builds Super for both of them, at different rates.
   walkIn()
   const before = readSnapshot().players[1].health
   for (let i = 0; i < 40; i++) {
@@ -136,12 +132,7 @@ test('a connecting hit costs health and freezes both fighters', () => {
   expect(sawHitstop).toBe(true)
 })
 
-/**
- * The event flags across the real boundary, packed and unpacked. It is the one
- * call the view makes about a frame that is no longer the current one, so a
- * mistake in the packing shows up as effects on the wrong fighter rather than
- * as anything that fails a checksum.
- */
+/** The event flags across the real boundary, packed and unpacked. */
 test('a hit reports an event on the frame it landed', () => {
   reset()
   for (let i = 0; i < 60; i++) advance(RIGHT, LEFT)
@@ -209,8 +200,7 @@ test('the same inputs produce the same snapshot bytes', () => {
 })
 
 // A fireball is the first thing in the game that outlives the move that made
-// it, and the first state the view draws that is not a player. Both sides of
-// the boundary have to agree that it exists.
+// it, and the first state the view draws that is not a player.
 test('a fireball crosses the boundary and travels', () => {
   reset()
   expect(readSnapshot().projectiles).toEqual([])
@@ -283,12 +273,9 @@ test('an AI seat plays without anybody pressing anything', () => {
 /**
  * The characters cross the boundary as a pair of indices and land in
  * `GameState`, which is why they have to be right before frame 0 rather than
- * applied afterwards: an online match adopts the host's pair
- * (02 Architecture/Transport and Connectivity.md) and every frame either end
+ * applied afterwards: an online match adopts the host's pair (02
+ * Architecture/Transport and Connectivity.md) and every frame either end
  * simulates depends on it.
- *
- * Told apart by the health pool, because that is the one number the snapshot
- * already carries that differs between the two shipped fighters.
  */
 test('a run plays the characters it was reset with', () => {
   const health = (chars: [number, number]) => {

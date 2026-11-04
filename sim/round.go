@@ -1,19 +1,11 @@
 package sim
 
-// Round flow — 03 Game Design/Round Flow.md. Best of three, 99 seconds a round,
-// first to two round wins takes the match.
-//
-// **All of it is simulation state, transitions included.** The KO freeze, the
-// result on screen and the next round's intro are fixed frame counts in
-// GameState rather than animations the view plays, because what they really
-// decide is *when input resumes* — and two machines that resume input on
-// different frames have desynced, whatever their fighters were doing.
+// Round flow — 03 Game Design/Round Flow.md.
 
 // Phases. Values are part of the state's byte layout, so they are appended to,
 // never reordered.
 const (
-	// PhaseFight is the only one that runs the game. Every other phase freezes
-	// both fighters and runs nothing but its own clock.
+	// PhaseFight is the only one that runs the game.
 	PhaseFight int32 = iota
 	PhaseKO
 	PhaseRoundEnd
@@ -24,24 +16,16 @@ const (
 )
 
 // RoundNobody is "no winner": a draw round, and the match while it is still
-// being played. Not zero, because zero is player 0.
+// being played.
 const RoundNobody int32 = -1
 
 // updateRound is the round half of step 8: the clock, the KO check, and the
-// decision to stop fighting. Runs after damage, so a hit landed this frame is
-// already on the health bar it might have emptied.
-//
-// The timer pauses during hitstop for free — a frozen frame returns from
-// Advance before step 8 — and that is the rule the design note asks for rather
-// than a happy accident worth removing.
+// decision to stop fighting.
 func (s *GameState) updateRound() {
 	if s.Phase != PhaseFight {
 		return
 	}
-	// The lab has no clock and no end. Everything else about the round still
-	// runs — the phase machine, the intro, the transitions — so what is being
-	// practised is the same game, just one that does not stop to declare a
-	// winner mid-combo.
+	// The lab has no clock and no end.
 	if s.Training != 0 {
 		return
 	}
@@ -66,14 +50,7 @@ func (s *GameState) updateRound() {
 }
 
 // aheadOnHealth is who wins a timeout: the higher percentage of their own
-// maximum, not the higher number. The roster's characters do not share a health
-// pool, so comparing absolutes would quietly hand every timeout to whoever
-// picked the bigger one.
-//
-// Cross-multiplied rather than divided into a percentage: integer division
-// calls 51% and 50.4% the same number, and the difference between them is a
-// draw, which is a whole extra round. Both products stay far inside int32 —
-// health is validated well below its square root for exactly this line.
+// maximum, not the higher number.
 func (s *GameState) aheadOnHealth() int32 {
 	a := s.Players[0].Health * CharacterAt(s.Players[1].Char).Health
 	b := s.Players[1].Health * CharacterAt(s.Players[0].Char).Health
@@ -86,9 +63,7 @@ func (s *GameState) aheadOnHealth() int32 {
 	return RoundNobody
 }
 
-// endRound awards the round and starts the KO freeze. winner is RoundNobody for
-// a draw, which awards the round to **neither** player (D53) and lets the match
-// continue — the round cap below is what stops that being unbounded.
+// endRound awards the round and starts the KO freeze.
 func (s *GameState) endRound(winner int32) {
 	s.RoundWinner = winner
 	if winner != RoundNobody {
@@ -107,10 +82,7 @@ func (s *GameState) enterPhase(phase int32) {
 	s.PhaseFrame = 0
 }
 
-// phaseLength is how long a between-rounds phase lasts. Frame counts, from the
-// balance data like every other tunable: they change when the game feels wrong,
-// and a client that changed one alone would resume input on a different frame
-// from its opponent.
+// phaseLength is how long a between-rounds phase lasts.
 func phaseLength(phase int32) int32 {
 	switch phase {
 	case PhaseKO:
@@ -123,9 +95,7 @@ func phaseLength(phase int32) int32 {
 	return 0
 }
 
-// advancePhase runs one frame of a between-rounds phase. It is the whole frame:
-// the caller returns straight after, so nothing moves, nothing is hit and no
-// input is read until the fight resumes.
+// advancePhase runs one frame of a between-rounds phase.
 func (s *GameState) advancePhase() {
 	if s.Phase == PhaseMatchEnd {
 		return // terminal — there is no next phase to count towards
@@ -158,15 +128,6 @@ func (s *GameState) advancePhase() {
 }
 
 // matchWinner reports the match winner and whether the match is over at all.
-//
-// Two ways to end. Someone takes RoundsToWin rounds, which is the normal one;
-// or the round cap runs out (D54) and the match resolves by **total damage
-// dealt across the match** — a value already tracked, already deterministic,
-// and needing no mechanism that does not exist.
-//
-// The cap exists because draws are unbounded otherwise: a draw awards nobody a
-// round, so draw-and-replay is a loop with no exit, and "theoretically
-// infinite" is not something to defend at a viva.
 func (s *GameState) matchWinner() (int32, bool) {
 	for i := int32(0); i < 2; i++ {
 		if s.Wins[i] >= balance.RoundsToWin {
@@ -184,32 +145,17 @@ func (s *GameState) matchWinner() (int32, bool) {
 		return 1, true
 	}
 	// Arbitrary, and that is fine: an arbitrary rule both machines agree on is
-	// correct, and a fair rule they could disagree about is a desync. It is
-	// documented here and in the design note, and it needs two draws and
-	// identical damage to the unit to ever be reached.
+	// correct, and a fair rule they could disagree about is a desync.
 	return 0, true
 }
 
 // startRound resets the fighters for the next round.
-//
-// What it does *not* touch is the interesting half: **Super carries between
-// rounds** (Resource System), and so do the round wins and the cumulative
-// damage the cap's tiebreak reads. Everything else comes from a fresh match,
-// so the reset cannot drift from the way a match starts — there is one
-// definition of a fighter at the start of a round and this borrows it.
-//
-// Borrowing it is also the trap. A fresh player carries the *defaults* for
-// everything, including the fields that are match setup rather than round
-// state, so anything in that group has to be carried back over explicitly:
-// the character, which comes in as an argument, and the AI tier, which was
-// silently dropped here and left the opponent standing still from round 2.
 func (s *GameState) startRound() {
 	fresh := NewMatch(s.Players[0].Char, s.Players[1].Char)
 	for i := range s.Players {
 		super := s.Players[i].Super
 		// The AI tier is match setup, like the character it is playing — not
-		// round state. Dropping it here left the opponent standing still from
-		// round 2 onward, which is the whole match after the first one.
+		// round state.
 		ai := s.Players[i].AI
 		s.Players[i] = fresh.Players[i]
 		s.Players[i].Super = super

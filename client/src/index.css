@@ -20,27 +20,29 @@ body {
   padding: 16px 0 32px;
 }
 
-/* Everything under the canvas is a caption for it, so the column is the canvas
-   width. Without this the key list sets the page width, and the canvas ends up
-   left-aligned against a much wider paragraph. The column is as big as the
-   window allows at 16:9 (the sim renders 800x450): full width, unless that
-   would make the canvas taller than the window minus #root's padding. */
+/*
+ * Everything under the canvas is a caption for it, so the column is the canvas
+ * width.
+ */
 main {
   width: min(100vw - 32px, (100vh - 48px) * 16 / 9);
   display: grid;
   gap: 8px;
 }
 
-/* Drawn at 800x450 and stretched by CSS; height follows the width attributes'
-   ratio, so the aspect never changes. Nothing reads pointer coordinates off
-   the canvas, so the CSS scale needs no mapping back. */
+/*
+ * Drawn at 800x450 and stretched by CSS; height follows the width attributes'
+ * ratio, so the aspect never changes.
+ */
 canvas {
   display: block;
   width: 100%;
   height: auto;
   image-rendering: pixelated;
-  /* A ring rather than a border: it costs no layout, so the canvas stays
-     exactly the column width and lines up with it. */
+  /*
+   * A ring rather than a border: it costs no layout, so the canvas stays
+   * exactly the column width and lines up with it.
+   */
   box-shadow: 0 0 0 1px var(--line);
 }
 
@@ -69,8 +71,10 @@ button:disabled {
   cursor: default;
 }
 
-/* The condition in force has to be obvious: a matrix cell run twice under the
-   wrong settings is a row of numbers that means nothing. */
+/*
+ * The condition in force has to be obvious: a matrix cell run twice under the
+ * wrong settings is a row of numbers that means nothing.
+ */
 button.on {
   border-color: var(--accent);
   color: var(--accent);
@@ -82,8 +86,10 @@ button.on {
   font-size: 0.8rem;
 }
 
-/* In a match the canvas fills the window, letterboxed at 16:9, and the panel
-   (keys, menu, log, netplay) is an overlay Esc toggles. */
+/*
+ * In a match the canvas fills the window, letterboxed at 16:9, and the panel
+ * (keys, menu, log, netplay) is an overlay Esc toggles.
+ */
 /* #root's padding would otherwise give the match a page scrollbar. */
 body:has(.stage) {
   overflow: hidden;
@@ -217,9 +223,7 @@ body:has(.stage) {
   justify-items: center;
 }
 
-/* The M-A page (?sweep). Numbers are read in columns and compared down them,
-   so they are monospace and right-aligned; anything else and a 0.5 hides
-   next to a 0.05. */
+/* The M-A page (?sweep). */
 .sweep table {
   border-collapse: collapse;
   font-family: ui-monospace, monospace;
@@ -247,9 +251,10 @@ body:has(.stage) {
   color: var(--accent);
 }
 
-/* The menu. Two screens and no chrome: a title with four modes, then two
-   columns of fighters. It is the canvas width because everything on this page
-   is, and the game replaces it in place rather than appearing beside it. */
+/*
+ * The menu. Two screens and no chrome: a title with four modes, then two
+ * columns of fighters.
+ */
 .menu {
   display: grid;
   gap: 16px;
@@ -279,9 +284,7 @@ body:has(.stage) {
   width: 420px;
 }
 
-/* A mode is a name and the one sentence that says what it is for. The hint is
-   not decoration: four buttons reading local / AI / training / online tell a
-   person nothing about which one they want. */
+/* A mode is a name and the one sentence that says what it is for. */
 .menu .modes button {
   display: grid;
   gap: 2px;

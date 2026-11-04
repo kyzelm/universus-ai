@@ -6,7 +6,7 @@ const OPTS = {samples: 2, stepsPerBatch: 12, maxDepth: 2, warmup: 0, resetEvery:
 /**
  * Counts what the sweep asked the sim to do, and keeps a frame number the way
  * the real sim does — a rewind moves it back, and the replay advances it up
- * again. That is what makes the depth of each rewind recoverable here.
+ * again.
  */
 function stub() {
   const depths: number[] = []
@@ -43,8 +43,7 @@ function stub() {
 
 test('a frame at depth d runs the sim d+1 times', async () => {
   // The cost model the whole measurement is about: an 8-frame rollback runs the
-  // sim nine times and still has to fit one frame. If this drifts, every M-A
-  // number drifts with it and nothing else would notice.
+  // sim nine times and still has to fit one frame.
   const s = stub()
   const rows = await runSweep(s.sim, OPTS)
 

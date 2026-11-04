@@ -1,18 +1,6 @@
-// Universus backend. Today it is one thing: the room that pairs two clients,
-// carries their signalling blobs, and then carries their input packets if
-// WebRTC could not connect (02 Architecture/Transport and Connectivity.md).
+// Universus backend.
 //
 //	GET /ws?room=CODE
-//
-// The first client to ask for a code waits; the second is paired with it. Each
-// is then told which it is — "host" or "guest", one text frame — and from that
-// point the server copies every message to the other end and reads none of
-// them.
-//
-// Signalling and the relay fallback are therefore the same code path: the pair
-// trade SDP over this socket, try P2P for five seconds, and keep the socket as
-// the transport if ICE never connects. A server that parsed the traffic would
-// have to know which phase the match is in; one that copies bytes does not.
 package main
 
 import (
@@ -35,17 +23,14 @@ import (
 
 const (
 	// Generous for a base64 SDP blob with a long candidate list, mean for
-	// anything else. An input packet is ~20 bytes.
+	// anything else.
 	readLimit = 32 << 10
 
 	// A peer whose socket has stopped draining must not wedge the other end's
-	// read loop. Dropping the message would be wrong here: unlike the data
-	// channel, the relay is the only copy of an input packet in flight.
+	// read loop.
 	writeTimeout = 5 * time.Second
 
-	// How long a client has to send its opening token frame. Generous for a
-	// slow connection, short enough that a socket opened and abandoned is not a
-	// goroutine for the rest of the day.
+	// How long a client has to send its opening token frame.
 	handshakeTimeout = 10 * time.Second
 )
 
@@ -65,28 +50,16 @@ var codeOK = regexp.MustCompile(`^[A-Za-z0-9-]{1,32}$`)
 
 type client struct {
 	conn *websocket.Conn
-	// Carries the peer to a client that had to wait for one. Buffered, so the
-	// joiner never blocks on a waiter that is busy.
+	// Carries the peer to a client that had to wait for one.
 	paired chan *websocket.Conn
 
-	// Who this is, or nil when the server is running without accounts. The
-	// room and the relay never read it; matchmaking is the whole reason it
-	// exists, since a queue has to know whose ladder rating it is sorting.
+	// Who this is, or nil when the server is running without accounts.
 	user *User
-	// Ladder points, read once when the queue is joined. A snapshot on purpose:
-	// a rating that changed mid-queue would move somebody between bands while
-	// they waited, which is a fairness argument nobody asked to have.
+	// Ladder points, read once when the queue is joined.
 	lp int
 	// Round trip to *this server* in nanoseconds, which is the only latency
 	// anybody can measure before a match exists (02 Architecture/Backend
-	// Services.md). A proxy for the one that matters, and honest to describe as
-	// such.
-	//
-	// Atomic because it is measured on its own goroutine while the matchmaker
-	// reads it: a WebSocket ping is only answered while somebody is reading the
-	// socket, so the measurement has to run *beside* the relay loop rather than
-	// before it. Zero means unmeasured, which the bands read as no evidence
-	// rather than as a fast connection.
+	// Services.md).
 	rtt atomic.Int64
 }
 
@@ -102,10 +75,7 @@ type rooms struct {
 // join registers c under code and returns the client already waiting there, if
 // there was one — in which case the code is freed again, since the pair now
 // talk to each other and not to the room.
-//
-// ponytail: a code holds one waiting client, not a two-seat room. A third
-// joiner waits for a fourth instead of being refused. Fix when the backend
-// issues match IDs and hands out seats with them (M3, Backend Services).
+// ponytail: a code holds one waiting client, not a two-seat room.
 func (r *rooms) join(code string, c *client) *client {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -130,16 +100,6 @@ func (r *rooms) leave(code string, c *client) {
 
 // accept upgrades the request and reads the client's opening frame, which is
 // its token or an empty string.
-//
-// **The token is a frame and not a query parameter.** A browser cannot set
-// headers on a WebSocket, so the usual alternative is `?token=…`, and a URL is
-// the one place a credential is guaranteed to be written down — proxy logs,
-// server logs, browser history, the Referer of anything the page loads. One
-// frame costs a round trip nobody notices.
-//
-// Every client sends the frame whether or not it has a token, so there is no
-// negotiation about which protocol is in force: a server without accounts
-// ignores it, and one with accounts refuses an empty one.
 func (s *hub) accept(w http.ResponseWriter, req *http.Request) (*websocket.Conn, *User, bool) {
 	conn, err := websocket.Accept(w, req, &websocket.AcceptOptions{
 		// Input packets are 20 bytes of bitfields and do not compress; agreeing
@@ -169,8 +129,8 @@ func (s *hub) accept(w http.ResponseWriter, req *http.Request) (*websocket.Conn,
 
 	u, err := s.auth.userOf(string(data))
 	if err != nil {
-		// D104: a private match by code needs an account exactly as a ranked one
-		// does. One identity path online, or two to keep honest.
+		// D104: a private match by code needs an account exactly as a ranked
+		// one does.
 		conn.Close(websocket.StatusPolicyViolation, "sign in first")
 		return nil, nil, false
 	}
@@ -205,16 +165,6 @@ func (s *hub) serveRoom(w http.ResponseWriter, req *http.Request) {
 
 // pair introduces two clients to each other: roles out first, then each is
 // handed the other's socket.
-//
-// Roles go out before either end can forward anything, so this is the first
-// frame each reads and "you are the host" doubles as "the other end is here,
-// start offering". The host also decides the transport and the characters
-// (D88, D106), which is why which end is which has to be settled here rather
-// than raced for.
-// A non-zero id is appended to the role — "host 42" — and is the match this
-// pairing was recorded as. A private match by code has none: it is for testing
-// and for the demo, and a ladder made of matches two people arranged between
-// themselves is not a ladder.
 func pair(host, guest *client, matchID int64) bool {
 	suffix := ""
 	if matchID != 0 {
@@ -228,16 +178,10 @@ func pair(host, guest *client, matchID int64) bool {
 	return true
 }
 
-// relay copies every frame to the peer and reads none of them. It is the whole
-// of the server's part in a match: signalling and the relay fallback are the
-// same code path, because a server that parsed the traffic would have to know
-// which phase the match is in and one that copies bytes does not.
+// relay copies every frame to the peer and reads none of them.
 func relay(conn *websocket.Conn, me *client) {
 	// Resolves the peer once, whether the pairing happened on this goroutine or
-	// arrived while we were waiting for somebody to join. It has to be checked
-	// on the way out too, not only per message: a host that closes its tab
-	// before sending the offer has never read anything, and a peer left unread
-	// is a guest nobody ever hangs up on.
+	// arrived while we were waiting for somebody to join.
 	var peer *websocket.Conn
 	peerOf := func() *websocket.Conn {
 		if peer == nil {
@@ -251,8 +195,6 @@ func relay(conn *websocket.Conn, me *client) {
 	}
 
 	// Hanging up on the peer is what tells the other end the match is over.
-	// After a successful P2P connection this socket is already dead weight, so
-	// closing it costs a match in progress nothing.
 	defer func() {
 		if p := peerOf(); p != nil {
 			p.CloseNow()
@@ -299,11 +241,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", h.serveRoom)
 
-	// **The database is optional and the server starts without one.** Training,
-	// local versus and versus AI require no account at all (03 Game Design/Game
-	// Modes.md), and the room and the relay read nothing from Postgres — so a
-	// database that is down costs the ladder rather than the demo. It is also
-	// what lets the whole thing run from one binary with no arguments.
+	// The database is optional and the server starts without one.
 	ctx := context.Background()
 	pool, err := openDB(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -333,9 +271,7 @@ func main() {
 		mux.HandleFunc("/ws/queue", h.serveQueue)
 		go h.queue.run(ctx)
 
-		// The roster this binary re-simulates with. It has to be the same data
-		// the clients played on, which is what the version compared per job is
-		// checking — so if it cannot be loaded, nothing here can judge anything.
+		// The roster this binary re-simulates with.
 		cs, err := data.Load()
 		if err != nil || !sim.LoadCharacters(cs) {
 			log.Fatalf("the sim refused the embedded roster: %v", err)
@@ -363,10 +299,9 @@ func main() {
 	}
 
 	if *static != "" {
-		// One origin for the page and the socket, which is what a remote session needs: a
-		// guest on https cannot open a ws:// socket to a separate port, and a tunnel or a
-		// host publishes one port. ponytail: a plain FileServer, no SPA fallback — the
-		// client is one page and carries its state in query parameters.
+		// One origin for the page and the socket, which is what a remote
+		// session needs: a guest on https cannot open a ws:// socket to a
+		// separate port, and a tunnel or a host publishes one port.
 		mux.Handle("/", http.FileServer(http.Dir(*static)))
 		log.Printf("serving %s at /", *static)
 	}

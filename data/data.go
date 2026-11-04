@@ -1,15 +1,5 @@
 // Package data owns the character and balance JSON and converts it into the
 // sim's fixed-point structs.
-//
-// The files are embedded at build time, not fetched at runtime, and that is a
-// determinism decision rather than a packaging one: **character data is part of
-// the simulation's identity.** Two clients that could load different numbers
-// would desync, and the desync would surface three rounds into a match with no
-// visible cause. Embedding puts the balance data inside the binary hash, so a
-// mismatch is caught by the handshake before the match starts.
-//
-// This package imports sim; sim never imports this one. The sim does no I/O and
-// has no dependencies — loading is the caller's job, done once at startup.
 package data
 
 import (
@@ -27,23 +17,14 @@ import (
 //go:embed characters/*.json balance.json
 var files embed.FS
 
-// balanceFile is the global tunables. Not a character, but part of the same
-// identity for the same reason: two clients with different Drive costs run
-// different simulations from identical inputs, so it is embedded and it is
-// covered by Version.
+// balanceFile is the global tunables.
 const balanceFile = "balance.json"
 
 // framesPerSecond is the fixed timestep, and it lives here rather than in the
-// sim on purpose: **the simulation has no clock but the frame number**. This is
-// the one place a human-facing duration is turned into frames, at load time,
-// where being wrong is a validation error rather than a desync.
+// sim on purpose: the simulation has no clock but the frame number.
 const framesPerSecond = 60
 
 // Load reads, validates and converts the embedded roster.
-//
-// Order is by filename, so the roster indices are the same on every machine —
-// a roster that ordered differently would have the two clients running
-// different characters from the same selection.
 func Load() ([]sim.Character, error) {
 	names, err := filenames()
 	if err != nil {
@@ -60,7 +41,7 @@ func Load() ([]sim.Character, error) {
 		var jc jsonCharacter
 		dec := json.NewDecoder(bytes.NewReader(raw))
 		// Keeps decimals as their literal text so they can be converted with
-		// integer arithmetic. Nothing here ever becomes a float.
+		// integer arithmetic.
 		dec.UseNumber()
 		if err := dec.Decode(&jc); err != nil {
 			return nil, fmt.Errorf("%s: %w", name, err)
@@ -101,11 +82,7 @@ func LoadBalance() (sim.Balance, error) {
 }
 
 // Version is a hash of the raw embedded bytes — the value the match handshake
-// compares. It covers the files as authored, before conversion, so any edit to
-// any character changes it.
-//
-// FNV-1a, same as the state checksum: this is a mismatch detector, not a
-// security hash.
+// compares.
 func Version() (uint32, error) {
 	names, err := filenames()
 	if err != nil {
@@ -128,8 +105,7 @@ func Version() (uint32, error) {
 	return h, nil
 }
 
-// filenames returns the embedded files in a fixed order. embed.FS.ReadDir is
-// already sorted, but sorting explicitly says the order is load-bearing.
+// filenames returns the embedded files in a fixed order.
 func filenames() ([]string, error) {
 	entries, err := files.ReadDir("characters")
 	if err != nil {
@@ -174,7 +150,7 @@ type jsonCharacter struct {
 }
 
 // jsonBalance groups by resource, because that is how the design note reads and
-// how the values are tuned. All integers: a resource is never a float.
+// how the values are tuned.
 type jsonBalance struct {
 	Drive struct {
 		Regen            int `json:"regen"`
@@ -194,8 +170,7 @@ type jsonBalance struct {
 	} `json:"input"`
 
 	// Round is authored in seconds, because 99 is the number the design note
-	// and every other fighting game state, and 5940 is not. The conversion
-	// happens here: the sim is given frames and never learns what a second is.
+	// and every other fighting game state, and 5940 is not.
 	Round struct {
 		Seconds      int `json:"seconds"`
 		RoundsToWin  int `json:"roundsToWin"`
@@ -214,18 +189,12 @@ type jsonBalance struct {
 		TechPush     int `json:"techPush"`
 	} `json:"throw"`
 
-	// Knockdown is one number on purpose — see sim.Balance. Authored in frames
-	// rather than seconds because it is a frame count players learn to time
-	// against, not a duration anyone experiences as a clock.
+	// Knockdown is one number on purpose — see sim.Balance.
 	Knockdown struct {
 		Frames int `json:"frames"`
 	} `json:"knockdown"`
 
-	// Knockback and juggles (sim/knockback.go). The hit and block pushes are
-	// velocities in units per frame, so they are decimals like every other
-	// speed in the data; decayPercent is the friction that ends the slide, and
-	// the juggle pair is the cap that ends an air combo and the extra gravity
-	// that ends it sooner.
+	// Knockback and juggles (sim/knockback.go).
 	Knockback struct {
 		Hit          json.Number `json:"hit"`
 		Block        json.Number `json:"block"`
@@ -261,13 +230,7 @@ type jsonBalance struct {
 		OnSpecial    int `json:"onSpecial"`
 	} `json:"super"`
 
-	// The scripted opponent (03 Game Design/AI Opponent.md). Tuning it never
-	// touches sim code, which is the same principle the rest of this file
-	// exists for — and it means a difficulty pass is a data pass.
-	//
-	// The three tiers are authored in order, easy to hard, because that is the
-	// order they are read in and an out-of-order table is a difficulty setting
-	// that does nothing.
+	// The scripted opponent (03 Game Design/AI Opponent.md).
 	AI struct {
 		DecisionFrames    int `json:"decisionFrames"`
 		CloseRange        int `json:"closeRange"`
@@ -285,22 +248,17 @@ type jsonBalance struct {
 	} `json:"ai"`
 }
 
-// convertAI fills in the scripted opponent's numbers. Split out because it is
-// its own subsystem and its coupled checks — the ranges are an ordering, the
-// tiers are an ordering — belong next to each other rather than at the end of
-// everything else.
+// convertAI fills in the scripted opponent's numbers.
 func (jb *jsonBalance) convertAI(b *sim.Balance) error {
 	// A decision every frame is not a harder opponent, it is a different one:
 	// the design note's whole point is that a human cannot re-decide sixty
-	// times a second. The upper bound is an AI that stands in one plan for a
-	// second at a time, which reads as frozen.
+	// times a second.
 	if jb.AI.DecisionFrames < 2 || jb.AI.DecisionFrames > 60 {
 		return fmt.Errorf("ai.decisionFrames is %d, want 2..60", jb.AI.DecisionFrames)
 	}
 
 	// The ranges are one ordering, like starter scaling: close inside mid, and
-	// the anti-air window somewhere inside mid too. Authored in whole units,
-	// because a distance between two fighters is not a speed.
+	// the anti-air window somewhere inside mid too.
 	if jb.AI.CloseRange <= 0 || jb.AI.CloseRange >= jb.AI.MidRange {
 		return fmt.Errorf("ai.closeRange %d must be positive and below ai.midRange %d",
 			jb.AI.CloseRange, jb.AI.MidRange)
@@ -319,8 +277,7 @@ func (jb *jsonBalance) convertAI(b *sim.Balance) error {
 	for i, t := range jb.AI.Tiers {
 		// Zero reaction is an opponent that blocks everything on the frame it
 		// starts, which is the AI nobody enjoys and the one this field exists
-		// to prevent. The ceiling is half a second, past which it is not
-		// playing the game at all.
+		// to prevent.
 		if t.Reaction < 1 || t.Reaction > 30 {
 			return fmt.Errorf("ai.tiers[%d].reaction is %d, want 1..30", i, t.Reaction)
 		}
@@ -331,9 +288,7 @@ func (jb *jsonBalance) convertAI(b *sim.Balance) error {
 			return fmt.Errorf("ai.tiers[%d].randomPercent is %d, want 0..100", i, t.RandomPercent)
 		}
 		// The tiers are an ordering and not three independent rows: harder
-		// means noticing sooner, blocking more and improvising less. A table
-		// that is not ordered is a difficulty menu where the labels lie, and
-		// nothing else in the game would report it.
+		// means noticing sooner, blocking more and improvising less.
 		if i > 0 {
 			prev := jb.AI.Tiers[i-1]
 			if t.Reaction > prev.Reaction || t.BlockPercent < prev.BlockPercent ||
@@ -403,9 +358,7 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 
 	var err error
 
-	// The round clock. Zero is a round that is over before it starts, and the
-	// symptom is a match that plays its whole best-of-three in four seconds of
-	// transitions.
+	// The round clock.
 	if b.RoundFrames <= 0 {
 		return b, fmt.Errorf("round.seconds must be positive, got %d", jb.Round.Seconds)
 	}
@@ -414,27 +367,22 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 	}
 	// Coupled, like jumpVelocity against gravity: the cap has to allow the
 	// rounds the match needs before it can be decided by damage instead, and
-	// neither field says so alone. Best of three is 2 to win and 3 rounds; the
-	// two extra rounds the design allows for draws make it 5.
+	// neither field says so alone.
 	if min := b.RoundsToWin*2 - 1; b.MaxRounds < min {
 		return b, fmt.Errorf("round.maxRounds is %d, below the %d rounds a first-to-%d needs",
 			b.MaxRounds, min, b.RoundsToWin)
 	}
 
 	// A zero window is the behaviour this value exists to replace: the two
-	// buttons of a throw or an EX special never land on the same
-	// frame on a keyboard, so the first one out selects its own normal and the
-	// pair never happens. The upper bound is a sanity bound only — the real
-	// ceiling is per-move and lives in the sim, which refuses to take back a
-	// move that has left its startup however long the window is.
+	// buttons of a throw or an EX special never land on the same frame on a
+	// keyboard, so the first one out selects its own normal and the pair never
+	// happens.
 	if b.PairFrames <= 0 || b.PairFrames > 8 {
 		return b, fmt.Errorf("input.pairFrames must be 1-8, got %d", b.PairFrames)
 	}
 
 	// A tech window of zero is a throw nobody can escape, which is the mechanic
-	// without the half that makes it fair. The upper bound is the other
-	// failure: a window longer than a throw's startup techs presses made before
-	// the throw existed.
+	// without the half that makes it fair.
 	if b.ThrowTechFrames <= 0 || b.ThrowTechFrames > 20 {
 		return b, fmt.Errorf("throw.techFrames is %d, want 1..20", b.ThrowTechFrames)
 	}
@@ -475,9 +423,7 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 	if b.KnockbackHit <= 0 || b.KnockbackBlock <= 0 {
 		return b, fmt.Errorf("knockback.hit and knockback.block must be positive")
 	}
-	// The push is multiplied by this every grounded frame. At 100 it never
-	// decays and the defender slides for the whole of their stun; the check is
-	// what keeps "friction" from meaning "none".
+	// The push is multiplied by this every grounded frame.
 	if b.KnockbackDecay >= 100 {
 		return b, fmt.Errorf("knockback.decayPercent is %d, want 0..99", b.KnockbackDecay)
 	}
@@ -496,17 +442,14 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 	if b.DriveBlockCost <= 0 {
 		return b, fmt.Errorf("drive.blockCost must be positive, or blocking is free")
 	}
-	// Walking in is meant to be the faster rate. If it is not, the gauge
-	// rewards backing off, which is the opposite of the design.
+	// Walking in is meant to be the faster rate.
 	if b.DriveRegenWalkF < b.DriveRegen {
 		return b, fmt.Errorf("drive.regenWalkForward %d is below drive.regen %d",
 			b.DriveRegenWalkF, b.DriveRegen)
 	}
 
 	// Coupled, like jumpVelocity against gravity: the refill rate is what sets
-	// how long Burnout lasts, and neither field says so on its own. The design
-	// note asks for ~9 seconds; anything from 1 to 30 is a game, and zero is a
-	// player who never comes out of Burnout at all.
+	// how long Burnout lasts, and neither field says so on its own.
 	if b.DriveRegenBurnout <= 0 {
 		return b, fmt.Errorf("drive.regenBurnout must be positive, or Burnout never ends")
 	}
@@ -515,9 +458,7 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 			b.DriveRegenBurnout, f)
 	}
 
-	// The scaling table. Exactly one entry per step, because the last one is
-	// the floor every hit past the table takes and a short table would silently
-	// move that floor.
+	// The scaling table.
 	if len(jb.Damage.ComboScale) != sim.ComboScaleSteps {
 		return b, fmt.Errorf("damage.comboScale has %d entries, want %d",
 			len(jb.Damage.ComboScale), sim.ComboScaleSteps)
@@ -593,68 +534,55 @@ type jsonMove struct {
 	AttackLevel string `json:"attackLevel"`
 
 	// Recovery owed on touchdown by a move that was still in the air when it
-	// ended. Absent on every move that cannot end up there.
+	// ended.
 	Landing int `json:"landing"`
 
-	// Invulnerable window, [start, end) in the move's own frames. Absent on
-	// everything that is not a reversal.
+	// Invulnerable window, [start, end) in the move's own frames.
 	Invuln []int `json:"invuln"`
 
 	// Categories this move may be cancelled into once it has connected.
-	// Absent means it does not cancel, which is most of the list.
 	Cancel []string `json:"cancel"`
 
 	// After makes the move a follow-up: the ids of the moves it comes out of,
-	// inside their cancel window. Absent on everything else. The three fields
-	// below are follow-up only and refused anywhere else.
+	// inside their cancel window.
 	After []string `json:"after"`
 
 	// NeedsHit false lets the follow-up come out of a source that whiffed.
-	// Absent means true, the D74 rule.
 	NeedsHit *bool `json:"needsHit"`
 
-	// Window is [start, end) in the source's frames. Absent means the
-	// default, see sim.Move.WindowEnd.
+	// Window is [start, end) in the source's frames.
 	Window []int `json:"window"`
 
 	// Dir is the numpad direction the button must be pressed with, "1".."9",
-	// facing-relative. Absent means any.
+	// facing-relative.
 	Dir string `json:"dir"`
 
-	// Super level, 1 to 3. Absent on everything that is not one, which is the
-	// whole roster bar three moves per character.
+	// Super level, 1 to 3.
 	Super int `json:"super"`
 
-	// Drive bars the move costs: 2 for an EX special. Absent on everything
-	// that does not spend the gauge.
+	// Drive bars the move costs: 2 for an EX special.
 	Drive int `json:"drive"`
 
-	// Hits the move absorbs while it comes out. Absent on everything that is
-	// not armoured.
+	// Hits the move absorbs while it comes out.
 	Armor int `json:"armor"`
 
-	// Knockdown puts the defender on the floor once the hitstun ends. No
-	// duration here: one wakeup timing for the whole game (see the balance
-	// file), so the per-move question is only whether it knocks down.
+	// Knockdown puts the defender on the floor once the hitstun ends.
 	Knockdown bool `json:"knockdown"`
 
 	// Throw marks the move unblockable, refused against anyone airborne or in
-	// stun, and escapable by a tech. Absent on everything that is not one.
+	// stun, and escapable by a tech.
 	Throw bool `json:"throw"`
 
 	// Velocity the move gives the character on its first frame, [vx, vy],
-	// forward-relative. Absent for the moves that do not move anyone.
+	// forward-relative.
 	Launch []json.Number `json:"launch"`
 
 	// Velocity the move gives the *defender* on a clean hit, [vx, vy], away
-	// from the attacker. A positive vy is what makes the move a launcher.
-	// Absent means the balance file's default push, which is what every move
-	// that is not one wants.
+	// from the attacker.
 	Knockback []json.Number `json:"knockback"`
 
 	// The juggle count at which this move stops connecting with an airborne
-	// defender — a low one designates a combo ender. Absent means the balance
-	// default.
+	// defender — a low one designates a combo ender.
 	JuggleLimit int `json:"juggleLimit"`
 
 	Boxes []jsonKeyframe `json:"boxes"`
@@ -672,7 +600,7 @@ type jsonProjectile struct {
 
 type jsonKeyframe struct {
 	Frame int `json:"frame"`
-	// HitNum is which hit of a multi-hit move the hitboxes are. Absent is 1.
+	// HitNum is which hit of a multi-hit move the hitboxes are.
 	HitNum int             `json:"hitNum"`
 	Hurt   [][]json.Number `json:"hurt"`
 	Hit    [][]json.Number `json:"hit"`
@@ -683,10 +611,7 @@ var buttons = map[string]uint16{
 	"LK": sim.InLK, "MK": sim.InMK, "HK": sim.InHK,
 }
 
-// parseButtons reads "LP" or a combination like "LP+LK". The combination is
-// what a throw is: two buttons pressed on one frame, which the sim reads as a
-// mask (see sim.pressed). Order does not matter and repeats are harmless, since
-// the result is a set of bits.
+// parseButtons reads "LP" or a combination like "LP+LK".
 func parseButtons(spec string) (uint16, error) {
 	var mask uint16
 	for _, name := range strings.Split(spec, "+") {
@@ -718,9 +643,7 @@ var stances = map[string]int32{
 	"stand": sim.StanceStand, "crouch": sim.StanceCrouch, "air": sim.StanceAir,
 }
 
-// Motions a move can require. Absent means a normal, which is why the empty
-// string is a key and not an error: most moves have no motion, and making them
-// all write "none" would be noise in every entry.
+// Motions a move can require.
 var inputMotions = map[string]sim.Motion{
 	"": sim.MotionNone, "qcf": sim.MotionQCF, "qcb": sim.MotionQCB, "dp": sim.MotionDP,
 	"qcfx2": sim.MotionQCFx2, "qcbx2": sim.MotionQCBx2, "hcf": sim.MotionHCF,
@@ -728,9 +651,7 @@ var inputMotions = map[string]sim.Motion{
 
 // ---- conversion and validation --------------------------------------------
 
-// Validation is not optional. This data is authored by hand and by tooling and
-// *will* contain mistakes; a silent bad value becomes a desync or an
-// unwinnable matchup found weeks later. Every failure below names the field.
+// Validation is not optional.
 func (jc *jsonCharacter) convert() (sim.Character, error) {
 	var c sim.Character
 	var err error
@@ -738,9 +659,7 @@ func (jc *jsonCharacter) convert() (sim.Character, error) {
 	// The upper bound is not a design opinion, it is arithmetic: a timeout is
 	// decided by cross-multiplying the two players' health against each other's
 	// maximum, and two values above 46 340 overflow the int32 that holds the
-	// product. 30 000 is three times the shipped pool and well clear of it.
-	// A nameless character is a blank button on the select screen, and the
-	// select screen is the only thing that reads this.
+	// product.
 	if jc.Name == "" {
 		return c, fmt.Errorf("no name")
 	}
@@ -776,9 +695,6 @@ func (jc *jsonCharacter) convert() (sim.Character, error) {
 	}
 
 	// Coupled constants, checked against each other rather than individually.
-	// A jump lasts about 2*v/|g| frames; the pair that produced a 533-frame
-	// jump in an earlier draft of the design note passes every per-field check
-	// and is still obviously wrong.
 	if air := 2 * int64(c.JumpVelocity) / int64(-c.Gravity); air < 20 || air > 90 {
 		return c, fmt.Errorf("jumpVelocity %d against gravity %d gives a %d-frame jump, want 20..90",
 			c.JumpVelocity, c.Gravity, air)
@@ -822,13 +738,7 @@ func (jc *jsonCharacter) convert() (sim.Character, error) {
 	}
 	// Throws with a motion are command throws and cannot be teched; the one
 	// without a motion is the ordinary throw, and it is also the input the sim
-	// reads to decide whether *this* character can tech at all. A second
-	// motion-less throw would make that lookup pick whichever came first in the
-	// file, so a character would tech with a button that is not the one they
-	// throw with — and nothing would report it.
-	//
-	// None at all is legal and means a character who cannot tech, which the sim
-	// already handles as the honest answer rather than a special case.
+	// reads to decide whether *this* character can tech at all.
 	plainThrows := 0
 	for i := range jc.Moves {
 		m, err := jc.Moves[i].convert()
@@ -845,9 +755,7 @@ func (jc *jsonCharacter) convert() (sim.Character, error) {
 	}
 	c.NumMoves = int32(len(jc.Moves))
 
-	// Target combos are resolved here, once every id has an index. The source
-	// gets the CancelTarget bit derived rather than authored, so a follow-up
-	// can never exist without a window to come out of.
+	// Target combos are resolved here, once every id has an index.
 	index := make(map[string]int32, len(jc.Moves))
 	for i := range jc.Moves {
 		if _, dup := index[jc.Moves[i].ID]; dup {
@@ -978,8 +886,7 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 	m.Super = int32(jm.Super)
 
 	// A super with no motion is a super on a bare button press, which would
-	// beat the normal on that button for the rest of the match. The typo is
-	// silent otherwise: the move works, it is just never not selected.
+	// beat the normal on that button for the rest of the match.
 	if m.Super > 0 && m.Motion == sim.MotionNone {
 		return m, fmt.Errorf("super %d has no motion", m.Super)
 	}
@@ -996,17 +903,7 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 	}
 	m.Armor = int32(jm.Armor)
 
-	// **Armour must be paid for, and there are three currencies.** Drive bars
-	// buy it on an EX special, a super level buys it on the grappler's level
-	// 2, and a motion buys it on the grappler's armoured advance — a special
-	// with a slow startup and an exposed recovery is a commitment in its own
-	// right (03 Game Design/Roster Plan.md).
-	//
-	// What the rule actually forbids, and what it forbade when the since-cut
-	// Drive Impact was the only armoured move in the game, is armour on a
-	// **plain normal**: a
-	// button with no cost and no motion that beats every other button, where
-	// the only way to notice is to lose to it.
+	// Armour must be paid for, and there are three currencies.
 	if m.Armored() && m.Drive == 0 && m.Super == 0 && m.Motion == sim.MotionNone {
 		return m, fmt.Errorf("armor %d on a plain normal: it costs no drive, no super level and no motion", m.Armor)
 	}
@@ -1055,8 +952,7 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 			return m, fmt.Errorf("box keyframe at frame %d, but the move is %d frames", k.Frame, m.Total())
 		}
 		prev = k.Frame
-		// Hits are numbered in the order they come out. A number that went
-		// back down would be a hit already spent, and it would never connect.
+		// Hits are numbered in the order they come out.
 		if k.NumHit > 0 {
 			if k.HitNumber() < lastHit {
 				return m, fmt.Errorf("box frame %d: hitNum %d after %d", k.Frame, k.HitNumber(), lastHit)
@@ -1226,11 +1122,6 @@ func parseBox(raw []json.Number) (sim.Box, error) {
 }
 
 // parseFix converts a decimal literal to 16.16 using integer arithmetic only.
-//
-// Not strconv.ParseFloat then multiply. Correctly-rounded float parsing would
-// in fact be deterministic here, but "we banned floats from the simulation and
-// then produced every gameplay constant with one" is a bad answer to an obvious
-// question, and the integer path has no edge cases to argue about.
 func parseFix(n json.Number) (sim.Fix, error) {
 	s := n.String()
 	if s == "" {
@@ -1251,7 +1142,7 @@ func parseFix(n json.Number) (sim.Fix, error) {
 	}
 
 	// strconv.ParseInt accepts its own sign, so "--1" would strip one here and
-	// the other there and come out positive. Digits only, past this point.
+	// the other there and come out positive.
 	if !digitsOnly(whole) || (hasFrac && !digitsOnly(frac)) {
 		return 0, fmt.Errorf("bad number %q", n.String())
 	}
@@ -1292,8 +1183,7 @@ func parseFix(n json.Number) (sim.Fix, error) {
 	if neg {
 		v = -v
 	}
-	// 16.16 holds ±32768. A value past that wraps into a plausible-looking
-	// number of the wrong sign, which is the worst possible failure mode.
+	// 16.16 holds ±32768.
 	if v > (1<<31)-1 || v < -(1<<31) {
 		return 0, fmt.Errorf("%q is out of range for 16.16", n.String())
 	}

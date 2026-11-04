@@ -15,54 +15,20 @@ import {
   stampNow,
 } from './packet'
 
-/**
- * Rollback netcode driver. It owns the input history for both players, decides
- * what the remote player is about to do, and corrects the sim when it turns out
- * to be wrong.
- *
- * GGPO parameters: 2 frames of input delay, 8 frames of maximum rollback,
- * prediction is "they are still holding what they last held".
- */
+/** Rollback netcode driver. */
 export const INPUT_DELAY = 2
 export const MAX_ROLLBACK = 8
 
-/**
- * Time synchronisation (02 Architecture/Rollback Netcode.md). Two clients on
- * two 60 Hz clocks do not stay on the same frame number: they start a few
- * frames apart and their clocks drift, and the end that is ahead spends the
- * difference predicting frames the other has not reached.
- *
- * **The leading end slows down; nobody ever speeds up.** Speeding up is visible
- * and unpleasant, and dropping one frame occasionally is not — so an end that
- * is more than AHEAD_LIMIT frames ahead skips a frame, at most one every
- * SKIP_EVERY, which is the note's "briefly runs at 59 fps".
- *
- * The hard stall at the rollback window is the backstop, not the mechanism: by
- * the time it fires the frame has already been lost. This keeps the advantage
- * under the window so it does not.
- */
+/** Time synchronisation (02 Architecture/Rollback Netcode.md). */
 export const AHEAD_LIMIT = 2
 export const SKIP_EVERY = 6
 
-/**
- * Frames between checksum exchanges. Only frames whose inputs are all known
- * are compared — a predicted state legitimately differs between the two ends,
- * and comparing one would report a desync on every healthy connection.
- */
+/** Frames between checksum exchanges. */
 export const CHECKSUM_EVERY = 30
 
 /**
- * The rollback visualiser's backing data (01 Thesis/Supervisor Deliverables.md).
- *
- * **Rollback is invisible when it works.** A match over a bad connection and a
- * match over a perfect one look identical, which is a problem at a defense: the
- * hardest part of the project looks like nothing happened. So the driver keeps
- * three seconds of per-frame history — what each frame was simulated from, and
- * where corrections landed — and the view draws it as a strip.
- *
- * Instrumentation, so it is not optional and it is not cut (CLAUDE.md): the
- * same ring answers "what did the last three seconds actually look like" for a
- * screenshot and for a bug report.
+ * The rollback visualiser's backing data (01 Thesis/Supervisor
+ * Deliverables.md).
  */
 export const TIMELINE = 180
 
@@ -95,13 +61,13 @@ function freshDepths(): Samples[] {
   return Array.from({length: MAX_ROLLBACK + 1}, () => createSamples())
 }
 
-/** The sim, from the driver's side. Small on purpose: it is stubbed in tests. */
+/** The sim, from the driver's side. */
 export interface SimBridge {
   advance(p1: number, p2: number): void
   rewind(frame: number): boolean
-  /** Hash of the current state. Called once per CHECKSUM_EVERY frames. */
+  /** Hash of the current state. */
   checksum(): number
-  /** Hash of the character data. Exchanged once, before the first frame. */
+  /** Hash of the character data. */
   dataVersion(): number
 }
 
@@ -116,102 +82,65 @@ export interface NetplayStats {
   mispredicted: number
   /** Frames we refused to simulate because the remote was too far behind. */
   stalls: number
-  /**
-   * Frames deliberately dropped to let the other end catch up. Distinct from a
-   * stall: a stall is the window running out, a skip is what stops it doing so.
-   */
+  /** Frames deliberately dropped to let the other end catch up. */
   skipped: number
-  /** Corrections that arrived too late to apply — a desync, if it ever fires. */
+  /**
+   * Corrections that arrived too late to apply — a desync, if it ever fires.
+   */
   dropped: number
   malformed: number
-  /**
-   * Set when the peer's character data does not match ours. Every frame after
-   * that would diverge, so the match is refused rather than played.
-   */
+  /** Set when the peer's character data does not match ours. */
   dataMismatch: boolean
 
   /** Confirmed frames where both ends hashed the same state. */
   verified: number
-  /** …and where they did not. The first such frame is where to start looking. */
+  /** …and where they did not. */
   desyncs: number
   desyncFrame: number
   rtt: Samples
   /**
    * What a rollback's replay cost, bucketed by the depth that produced it —
    * index 1..MAX_ROLLBACK, and index 0 is never pushed to.
-   *
-   * M-A is frame time *by rollback depth* (01 Thesis/Measurement Methodology.md)
-   * and one pooled distribution cannot answer it: a run at 150 ms mixes depth-1
-   * replays with depth-6 ones, so the p99 of the blend is a cost no frame ever
-   * actually paid. Bucketing here is what lets a real session — including a
-   * remote one — produce the M-A table rather than only a single blended figure.
    */
   replayByDepth: Samples[]
 }
 
 export interface Netplay {
-  /** Simulates one frame. False means it stalled and no frame was simulated. */
+  /** Simulates one frame. */
   step(localBits: number): boolean
-  /**
-   * Zeroes the counters without touching the match. **A new network condition
-   * is a new measurement**: the matrix cell being run has to be timed on its
-   * own frames, or every cell after the first reports a blend of itself and
-   * everything before it (01 Thesis/Measurement Methodology.md).
-   */
+  /** Zeroes the counters without touching the match. */
   resetStats(): void
-  /** Announces our character data hash. Sent once, on connect. */
+  /** Announces our character data hash. */
   hello(): void
   receive(data: ArrayBuffer): void
   ping(): void
   readonly frame: number
   /**
    * The newest frame that is both simulated and settled — every input in it is
-   * known, so it cannot be simulated again. **The line effects are fired up
-   * to**: anything past it is a prediction, and firing on a prediction is how
-   * one hit becomes eight sounds.
+   * known, so it cannot be simulated again.
    */
   readonly confirmed: number
   /**
    * How many frames ahead of the other end we are, with the connection's own
-   * latency taken out. Positive means we are leading and will skip a frame;
-   * negative means we are behind and they will. Instantaneous, so it is a
-   * reading rather than a statistic.
+   * latency taken out.
    */
   readonly advantage: number
   /**
    * The confirmed inputs so far, in the replay log's order: p1 then p2, one
-   * pair per frame, seat-independent. **Every netplay session is a regression
-   * log** — a desync that cannot be replayed offline is one that has to be
-   * reproduced live, which is the expensive way to find anything.
-   *
-   * Only frames that are both simulated and confirmed appear, so what is here
-   * is final: a rollback corrects state, never the inputs of a frame whose
-   * inputs are already known.
+   * pair per frame, seat-independent.
    */
   readonly log: readonly number[]
-  /**
-   * Milliseconds since anything at all arrived from the peer.
-   *
-   * **The transport's own liveness, not the game's.** Pings, checksums and
-   * input packets all count: a peer that is stalled but connected is still
-   * sending, and a peer that has gone is sending nothing
-   * (02 Architecture/Disconnect and Match Integrity.md).
-   */
+  /** Milliseconds since anything at all arrived from the peer. */
   silentMs(): number
   /**
    * The state hashes taken every CHECKSUM_EVERY frames, in frame order, packed
-   * as little-endian uint32s. Uploaded with the result: the server re-simulates
-   * the log and compares these, which is the check the whole Go→WASM decision
-   * exists to make possible (02 Architecture/Anti-Cheat and Verification.md).
+   * as little-endian uint32s.
    */
   checksums(): Uint8Array
   /**
    * What happened on a frame, for the visualiser: `kind | depth << 2`, where
    * kind is one of the FRAME_* constants and depth is the depth of a rollback
-   * that *landed* on this frame, or zero. -1 for a frame outside the ring.
-   *
-   * Packed rather than an object, because the view asks about 180 frames every
-   * display frame and none of them should allocate.
+   * that *landed* on this frame, or zero.
    */
   sample(frame: number): number
   readonly stats: NetplayStats
@@ -244,12 +173,7 @@ export function createNetplay(
   /** Highest frame with remote input known contiguously from the start. */
   let confirmed = -1
 
-  /**
-   * The frame the other end was on when it sent the newest inputs we have.
-   * Read off the packet rather than exchanged separately: a packet's newest
-   * input is the sender's frame plus INPUT_DELAY, so their frame is already in
-   * the format and needs no field of its own.
-   */
+  /** The frame the other end was on when it sent the newest inputs we have. */
   let theirFrame = -1
   let lastSkip = -SKIP_EVERY
 
@@ -258,28 +182,21 @@ export function createNetplay(
   // the moment that question starts mattering.
   let lastHeard = Date.now()
 
-  /** The newest frame we have put on the wire, for the resend on a held tick. */
+  /**
+   * The newest frame we have put on the wire, for the resend on a held tick.
+   */
   let sentInputsThrough = -1
 
   /** Frames written to the log so far, so settle only ever appends. */
   let logged = -1
   const log: number[] = []
 
-  // The visualiser's ring. Three parallel arrays rather than 180 objects: this
-  // is written every frame and read 180 times a frame, and neither should
-  // allocate. slotFrame holds the frame each slot belongs to, because the ring
-  // wraps and a slot keyed only by position reports a frame three seconds
-  // stale — a rollback tick drawn where nothing happened.
+  // The visualiser's ring.
   const slotFrame = new Int32Array(TIMELINE).fill(-1)
   const slotKind = new Int8Array(TIMELINE)
   const slotDepth = new Int8Array(TIMELINE)
 
-  /**
-   * Records what a frame was simulated from. **A correction is never
-   * downgraded**: the replay that follows one runs with the input now known,
-   * so without this the frame would go back to reporting itself clean and the
-   * strip would show a match in which nothing was ever mispredicted.
-   */
+  /** Records what a frame was simulated from. */
   function mark(f: number, k: number): void {
     const i = f % TIMELINE
     if (slotFrame[i] === f) {
@@ -309,11 +226,7 @@ export function createNetplay(
     replayByDepth: freshDepths(),
   }
 
-  /**
-   * Prediction: repeat the last input we actually saw. Scanning back rather
-   * than caching one value keeps replays honest — during a replay the newest
-   * known input can be *older* than the frame being replayed.
-   */
+  /** Prediction: repeat the last input we actually saw. */
   function remoteAt(f: number): number {
     if (known[f]) return remote[f]
     for (let k = f - 1; k >= 0 && f - k <= REDUNDANCY * 4; k--) {
@@ -324,16 +237,6 @@ export function createNetplay(
 
   /**
    * Frames we are ahead, corrected for the flight time of what we are reading.
-   *
-   * The correction is the point. Their newest input is one one-way trip old,
-   * so on a healthy 100 ms connection we look three frames ahead of them while
-   * being perfectly in sync — and an uncorrected comparison would have the
-   * leading end skipping frames forever at every latency worth measuring. The
-   * RTT is already sampled twice a second for the results chapter; half of it
-   * is the trip, and this is the second thing it pays for.
-   *
-   * Zero until the first ping comes back: with no measurement, the honest
-   * answer is that we do not know yet, and a guess here is a skipped frame.
    */
   function advantage(): number {
     if (theirFrame < 0 || stats.rtt.count === 0) return 0
@@ -341,17 +244,8 @@ export function createNetplay(
     return frame - theirFrame - flight
   }
 
-  /**
-   * Appends every frame that is both simulated and confirmed. Bounded by
-   * `frame - 1` and not by `confirmed` alone: the other end can be ahead of us,
-   * and a frame we have not simulated has no local input recorded for it yet —
-   * logging it would write a zero the sim never saw.
-   */
-  /**
-   * The newest frame that is settled *and* simulated here. Bounded by both,
-   * because the other end can be ahead of us: a frame whose inputs we know but
-   * have not run has produced neither a state nor an event.
-   */
+  /** Appends every frame that is both simulated and confirmed. */
+  /** The newest frame that is settled *and* simulated here. */
   function settled(): number {
     return Math.min(confirmed, frame - 1)
   }
@@ -373,17 +267,12 @@ export function createNetplay(
     else sim.advance(remoteBits, mine)
 
     // Recorded on the way past, because the hash of frame N is unreachable once
-    // the sim has moved on. A replay overwrites it with the corrected value,
-    // which is exactly what should be compared.
+    // the sim has moved on.
     const next = f + 1
     if (next % CHECKSUM_EVERY === 0) sums.set(next, sim.checksum() >>> 0)
   }
 
-  /**
-   * Sends and compares checksums for frames that can no longer change. The
-   * state at frame f is settled once every input before f is known, so
-   * `confirmed + 1` is the newest frame worth hashing.
-   */
+  /** Sends and compares checksums for frames that can no longer change. */
   function settle(): void {
     record()
     const settled = confirmed + 1
@@ -401,7 +290,7 @@ export function createNetplay(
       const ours = sums.get(f)
       if (ours === undefined) {
         // Settled but not simulated here yet — inputs can arrive faster than we
-        // step. Hold it, unless it is old enough that we never will.
+        // step.
         if (f < settled - CHECKSUM_EVERY * 4) theirSums.delete(f)
         continue
       }
@@ -416,11 +305,7 @@ export function createNetplay(
     }
   }
 
-  /**
-   * The window we last sent, sent again. Used by the ticks that decide not to
-   * simulate: they have no new input to add, but silence would leave the other
-   * end reading our frame number off a packet that is getting older.
-   */
+  /** The window we last sent, sent again. */
   function resendInputs(): void {
     if (sentInputsThrough >= 0) sendInputs(sentInputsThrough)
   }
@@ -440,8 +325,7 @@ export function createNetplay(
     // cost goes: it replayed that many frames and no more.
     const bucket = Math.min(depth, MAX_ROLLBACK)
     if (!sim.rewind(to)) {
-      // Older than the rollback window. Nothing can fix this frame; the two
-      // sims have already diverged and M2 has to resynchronise.
+      // Older than the rollback window.
       stats.dropped++
       return
     }
@@ -474,8 +358,7 @@ export function createNetplay(
 
     sample(f) {
       // The strip asks about the last three seconds, which at the start of a
-      // match runs off the front of it. A negative frame is not a frame, and
-      // it would otherwise match the empty slots' own sentinel.
+      // match runs off the front of it.
       if (f < 0) return -1
       const i = f % TIMELINE
       if (slotFrame[i] !== f) return -1
@@ -489,24 +372,10 @@ export function createNetplay(
     },
 
     step(localBits) {
-      // **Nothing is recorded or sent before the guards below.** A frame's
-      // input is decided once, on the tick that frame is actually simulated.
-      // Recording it first means a stalled or skipped tick writes a second
-      // value into a slot already on the wire, and the peer keeps the first
-      // copy it saw — the two ends then simulate that frame from different
-      // inputs. It shows up as an intermittent checksum mismatch rather than a
-      // broken match, because a difference that lands mid-animation changes
-      // nothing and the states converge again.
-      //
-      // Resending instead keeps us audible while we are not moving: the other
-      // end reads our frame number off our input packets, so an end that goes
-      // quiet during a stall makes *their* time synchronisation act on a stale
-      // reading.
+      // Nothing is recorded or sent before the guards below.
 
-      // Never outrun the window: a misprediction older than MAX_ROLLBACK
-      // cannot be corrected, so wait rather than desync. This is the stall
-      // that shows up as a hitch when the connection is bad, and its
-      // frequency is one of the numbers worth reporting.
+      // Never outrun the window: a misprediction older than MAX_ROLLBACK cannot
+      // be corrected, so wait rather than desync.
       if (frame - confirmed > MAX_ROLLBACK) {
         stats.stalls++
         resendInputs()
@@ -514,11 +383,6 @@ export function createNetplay(
       }
 
       // Time synchronisation: drop this frame if we are the end that is ahead.
-      // Only one end can be, since the two readings are the same difference
-      // with opposite signs, so this cannot turn into both sides waiting for
-      // each other. The cooldown is what keeps it a slowdown rather than a
-      // freeze — one frame in six while correcting, and nothing at all once
-      // the two are level.
       if (advantage() > AHEAD_LIMIT && frame - lastSkip >= SKIP_EVERY) {
         lastSkip = frame
         stats.skipped++
@@ -576,9 +440,7 @@ export function createNetplay(
         const {startFrame, inputs} = decodeInputs(data)
 
         // The newest input in the packet is the sender's own frame plus the
-        // input delay, which is what they were on when they sent it. Monotone,
-        // because the channel is unordered and an older packet arriving later
-        // must not walk the reading backwards.
+        // input delay, which is what they were on when they sent it.
         const theirs = startFrame + inputs.length - 1 - INPUT_DELAY
         if (theirs > theirFrame) theirFrame = theirs
 
@@ -632,10 +494,7 @@ export function createNetplay(
 
     checksums() {
       // Sorted by frame, because frame order is what the server replays in and
-      // nothing here guarantees it otherwise. Today the keys happen to be
-      // inserted in order — a rollback re-sets an existing key, which leaves a
-      // Map's iteration order alone — so this is one line against a change in
-      // how the checkpoints are taken rather than against a bug that exists.
+      // nothing here guarantees it otherwise.
       const frames = [...sums.keys()].sort((a, b) => a - b)
       const out = new Uint8Array(frames.length * 4)
       const v = new DataView(out.buffer)

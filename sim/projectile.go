@@ -1,29 +1,17 @@
 package sim
 
-// Projectiles. A fireball outlives the move that produced it — the character
-// recovers, walks away, and the thing is still travelling — so it cannot be a
-// hitbox hanging off the attacker. It is state, and because it is state it is
-// in GameState: a projectile that does not roll back is a projectile that hits
-// on one machine and misses on the other.
+// Projectiles.
 
-// MaxProjectiles is the pool for the whole match, both players. Fixed, because
-// GameState has no allocation in it and never will; four is more than the two
-// characters in the plan can put on screen, and the pool being full drops the
-// new one rather than growing.
+// MaxProjectiles is the pool for the whole match, both players.
 const MaxProjectiles = 4
 
-// Projectile is one thing in flight. Every field is 4 bytes, like everything
-// else in the state.
+// Projectile is one thing in flight.
 type Projectile struct {
-	// Active is 0 for a free slot. Slots are never reordered or compacted —
-	// compaction would make the same match produce different slot assignments
-	// depending on when a rollback happened.
+	// Active is 0 for a free slot.
 	Active int32
 
 	Owner int32
-	// Move indexes the owner's move list. Damage, stun and the box live there
-	// and are read through it: copying them into the projectile would give one
-	// number two homes and let them disagree after a balance change.
+	// Move indexes the owner's move list.
 	Move int32
 
 	X, Y Fix
@@ -41,8 +29,7 @@ func (s *GameState) spec(pr *Projectile) *ProjectileSpec {
 }
 
 // ProjectileBox is the world-space hitbox of slot i, or an empty box if the
-// slot is free. Facing comes from the direction of travel, not from the owner:
-// the owner may have turned around since, and the fireball did not.
+// slot is free.
 func (s *GameState) ProjectileBox(i int) Box {
 	pr := &s.Projectiles[i]
 	if pr.Active == 0 {
@@ -72,10 +59,7 @@ func (s *GameState) advanceProjectiles() {
 		pr.X += pr.VX
 		pr.Life--
 
-		// Off the screen or out of life. There is no wall to hit: a fireball
-		// that has left the screen is gone whatever it does next, and one
-		// crossing the rest of a stage wider than the screen would hit a
-		// player nobody could see it reach.
+		// Off the screen or out of life.
 		if pr.Life <= 0 || pr.X < s.CamX-balance.CameraHalfWidth || pr.X > s.CamX+balance.CameraHalfWidth {
 			pr.Active = 0
 		}
@@ -85,8 +69,7 @@ func (s *GameState) advanceProjectiles() {
 		p := &s.Players[i]
 		mv := p.move()
 		// The spawn frame is the move's first active frame, which is data the
-		// move already carries. A separate "spawn on frame N" field would be a
-		// second place for the same timing to be wrong in.
+		// move already carries.
 		if mv == nil || !mv.Proj.Exists() || p.StateFrame != mv.Startup {
 			continue
 		}
@@ -94,9 +77,7 @@ func (s *GameState) advanceProjectiles() {
 	}
 }
 
-// spawn puts a projectile in the first free slot. A full pool drops it — the
-// alternative is evicting someone's live fireball, which is worse to play
-// against than a fireball that did not come out.
+// spawn puts a projectile in the first free slot.
 func (s *GameState) spawn(owner, move int32, mv *Move) {
 	p := &s.Players[owner]
 
@@ -118,13 +99,7 @@ func (s *GameState) spawn(owner, move int32, mv *Move) {
 	}
 }
 
-// resolveProjectiles is the projectile half of steps 6 and 7. It runs after the
-// players' own hits, and slot by slot in index order — the order is arbitrary
-// but it is the same arbitrary order on both machines, which is the only
-// property that matters.
-//
-// A projectile that connects is spent, on block as much as on hit. Multi-hit
-// projectiles are an EX property and belong with the Drive system.
+// resolveProjectiles is the projectile half of steps 6 and 7.
 func (s *GameState) resolveProjectiles(in [2]uint16) {
 	var hurts [MaxBoxes]Box
 

@@ -1,25 +1,16 @@
 /**
- * Net packet format. Little-endian, ~22 bytes for a full inputs packet:
+ * Net packet format.
  *
  *   [uint8 type][uint32 startFrame][uint8 count][uint16 inputs[count]]
- *
- * The uint16s are the same bytes the sim, the replay and the server see. No
- * translation layer anywhere on that path — a translation layer is a place for
- * the two ends to disagree.
  */
 export const PacketType = {inputs: 1, checksum: 2, ping: 3, control: 4} as const
 
-/**
- * Frames of history in every inputs packet. This redundancy replaces
- * retransmission entirely: the channel is unreliable and unordered, and a lost
- * packet is covered by each of the next seven. Retransmitting a 16 ms-old input
- * would deliver it long after the frame it belonged to.
- */
+/** Frames of history in every inputs packet. */
 export const REDUNDANCY = 8
 
 const HEADER = 6
 
-/** The type byte, without decoding the rest. Cheap enough to call on dispatch. */
+/** The type byte, without decoding the rest. */
 export function packetType(data: ArrayBuffer): number {
   if (data.byteLength < 1) throw new Error('empty packet')
   return new DataView(data).getUint8(0)
@@ -49,8 +40,7 @@ export function encodeInputs(startFrame: number, inputs: ArrayLike<number>): Arr
 
 /**
  * Everything here came off the wire, so every field is checked before it is
- * used. A malformed packet throws and the caller drops it; on an unreliable
- * channel a dropped packet is already the normal case.
+ * used.
  */
 export function decodeInputs(data: ArrayBuffer): InputsPacket {
   if (data.byteLength < HEADER) {
@@ -68,17 +58,13 @@ export function decodeInputs(data: ArrayBuffer): InputsPacket {
 
   // ponytail: a Uint16Array view over the buffer would be zero-copy and the
   // offset happens to be aligned, but typed arrays read platform endianness.
-  // Eight DataView reads cost nothing and are little-endian by construction.
   const inputs = new Uint16Array(count)
   for (let i = 0; i < count; i++) inputs[i] = v.getUint16(HEADER + i * 2, true)
 
   return {startFrame: v.getUint32(1, true), inputs}
 }
 
-/**
- * Checksum: [uint8 type][uint32 frame][uint32 checksum], 9 bytes. The state
- * hash at the start of `frame`, which both machines must agree on exactly.
- */
+/** Checksum: [uint8 type][uint32 frame][uint32 checksum], 9 bytes. */
 export function encodeChecksum(frame: number, sum: number): ArrayBuffer {
   const buf = new ArrayBuffer(9)
   const v = new DataView(buf)
@@ -95,14 +81,7 @@ export function decodeChecksum(data: ArrayBuffer): {frame: number; sum: number} 
   return {frame: v.getUint32(1, true), sum: v.getUint32(5, true)}
 }
 
-/**
- * Ping: [uint8 type][uint32 stamp][uint8 reply], 6 bytes. The stamp is the
- * sender's own clock and comes back untouched, so RTT is one subtraction and
- * there is no table of outstanding pings to keep.
- *
- * Tenths of a millisecond, not milliseconds: on a LAN the whole round trip can
- * be under 1 ms, and a measurement that reports 0 is not a measurement.
- */
+/** Ping: [uint8 type][uint32 stamp][uint8 reply], 6 bytes. */
 export function encodePing(stamp: number, reply: boolean): ArrayBuffer {
   const buf = new ArrayBuffer(6)
   const v = new DataView(buf)
@@ -124,14 +103,7 @@ export function stampNow(): number {
   return Math.round(performance.now() * 10) >>> 0
 }
 
-/**
- * The handshake: [uint8 type][uint32 dataVersion].
- *
- * Character data is part of the simulation's identity — two clients running
- * different frame data produce different states from identical inputs, and
- * nothing downstream can tell that apart from a bug. Comparing a hash before
- * the first frame turns hours of desync hunting into one refused connection.
- */
+/** The handshake: [uint8 type][uint32 dataVersion]. */
 export function encodeControl(dataVersion: number): ArrayBuffer {
   const buf = new ArrayBuffer(5)
   const v = new DataView(buf)

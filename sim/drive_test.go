@@ -5,9 +5,6 @@ import "testing"
 // What the Drive gauge buys (03 Game Design/Resource System.md): since D115 cut
 // the other Drive mechanics, EX specials are the only moves with a Drive price,
 // so what is under test here is the price and armour.
-//
-// Fixture: move 13 is an armoured one-bar move on HP+HK, move 14 the two-bar EX
-// special sharing move 2's motion and one of its buttons.
 
 const (
 	moveArmored = 13
@@ -41,8 +38,7 @@ func TestEXCostsDriveAndOutranksTheSpecialItSharesAButtonWith(t *testing.T) {
 }
 
 // The gauge it cannot pay for leaves the cheaper move to win the press — the
-// same courtesy the meter gives the fireball when a super is unaffordable. A
-// move that was selected and then failed would have already beaten it.
+// same courtesy the meter gives the fireball when a super is unaffordable.
 func TestAnUnaffordableEXComesOutAsThePlainSpecial(t *testing.T) {
 	s := New()
 	s.Players[0].Drive = BarUnits // one bar against the EX's two
@@ -56,9 +52,7 @@ func TestAnUnaffordableEXComesOutAsThePlainSpecial(t *testing.T) {
 	}
 }
 
-// **No EX specials at all in Burnout**, however much has refilled. The
-// gauge climbing back is not the same as being allowed to spend it, and this is
-// what makes running out a state worth avoiding.
+// No EX specials at all in Burnout, however much has refilled.
 func TestBurnoutRefusesDriveMovesEvenWithBarsBack(t *testing.T) {
 	s := New()
 	s.Players[0].Burnout = 1
@@ -74,8 +68,7 @@ func TestBurnoutRefusesDriveMovesEvenWithBarsBack(t *testing.T) {
 
 // armored starts the armoured move on player 1 and returns the state on the
 // frame after it came out, with the two players close enough for move 0 to
-// reach. Player 1 is the defender in these tests: the armour belongs to the
-// player being hit.
+// reach.
 func armored(t *testing.T, gap int) GameState {
 	t.Helper()
 	s := facing(gap)
@@ -92,8 +85,7 @@ func TestArmorAbsorbsAHitWithoutStoppingTheMove(t *testing.T) {
 	s := armored(t, 40)
 	health := s.Players[1].Health
 
-	// Player 0 jabs into it. The jab connects during the armoured move's
-	// startup, which is the window armour exists for.
+	// Player 0 jabs into it.
 	for f := 0; f < 8 && s.Players[1].State == StateAttack; f++ {
 		s.Advance([2]uint16{InLP, 0})
 	}
@@ -109,14 +101,12 @@ func TestArmorAbsorbsAHitWithoutStoppingTheMove(t *testing.T) {
 	}
 
 	// Damage is reduced, not nothing: armouring through a heavy has a price.
-	// The fixture's jab deals 100 and the fixture absorbs at 50%.
 	if lost := health - s.Players[1].Health; lost != 50 {
 		t.Errorf("lost %d health, want the fixture's halved jab (50)", lost)
 	}
 }
 
-// One hit of armour is one hit. The second lands like any other, or the move
-// is not armoured but invincible.
+// One hit of armour is one hit.
 func TestTheSecondHitIsNotAbsorbed(t *testing.T) {
 	s := armored(t, 40)
 	s.Players[1].Armor = 1 // the first hit is already spent
@@ -130,8 +120,7 @@ func TestTheSecondHitIsNotAbsorbed(t *testing.T) {
 	}
 }
 
-// Armour cannot kill. A mechanic that trades a bar for the round is one nobody
-// spends a bar on, and the chip rule the design already has says so.
+// Armour cannot kill.
 func TestAnAbsorbedHitCannotKill(t *testing.T) {
 	s := armored(t, 40)
 	s.Players[1].Health = 10
@@ -145,9 +134,7 @@ func TestAnAbsorbedHitCannotKill(t *testing.T) {
 	}
 }
 
-// The answer to armour. A throw is resolved before anything armour touches and
-// an attacking player is throwable, so the armoured move loses to the grab —
-// which is what keeps it from being a button with no response.
+// The answer to armour.
 func TestAThrowBeatsArmor(t *testing.T) {
 	s := armored(t, 40)
 
@@ -164,8 +151,7 @@ func TestAThrowBeatsArmor(t *testing.T) {
 }
 
 // Armour covers the frames that carry the move, not the recovery it is exposed
-// on afterwards. An armoured move that were safe as well as strong is the one
-// nobody would ever not press.
+// on afterwards.
 func TestArmorDoesNotCoverTheRecovery(t *testing.T) {
 	// Out of range to begin with: the armoured move's own hitbox would
 	// otherwise knock the attacker down during its active frames, and the

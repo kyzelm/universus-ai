@@ -54,15 +54,7 @@ const GROUND_PX = 380
 
 /**
  * Zoom is framing, not gameplay: the sim's camera (and the screen-edge walls
- * that cap separation) always use the full screen width. The view only ever
- * frames *tighter* than that, around both players, so it never hides anything
- * the sim treats as on screen.
- *
- * **A continuous function of distance.** Full screen at `ZOOM_START` units of
- * spacing and beyond, closing smoothly to `ZOOM_CLOSE_HALF` at `ZOOM_FULL`.
- * The known cost (D114): a player standing still drifts a little on screen
- * while the other walks, since every step of spacing rescales the scene.
- * `ZOOM_SMOOTH` filters knockback jolts so hits do not pump the zoom.
+ * that cap separation) always use the full screen width.
  */
 const ZOOM_CLOSE_HALF = 160
 const ZOOM_START = 240
@@ -73,42 +65,29 @@ const ZOOM_SMOOTH = 0.08
 const ZOOM_EDGE = 40
 
 /**
- * Displayed frames between HUD refreshes, **counted off the display and not
- * off the sim frame.** A stalled sim holds its frame number still, so gating
- * on `frame % HUD_EVERY` freezes the HUD on whatever text it last drew — and
- * a stall is exactly when the stall, skip and RTT counters are worth reading.
+ * Displayed frames between HUD refreshes, counted off the display and not off
+ * the sim frame.
  */
 const HUD_EVERY = 30
 
 /**
- * Debug box colours, the convention every fighting game debug view uses:
- * blue pushbox, green hurtbox, red hitbox.
- *
- * This is the tool that debugs every system built on top of boxes, which is why
- * it exists before there is anything to look at. It draws the boxes the sim
- * actually collides, carried in the snapshot — boxes recomputed here would
- * agree with themselves and disagree with the game.
+ * Debug box colours, the convention every fighting game debug view uses: blue
+ * pushbox, green hurtbox, red hitbox.
  */
 const PUSH_COLOR = 0x4a8ce0
 const HURT_COLOR = 0x4ae08c
 const HIT_COLOR = 0xe0574a
 
-/** Frames between pings. Two a second is plenty to build an RTT distribution. */
+/** Frames between pings. */
 const PING_EVERY = 30
 
 /**
  * Silence that counts as a disconnect (02 Architecture/Transport and
- * Connectivity.md). Long enough that a bad moment on a bad connection is not a
- * forfeit, short enough that nobody sits watching a frozen screen wondering.
+ * Connectivity.md).
  */
 const DISCONNECT_MS = 3000
 
-/**
- * Effect colours, one per event flag. The spark is a placeholder for the sounds
- * and particles that arrive in M4 — what matters here is that it is fired
- * through the confirmed-frame path, so everything hung off that path later
- * inherits a mechanism that has already been proven not to double-fire.
- */
+/** Effect colours, one per event flag. */
 const EVENT_COLORS: readonly (readonly [number, number])[] = [
   [EVENT_HIT, 0xffe08a],
   [EVENT_BLOCK, 0x8ac8ff],
@@ -121,14 +100,7 @@ const EVENT_COLORS: readonly (readonly [number, number])[] = [
 const SPARK_FRAMES = 10
 const SPARK_RADIUS = 14
 
-/**
- * The rollback visualiser (01 Thesis/Supervisor Deliverables.md). **Rollback is
- * invisible when it works** — a match over a bad connection looks exactly like
- * a match over a perfect one, which means the hardest part of the project looks
- * like nothing happened. The strip is three seconds of frames, coloured by what
- * each was simulated from, with a tick where each correction landed and how
- * deep it went.
- */
+/** The rollback visualiser (01 Thesis/Supervisor Deliverables.md). */
 const STRIP_COL = 2
 const STRIP_H = 12
 const STRIP_DEPTH_H = 22
@@ -143,74 +115,33 @@ export interface Game {
   /**
    * The session so far in the replay log format: a 16-byte header carrying the
    * setup, then little-endian uint16 pairs, player 1 then player 2, one pair
-   * per frame. The same bytes tools/replay reads.
+   * per frame.
    */
   inputLog(): Blob
-  /**
-   * Switch from local play to netplay over a connected peer. Seat 0 drives P1,
-   * seat 1 drives P2; both ends reset to frame 0, and from then on each side
-   * simulates frame N from (its own input at N, the other side's input at N).
-   */
+  /** Switch from local play to netplay over a connected peer. */
   connect(peer: Peer, seat: 0 | 1, session?: MatchSession): void
-  /** Feed a packet in. The panel owns the channel, so it forwards them here. */
+  /** Feed a packet in. */
   receive(data: ArrayBuffer): void
-  /** True in the lab. The net panel reads it and refuses to connect. */
+  /** True in the lab. */
   readonly training: boolean
-  /**
-   * The characters this run was started with. The panel hands them to the
-   * room, where the host's pair becomes the pair both ends play.
-   */
+  /** The characters this run was started with. */
   readonly chars: [number, number]
-  /** Starts the match over, in the same mode. The training reset key. */
+  /** Starts the match over, in the same mode. */
   restart(): void
-  /**
-   * Picks what the dummy does with seat 2. Training only; 'manual' hands the
-   * seat back to its keyboard, which is where it starts.
-   */
+  /** Picks what the dummy does with seat 2. */
   setDummy(mode: DummyMode): void
   /**
    * The figures the HUD draws, as plain numbers, for the measurement harness
-   * (01 Thesis/Measurement Methodology.md). A run whose numbers were read off
-   * a screenshot by eye cannot be re-read, checked or plotted later.
-   *
-   * Read-only and one-way: nothing in the game reads this back, and no sim
-   * state is exposed through it, so it can never become a path into the sim.
+   * (01 Thesis/Measurement Methodology.md).
    */
   measure(): Record<string, unknown>
-  /**
-   * Sets the artificial network conditions applied to arriving packets. The
-   * measurement matrix is run by calling this, not by rebuilding anything.
-   */
+  /** Sets the artificial network conditions applied to arriving packets. */
   impair(cfg: Impairment): void
   dispose(): void
 }
 
-/**
- * Starts the sim, the render loop and the input layer.
- *
- * The view is read-only by construction: it advances the sim, reads a snapshot,
- * and draws. There is no path from here back into sim state.
- *
- * `bot` replaces the local player's device for a measurement run. It sits
- * where the keyboard sits, so the sim cannot tell the difference and neither
- * can the replay log.
- *
- * `training` starts the match in the lab (03 Game Design/Game Modes.md):
- * resources refill, the clock stops, the round never ends. It is a mode of the
- * *match* and lives in sim state, so it is offline by construction — the panel
- * refuses to connect in it.
- *
- * `ai` hands seat 2 to the scripted opponent at that difficulty tier
- * (03 Game Design/AI Opponent.md). Also sim state, and for a stronger reason:
- * the AI's presses are generated inside the sim, so there is nothing out here
- * that could produce them and nothing out here that may disagree about them.
- */
-/**
- * What the room agreed on, as the game needs it. The transport and the match id
- * are carried because the *result* carries them: which of P2P and the relay a
- * match was played on is a figure that only exists if the match that produced
- * it says so (02 Architecture/Transport and Connectivity.md).
- */
+/** Starts the sim, the render loop and the input layer. */
+/** What the room agreed on, as the game needs it. */
 export interface MatchSession {
   chars?: [number, number]
   matchID?: number
@@ -226,18 +157,13 @@ export async function startGame(
   showBoxes = false,
 ): Promise<Game> {
   await loadSim()
-  // The characters arrive from the URL, so they are user input and clamped
-  // here — the first point at which the roster is loaded and its size is
-  // known. An index nobody has is the zero character in the sim, which is a
-  // fighter that stands still and never says why.
+  // The characters arrive from the URL, so they are user input and clamped here
+  // — the first point at which the roster is loaded and its size is known.
   const count = numCharacters()
   chars = [chars[0] % count, chars[1] % count]
   reset(training, ai, chars)
 
-  // A sheet per seat, named after the character. Loaded before the first frame
-  // rather than swapped in when it arrives: a missing or malformed sheet stops
-  // the game here, with the tag it could not find, instead of rendering an
-  // invisible fighter somebody has to debug from the symptom.
+  // A sheet per seat, named after the character.
   const names = roster()
   const sheets = await Promise.all(chars.map((c) => loadSheet(names[c].name.toLowerCase())))
 
@@ -245,10 +171,7 @@ export async function startGame(
   await app.init({width: VIEW_W, height: VIEW_H, background: 0x14161a, antialias: false})
   parent.appendChild(app.canvas)
 
-  // CSS stretches the canvas to the window (index.css). Layout stays 800x450,
-  // but the backing store follows the displayed size, so text and shapes are
-  // drawn at screen pixels instead of upscaled from 800 wide. Resizing the
-  // backing store does not change the CSS width, so this cannot feed back.
+  // CSS stretches the canvas to the window (index.css).
   const sizer = new ResizeObserver(() =>
     app.renderer.resize(VIEW_W, VIEW_H, (app.canvas.clientWidth * devicePixelRatio) / VIEW_W),
   )
@@ -280,7 +203,7 @@ export async function startGame(
 
   // Projectiles have no sprite yet, so they are drawn as the hitbox they are —
   // on their own layer, because that hitbox is the only thing on screen saying
-  // a fireball exists. Hiding it with the debug overlay would delete it.
+  // a fireball exists.
   const projectiles = new Graphics()
   world.addChild(projectiles)
 
@@ -296,9 +219,7 @@ export async function startGame(
   const bars = [new Graphics(), new Graphics()]
   bars.forEach((b) => app.stage.addChild(b))
 
-  // The combo readout, one per seat. A counter hit that is not visible is one
-  // nobody learns from, so it is drawn every frame rather than on the HUD's
-  // slower clock.
+  // The combo readout, one per seat.
   const combos = [0, 1].map((seat) => {
     const t = new Text({
       text: '',
@@ -310,9 +231,7 @@ export async function startGame(
     return t
   })
 
-  // The round clock and the announcement. Both read the sim's own phase and
-  // timer: a view that counted its own seconds would show a different number
-  // from the one the round actually ends on.
+  // The round clock and the announcement.
   const timer = new Text({
     text: '',
     style: {fill: 0xe8ecf2, fontFamily: 'monospace', fontSize: 26, fontWeight: 'bold'},
@@ -346,10 +265,7 @@ export async function startGame(
   hud.position.set(8, 66)
   app.stage.addChild(hud)
 
-  // The lab overlay. Training only, because both readouts are there to be
-  // studied between attempts and a match is not the place to read a column of
-  // numbers — and because the mode is the one that lets you repeat the same
-  // situation until the number means something.
+  // The lab overlay.
   const lab = training ? createLab() : null
   const dummy = training ? createDummy() : null
   const labText = (x: number, y: number, anchor: number, size: number) => {
@@ -375,31 +291,19 @@ export async function startGame(
   const clock = createClock()
   let stepCost = createSamples()
 
-  // Wall-clock time between displayed frames. The sim step is measured
-  // separately above; this is the number the 60 fps bar is actually about,
-  // because a frame that fits the budget and is still displayed late is a
-  // dropped frame to the player.
+  // Wall-clock time between displayed frames.
   let frameCost = createSamples()
   let longFrames = 0
 
   let net: Netplay | null = null
   let link: Link | null = null
   // The match this session was recorded as, and whether its result has gone up.
-  // **Once, on the first frame the match is over**: the phase stays MATCH_END
-  // for as long as the screen shows it, and an upload per frame would be the
-  // same result a hundred times.
   let matchID = 0
   let reported = false
   let transport: 'p2p' | 'relay' | undefined
   /** Which seat this end is driving, once connected. */
   let mySeat: 0 | 1 = 0
-  /**
-   * The peer stopped sending. **A disconnect is a loss for the disconnecting
-   * player** and the match ends immediately, with no reconnection window (D50,
-   * D51): reconnecting into a rollback match means re-establishing the
-   * connection, resynchronising frame numbers and transferring full simulation
-   * state — days of work for a rare case, and a new class of desync bugs.
-   */
+  /** The peer stopped sending. */
   let opponentLeft = false
   /** What the server made of the upload, for the HUD. */
   let uploadStatus = ''
@@ -407,30 +311,12 @@ export async function startGame(
   let hudTicks = 0
 
   // Every playtest is a free regression log, and the corpus is worth more than
-  // any single test in here — but only if it is actually recorded. Growth is
-  // ~864 KB an hour, which is not worth a ring buffer.
-  //
-  // Local play only. Under netplay the driver decides what the sim is fed,
-  // including on replays, so the log that is honest about a match is the one
-  // it keeps of confirmed frames — see inputLog.
+  // any single test in here — but only if it is actually recorded.
   const recorded: number[] = []
 
-  // **Effects fire from state, on confirmed frames, and never from inside the
-  // sim.** The sim sets flags and fires nothing; this drains them for frames
-  // that can no longer be simulated again. Built in M2 with a placeholder
-  // spark attached, because retrofitting it once there are real sounds means
-  // auditing every effect in the game (02 Architecture/Rollback Netcode.md).
-  /**
-   * The session so far in the replay log format. Under netplay the driver's log
-   * is the authority: it holds the inputs that were *confirmed*, which is what
-   * the match actually simulated once every rollback had been applied. A log
-   * kept out here would record the predictions instead, and replay a match
-   * nobody played.
-   *
-   * The setup goes in the header, or the inputs replay as a different match. A
-   * netplay session is always a plain match whatever the URL said — connect()
-   * resets to one before the first frame.
-   */
+  // Effects fire from state, on confirmed frames, and never from inside the
+  // sim.
+  /** The session so far in the replay log format. */
   const logBytes = (): ArrayBuffer => {
     const src = net ? net.log : recorded
     const setup: Setup = net ? {training: false, ai: 0, chars} : {training, ai, chars}
@@ -442,30 +328,24 @@ export async function startGame(
 
   app.ticker.add((ticker) => {
     frameCost.push(ticker.deltaMS)
-    // A frame that took longer than one and a half steps is one the display
-    // did not get. Counted rather than averaged: under continuous rollback the
-    // question is whether any frame was missed, not what the mean was.
+    // A frame that took longer than one and a half steps is one the display did
+    // not get.
     if (ticker.deltaMS > STEP_MS * 1.5) longFrames++
 
-    // Once the opponent has gone the match is over: **no reconnection window**
+    // Once the opponent has gone the match is over: no reconnection window
     // (D51), so there is nothing left to simulate and the last confirmed frame
-    // is the one the result is reported from. Stepping on would stall against
-    // input that is never arriving and climb the stall counter for it.
+    // is the one the result is reported from.
     for (let i = opponentLeft ? 0 : clock.tick(ticker.deltaMS); i > 0; i--) {
       const [keys, p2] = input.poll()
       // The bot is a device: it stands in for the local player's keyboard and
       // is read once per fixed step, exactly where the keyboard is read.
       const p1 = bot ? bot.poll() : keys
-      // So is the dummy, in the other seat. It decides from the state as of
-      // the frame just simulated, which is the same one frame late a player
-      // reacting to the screen is, and it is handed seat 2's own keys — which
-      // it passes through when set to manual and keeps when recording.
+      // So is the dummy, in the other seat.
       const p2in = dummy ? dummy.poll(readSnapshot(), p2) : p2
 
       const t0 = performance.now()
       if (net) {
-        // WASD is always the local player, whichever seat they are in. Which
-        // half of the keyboard you use should not depend on who dialled.
+        // WASD is always the local player, whichever seat they are in.
         net.step(p1)
         if (++ticks % PING_EVERY === 0) net.ping()
       } else {
@@ -485,9 +365,7 @@ export async function startGame(
     const snap = readSnapshot()
 
     // The camera is sim state, not a view decision — corner position is
-    // gameplay, so both machines must agree on where the corner is. Zoom is
-    // the view's: it frames tighter than the sim's screen, starting from the
-    // sim's centre and moving off it only as far as the tighter frame needs.
+    // gameplay, so both machines must agree on where the corner is.
     const [a, b] = snap.players
     const gap = Math.abs(a.x - b.x)
     const t = Math.min(1, Math.max(0, (ZOOM_START - gap) / (ZOOM_START - ZOOM_FULL)))
@@ -499,43 +377,31 @@ export async function startGame(
     // Pinned at the ground line, so zooming grows the fighters upward.
     world.position.set(VIEW_W / 2 - centre * SCALE * zoom, GROUND_PX * (1 - zoom))
 
-    // Under netplay the confirmed line lags the simulated frame by the
-    // rollback window; locally every frame that has run is settled the moment
-    // it has. Either way nothing is drawn for a frame that could still change.
+    // Under netplay the confirmed line lags the simulated frame by the rollback
+    // window; locally every frame that has run is settled the moment it has.
     pump.drain(net ? net.confirmed : snap.frame - 1, ({seat, bits}) => {
       const p = snap.players[seat]
       for (const [bit, color] of EVENT_COLORS) {
         // ponytail: drawn where the fighter is now, not where they were on the
-        // event's own frame. That is at most eight frames of drift and the
-        // alternative is a position history the view has no other use for.
+        // event's own frame.
         if (bits & bit) sparks.push({x: p.x, y: p.y, life: SPARK_FRAMES, color})
       }
     })
 
-    // **Three seconds of silence is a disconnect** and the match ends there
-    // (02 Architecture/Transport and Connectivity.md). Not a stall: a peer that
-    // is merely behind keeps sending, and the driver counts anything at all —
-    // pings and checksums included — as the peer being alive.
+    // Three seconds of silence is a disconnect and the match ends there (02
+    // Architecture/Transport and Connectivity.md).
     if (net && !opponentLeft && net.silentMs() > DISCONNECT_MS) {
       opponentLeft = true
     }
 
-    // **The result goes up once the match is over and the frame is settled.**
-    // Settled matters: MATCH_END on a predicted frame can still be rolled back,
-    // and a result uploaded from a prediction is a result of a match that did
-    // not happen. Only a recorded match has anywhere to send it.
-    //
-    // A disconnect does not wait for a settled frame or for a winner: there is
-    // nobody left to confirm anything, and the winner is decided by the policy
-    // rather than by the simulation.
+    // The result goes up once the match is over and the frame is settled.
     const finished = snap.phase === PHASE_MATCH_END && snap.winner !== NOBODY &&
       net !== null && net.confirmed >= snap.frame
     if (net && matchID && !reported && (finished || opponentLeft)) {
       reported = true
       const s = net.stats
       void uploadResult(matchID, {
-        // The sim counts seats from 0 and the server from 1. On a disconnect
-        // the survivor is whoever is still here to report it.
+        // The sim counts seats from 0 and the server from 1.
         winner: opponentLeft ? mySeat + 1 : snap.winner + 1,
         // The frames the log actually contains, which is what the server
         // replays and counts — not the frame this end had simulated to, which
@@ -563,10 +429,9 @@ export async function startGame(
       if (--s.life <= 0) sparks.splice(i, 1)
     }
 
-    // The animation is a pure function of the snapshot — state, how many
-    // frames it has been in it, and which move — so a frame resimulated eight
-    // times during a rollback picks the same texture eight times. Nothing
-    // here is remembered between frames and nothing travels back to the sim.
+    // The animation is a pure function of the snapshot — state, how many frames
+    // it has been in it, and which move — so a frame resimulated eight times
+    // during a rollback picks the same texture eight times.
     for (let i = 0; i < fighters.length; i++) {
       const p = snap.players[i]
       const f = fighters[i]
@@ -584,10 +449,8 @@ export async function startGame(
     boxes.clear()
     if (boxes.visible) for (const p of snap.players) drawBoxes(boxes, p)
     setText(timer, `${seconds(snap.timer)}`)
-    // The disconnect takes the screen over: **immediate match end, an explicit
-    // message and a win** (02 Architecture/Disconnect and Match Integrity.md).
-    // No ambiguity and no waiting — the alternative is a player staring at a
-    // frozen opponent wondering whether to keep holding back.
+    // The disconnect takes the screen over: immediate match end, an explicit
+    // message and a win (02 Architecture/Disconnect and Match Integrity.md).
     setText(announce, opponentLeft ? 'OPPONENT DISCONNECTED\nYOU WIN' : announcement(snap))
 
     for (let i = 0; i < bars.length; i++) {
@@ -597,8 +460,7 @@ export async function startGame(
       setCombo(combos[1 - i], snap.players[i])
     }
 
-    // Rollback made visible. Locally there is nothing to show — every frame is
-    // clean by construction — so the strip appears with the connection.
+    // Rollback made visible.
     if (net) {
       drawTimeline(strip, net)
       setText(stripKey, 'clean · predicted · corrected   ▏= rollback landed, height = depth')
@@ -622,8 +484,7 @@ export async function startGame(
       setText(dummyText, `DUMMY ${dummy.mode().toUpperCase()}${n ? ` ${n}f` : ''}`)
     }
 
-    // ponytail: no interpolation. The sim and the display are both ~60 Hz, so
-    // add it when the judder is actually visible, not before.
+    // ponytail: no interpolation.
     if (hudTicks++ % HUD_EVERY === 0) {
       const top = net ? netHud(net, link, uploadStatus) : localHud(snap)
       hud.text = `${top}\n${costHud(stepCost, frameCost, longFrames)}`
@@ -657,18 +518,7 @@ export async function startGame(
 
     connect(peer, seat, session) {
       // Never into a training match: the mode is in the state, so two ends that
-      // disagreed about it would desync on frame 0. The panel refuses the
-      // connection before this, and this is the second lock on the same door.
-      //
-      // The characters come along, because they are state too, and **the pair
-      // the room agreed on wins over the one this end picked**: the host
-      // decides both, exactly as it decides the transport (D88). Two ends that
-      // chose differently do not play a mismatch — they disagree on the frame-0
-      // checksum and desync before anybody has pressed anything, which is a
-      // failure with no symptom that points at its cause.
-      //
-      // The fallback is this end's own choice, for the hand-signalled path,
-      // which has no room to agree over.
+      // disagreed about it would desync on frame 0.
       chars = session?.chars ?? chars
       // Zero for a private match by code, which is not recorded: a ladder made
       // of matches two people arranged between themselves is not a ladder.
@@ -684,8 +534,7 @@ export async function startGame(
       ticks = 0
       longFrames = 0
       // Both ends of a measured run open the same URL, so the seat is the only
-      // thing that can make the two input streams differ. Without this they
-      // mirror each other and every prediction is right for the wrong reason.
+      // thing that can make the two input streams differ.
       bot?.reseed(seat + 1)
       net = createNetplay({advance, rewind, checksum, dataVersion}, (data) => peer.send(data), seat)
       // Every arriving packet goes through the impairment layer, whatever it
@@ -728,9 +577,7 @@ export async function startGame(
 
     impair(cfg) {
       link?.set(cfg)
-      // The cost numbers belong to the condition that produced them. Rollback
-      // depth changes what a frame costs, so a cell measured on the previous
-      // cell's samples is a cell reporting the wrong thing.
+      // The cost numbers belong to the condition that produced them.
       stepCost = createSamples()
       frameCost = createSamples()
       longFrames = 0
@@ -741,7 +588,7 @@ export async function startGame(
       input.dispose()
       link?.dispose()
       // The Go runtime keeps running: quit() cannot be undone and loadSim is
-      // cached, so a remount would have no sim. reset() on start covers it.
+      // cached, so a remount would have no sim.
       sizer.disconnect()
       app.destroy(true, {children: true})
     },
@@ -752,11 +599,6 @@ export async function startGame(
  * Three seconds of frames, oldest on the left, coloured by what each was
  * simulated from — and a white tick wherever a correction landed, as tall as
  * the rollback was deep.
- *
- * Runs of the same colour are merged into one rectangle. A healthy match is
- * 180 clean frames and draws about three: the visualiser measures a frame
- * budget it must not spend, and 180 rectangles a frame is a real cost in the
- * one mode where frame time is the thing being reported.
  */
 function drawTimeline(g: Graphics, net: Netplay): void {
   g.clear()
@@ -824,7 +666,7 @@ function drawHitbox(g: Graphics, b: Box): void {
 const BAR_W = 340
 const MAX_HEALTH = 10000
 
-/** Pips drawn per seat. Mirrors balance.json's round.roundsToWin. */
+/** Pips drawn per seat. */
 const ROUNDS_TO_WIN = 2
 
 const EMPTY_COLOR = 0x2a2f38
@@ -834,12 +676,7 @@ const DRIVE_COLOR = 0x4ac8e0
 const BURNOUT_COLOR = 0xe07a2a
 const SUPER_COLOR = 0xc86ee0
 
-/**
- * Health, then the two resources. They are the most-read elements on screen
- * after the fighters, and Burnout has to be readable at a glance: the Drive
- * gauge changes colour and pulses, so a supervisor watching a demo can see the
- * resource system working without being told.
- */
+/** Health, then the two resources. */
 function drawBars(
   g: Graphics,
   p: PlayerSnapshot,
@@ -864,18 +701,14 @@ function drawBars(
   })
   drawGauge(g, x, 37, 7, seat, p.super, SUPER_BARS, {color: SUPER_COLOR, alpha: 1})
 
-  // Round wins, as pips beside the health bar. Two of them takes the match, so
-  // there is never a number worth writing out.
+  // Round wins, as pips beside the health bar.
   for (let i = 0; i < ROUNDS_TO_WIN; i++) {
     const px = seat === 0 ? x + BAR_W + 6 + i * 12 : x - 12 - i * 12
     g.circle(px, 15, 4).fill(i < wins ? WIN_COLOR : EMPTY_COLOR)
   }
 }
 
-/**
- * One segmented gauge. The segments are the point: a bar count is what the
- * player reads, since every Drive and super cost is priced in whole bars.
- */
+/** One segmented gauge. */
 function drawGauge(
   g: Graphics,
   x: number,
@@ -908,11 +741,7 @@ function seconds(frames: number): number {
   return Math.ceil((frames * STEP_MS) / 1000)
 }
 
-/**
- * What is written across the middle of the screen. Driven by the phase the sim
- * is in rather than by anything the view worked out for itself — the sim is
- * what decides a round is over, and the two must not disagree by a frame.
- */
+/** What is written across the middle of the screen. */
 function announcement(snap: Snapshot): string {
   const who = (seat: number) => `PLAYER ${seat + 1}`
 
@@ -952,11 +781,7 @@ function setCombo(t: Text, defender: PlayerSnapshot): void {
   setText(t, parts.join(' · '))
 }
 
-/**
- * One line per player. The HUD is 12px monospace on an 800-wide canvas, which
- * is about 110 characters: both players on one line runs off the right edge,
- * and what falls off is not drawn anywhere else.
- */
+/** One line per player. */
 function localHud(snap: Snapshot): string {
   const who = (i: number) => {
     const p = snap.players[i]
@@ -976,18 +801,8 @@ function localHud(snap: Snapshot): string {
 }
 
 /**
- * M-A as the methodology asks for it: cost **by rollback depth**, one row per
- * depth (01 Thesis/Measurement Methodology.md).
- *
- * Row 0 is the frame's own advance, which every frame pays. Row d is what the
- * replay at depth d cost *on top of it*, so a frame a correction landed on cost
- * row 0 plus row d — and a frame with an 8-frame rollback ran the sim nine
- * times and still had to fit 16.6 ms.
- *
- * They are kept apart rather than summed here because the two are timed in
- * different places: the advance happens inside the fixed step, and the replay
- * happens whenever the packet that forced it arrives, which is its own task
- * between two displayed frames. `displayP99` is where their sum shows up.
+ * M-A as the methodology asks for it: cost by rollback depth, one row per depth
+ * (01 Thesis/Measurement Methodology.md).
  */
 function costByDepth(step: Samples, net: Netplay | null) {
   // percentile(100) is the maximum: the worst frame is what breaks a fighting
@@ -1007,14 +822,7 @@ function costByDepth(step: Samples, net: Netplay | null) {
   return rows
 }
 
-/**
- * The cost line, shown in both modes. Under netplay the sim figure includes
- * every rollback replay the frame ran, which is the measurement M-A asks for:
- * a frame with an 8-frame rollback runs the sim nine times and still has to fit
- * 16.6 ms. `long` counts frames the display did not get at all — the number the
- * "sustained 60 fps under continuous rollback" bar is really about, since a
- * frame can fit the budget and still be shown late.
- */
+/** The cost line, shown in both modes. */
 function costHud(
   stepCost: ReturnType<typeof createSamples>,
   frameCost: ReturnType<typeof createSamples>,
@@ -1029,16 +837,7 @@ function costHud(
   )
 }
 
-/**
- * The numbers this project exists to report. Percentiles, never means, and
- * stalls and desyncs shown as raw counts because one of either matters.
- *
- * **Grouped onto short lines, not joined into one.** All of this on a single
- * line is roughly 200 characters against the ~110 the canvas holds, so the
- * back half — the stall, skip and desync counts — was being drawn past the
- * right edge. This is the readout the M0 numbers are screenshotted from, so
- * every field has to be on screen at once.
- */
+/** The numbers this project exists to report. */
 /**
  * Mean rollback depth over the session — a measurement column, and the one
  * place a float is welcome: it is reported, never simulated from.
@@ -1072,20 +871,14 @@ function netHud(net: Netplay, link: Link | null, upload: string): string {
     `stalls ${s.stalls}  skips ${s.skipped}  checked ${s.verified}  ` +
       (s.desyncs ? `DESYNC at frame ${s.desyncFrame}` : 'desync 0'),
     conditions(link),
-    // What the server made of the result, once there is one. Worth showing:
-    // "settled" and "mismatch" are the difference between a ranked match that
-    // counted and one that voided both players' evening.
+    // What the server made of the result, once there is one.
     upload && `result: ${upload}`,
   ]
     .filter(Boolean)
     .join('\n')
 }
 
-/**
- * The artificial conditions in force, and what they actually did. Silent when
- * the layer is clean, because a line that is always there stops being read —
- * and every number above it means something different once this one appears.
- */
+/** The artificial conditions in force, and what they actually did. */
 function conditions(link: Link | null): string {
   if (!link) return ''
   const {delayMs, jitterMs, lossPercent} = link.cfg
@@ -1100,8 +893,7 @@ function conditions(link: Link | null): string {
  * Centre of a frame `half` wide that starts at the sim's camera and moves only
  * to keep both players `ZOOM_EDGE` inside it — the same dead zone the sim's
  * camera uses, so a zoomed frame does not start sliding a standing player
- * either. Players too far apart to fit are left to the sim's centre; at that
- * spacing the zoom is on its way out anyway.
+ * either.
  */
 function frame(camX: number, lo: number, hi: number, half: number, stageHalf: number): number {
   const reach = half - ZOOM_EDGE

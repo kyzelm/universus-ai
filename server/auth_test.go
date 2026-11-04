@@ -14,9 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// fakeStore is the second implementation the store interface exists for. Auth
-// is the code most worth testing and the code least worth needing a live
-// Postgres to test.
+// fakeStore is the second implementation the store interface exists for.
 type fakeStore struct {
 	mu     sync.Mutex
 	byID   map[int64]User
@@ -137,9 +135,7 @@ func TestRegisterThenLogIn(t *testing.T) {
 	}
 }
 
-// **A password is never echoed and a hash never leaves the server.** The check
-// is on the raw response rather than on the struct, because the struct is
-// exactly what somebody in a hurry would add a field to.
+// A password is never echoed and a hash never leaves the server.
 func TestNoSecretsInAnyResponse(t *testing.T) {
 	_, mux := testAuth()
 
@@ -190,8 +186,7 @@ func TestASecondRegistrationIsRefusedWithoutSayingWhich(t *testing.T) {
 	post(t, mux, "/api/auth/register", goodRegister)
 
 	// The taken email and the taken display name must be the *same* answer,
-	// byte for byte. Either one identified on its own is a way to ask whether
-	// an address is registered.
+	// byte for byte.
 	takenEmail := post(t, mux, "/api/auth/register", goodRegister)
 	takenName := post(t, mux, "/api/auth/register",
 		`{"email":"other@example.com","password":"correct horse","displayName":"player-one"}`)
@@ -331,8 +326,7 @@ func TestThePasswordIsStoredAsABcryptHash(t *testing.T) {
 	}
 }
 
-// A signing key in source is a key every deployment shares. There must be no
-// default, and an absent one must not be a fixed value.
+// A signing key in source is a key every deployment shares.
 func TestTheSigningKeyIsNeverAConstant(t *testing.T) {
 	if got := string(jwtSecret("from-the-environment")); got != "from-the-environment" {
 		t.Errorf("the environment was ignored, got %q", got)

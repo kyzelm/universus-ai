@@ -1,11 +1,4 @@
-// Command replay is the headless replay harness. It runs an input log through
-// the native sim and prints a checksum per frame; the same log run through the
-// WASM build must print the same bytes. That comparison is the determinism gate.
-//
-// Log format: universus/sim/replaylog, which owns the header and the frames and
-// is the same decoder the server's verification worker runs.
-//
-// Usage:
+// Command replay is the headless replay harness.
 //
 //	replay gen <frames> <file>   write a deterministic input log
 //	replay run <file>            print "<frame> <checksum>" for every frame
@@ -30,9 +23,6 @@ const usage = `usage:
 
 func main() {
 	// Both entrypoints load the same embedded roster before touching the sim.
-	// The determinism gate compares this binary against the WASM one, so if
-	// they disagreed about character data every checksum would differ and the
-	// gate would report a divergence with no cause anywhere in the sim.
 	if err := loadRoster(); err != nil {
 		fmt.Fprintln(os.Stderr, "replay:", err)
 		os.Exit(1)
@@ -103,7 +93,6 @@ func cli(args []string) error {
 }
 
 // run advances one frame per logged input and reports the checksum after each.
-// Frame 0 is printed first, so the starting state is compared too.
 func run(setup sim.Setup, in [][2]uint16, w io.Writer) error {
 	s := sim.NewSessionOf(setup)
 	if _, err := fmt.Fprintf(w, "%d %08x\n", s.Frame(), s.Checksum()); err != nil {
@@ -118,13 +107,9 @@ func run(setup sim.Setup, in [][2]uint16, w io.Writer) error {
 	return nil
 }
 
-// gen builds a log from a fixed-seed LCG. Not math/rand: this log has to come
-// out byte-identical on any machine and any Go version, and math/rand's
-// algorithm is not part of its compatibility promise.
-//
+// gen builds a log from a fixed-seed LCG.
 // ponytail: both players change input on the same frame every 5 frames, which
-// is not how humans play. It exercises jumps, walls and pushboxes, which is all
-// the determinism gate needs. Real recorded logs replace it in M1.
+// is not how humans play.
 func gen(frames int) [][2]uint16 {
 	const validBits = 0x077F // bits 0-6 and 8-10; 7 and 11-15 are reserved
 
@@ -163,9 +148,7 @@ func readLog(path string) (sim.Setup, [][2]uint16, error) {
 		return sim.Setup{}, nil, err
 	}
 
-	// Recorded, compared, never enforced. A log taken against older frame data
-	// still replays; it just replays a match that is no longer the same one,
-	// and this line is the explanation waiting for whoever diffs the checksums.
+	// Recorded, compared, never enforced.
 	if v, err := data.Version(); err == nil && v != log.DataVersion {
 		fmt.Fprintf(os.Stderr, "replay: %s was recorded against data version %08x, this build is %08x\n",
 			path, log.DataVersion, v)

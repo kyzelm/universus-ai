@@ -2,19 +2,10 @@ import {token} from './account'
 import {guest, host, type Connection, type Peer} from './peer'
 
 /**
- * Signalling and the relay fallback over one socket to our own server
- * (02 Architecture/Transport and Connectivity.md).
+ * Signalling and the relay fallback over one socket to our own server (02
+ * Architecture/Transport and Connectivity.md).
  *
  *   ws://host/ws?room=CODE
- *
- * Both ends ask for the same code; the server pairs them, tells each which it
- * is, and from then on copies whatever one sends to the other. The pair trade
- * SDP over it, try WebRTC, and — if ICE cannot get through, which is 15-20% of
- * networks and plausibly the one the defense happens on — keep the same socket
- * as the match transport (Decision Log D15).
- *
- * The relay is a TURN substitute we already pay for: it carries ~9.6 kbit/s per
- * direction, which is nothing, and it speaks the game's own packets.
  */
 
 /** D15: WebRTC gets five seconds, then the match starts over the relay. */
@@ -25,19 +16,15 @@ export type Role = 'host' | 'guest'
 
 export interface Session {
   readonly peer: Peer
-  /** Which transport the match is actually on — a measured figure, not a guess. */
+  /**
+   * Which transport the match is actually on — a measured figure, not a guess.
+   */
   readonly kind: Kind
   /** The host drives P1. */
   readonly seat: 0 | 1
   /**
-   * The characters the match is played with, **decided by the host for both
-   * ends**, exactly as the transport is. They are `GameState`, so two clients
-   * that disagreed would not play a mismatch — they would disagree on the
-   * frame-0 checksum and desync before either player pressed anything.
-   *
-   * The guest's own choice is overridden rather than negotiated. Negotiating
-   * means a screen where two people confirm each other, and this is a room two
-   * people already agreed to join.
+   * The characters the match is played with, decided by the host for both ends,
+   * exactly as the transport is.
    */
   readonly chars: [number, number]
   /**
@@ -49,7 +36,9 @@ export interface Session {
   close(): void
 }
 
-/** What a room looks like to the negotiation: text now, bytes possibly later. */
+/**
+ * What a room looks like to the negotiation: text now, bytes possibly later.
+ */
 export interface Signal {
   send(text: string): void
   onText(cb: (text: string) => void): void
@@ -73,15 +62,7 @@ export async function joinRoom(
   return negotiate(await openRoom(relayURL(code)), onMessage, chars)
 }
 
-/**
- * The matchmaking queue (02 Architecture/Backend Services.md). The same socket
- * as a room: wait on it, get told which end you are, then signal and relay over
- * it — so everything below this line is the negotiation a private match already
- * uses, and the only difference is who decided the two of you should meet.
- *
- * **Both modes need an account** (D104), which is why this can only fail in one
- * new way: a server with no database does not serve the endpoint at all.
- */
+/** The matchmaking queue (02 Architecture/Backend Services.md). */
 export async function joinQueue(
   mode: 'ranked' | 'casual',
   onMessage: (data: ArrayBuffer) => void,
@@ -99,12 +80,7 @@ export interface Origin {
 
 /**
  * The signalling server, defaulting to the origin that served the page: the
- * guest opens the host's address and the relay is found at the same one. It is
- * the *same origin* rather than a fixed port because a remote session is served
- * over https through a tunnel, and a page on https may not open a `ws://`
- * socket at all — the scheme has to follow the page's. `?relay=wss://…`
- * overrides it, at runtime rather than at build time, because the deployed
- * address is not known when the bundle is built.
+ * guest opens the host's address and the relay is found at the same one.
  */
 export function relayURL(code: string, origin: Origin = location): string {
   return `${socketBase(origin)}/ws?room=${encodeURIComponent(code)}`
@@ -131,8 +107,6 @@ export async function negotiate(
   // The first frame the server ever sends is the role, and it is sent when the
   // pair is complete — so "you are the host" also means "the other end is here,
   // start offering".
-  // "host" or "host 42" — the id is the match the server recorded this pairing
-  // as, and only a queued match has one.
   const opening = await text.next()
   const [role, id] = opening.split(' ')
   if (role !== 'host' && role !== 'guest') {
@@ -171,9 +145,7 @@ export async function negotiate(
 
 /**
  * The host's verdict on the wire: the transport and the pair of characters, in
- * one message rather than two. One message because the socket is closed the
- * moment P2P is up, and a second send racing that close is a guest waiting for
- * a message that will never arrive.
+ * one message rather than two.
  */
 function encodeVerdict(kind: Kind, chars: [number, number]): string {
   return `${kind} ${chars[0]},${chars[1]}`
@@ -192,12 +164,7 @@ function decodeVerdict(text: string): {kind: Kind; chars: [number, number]} {
   return {kind, chars: [chars[0], chars[1]]}
 }
 
-/**
- * The host alone decides, and says so. Both ends timing their own ICE is the
- * one failure that would read as a desync: a channel that opens at 4.9 s on one
- * machine and 5.1 s on the other leaves one end on P2P and the other on the
- * relay, each talking to nobody.
- */
+/** The host alone decides, and says so. */
 async function decide(
   conn: Connection,
   sig: Signal,
@@ -222,7 +189,7 @@ async function follow(
   const verdict = decodeVerdict(said)
 
   // Same ICE negotiation, so a channel the host has open is about to be open
-  // here. If it is not, the verdict is wrong and playing on would be worse.
+  // here.
   if (verdict.kind === 'p2p' && (await within(conn.ready, fallbackMs)) === TIMEOUT) {
     throw new Error('the host is on P2P and this end never connected')
   }
@@ -275,19 +242,13 @@ export async function openRoom(url: string): Promise<Signal> {
   })
   ws.onclose = null
 
-  // **The opening frame is the credential, and every client sends one.** A
-  // browser cannot set headers on a WebSocket, so the usual alternative is
-  // `?token=…` — and a URL is the one place a credential is guaranteed to be
-  // written down, in proxy logs, server logs and browser history. Sent even
-  // when empty, so there is nothing for the two ends to negotiate: a server
-  // without accounts ignores it and one with accounts refuses an empty one.
+  // The opening frame is the credential, and every client sends one.
   ws.send(token())
 
   let text: ((t: string) => void) | null = null
   let binary: ((d: ArrayBuffer) => void) | null = null
 
-  // Text is signalling, binary is the match. The server never looks at either,
-  // so the message type is the whole discriminator.
+  // Text is signalling, binary is the match.
   ws.onmessage = (e) =>
     typeof e.data === 'string' ? text?.(e.data) : binary?.(e.data as ArrayBuffer)
 

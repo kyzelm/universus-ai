@@ -1,11 +1,7 @@
 import {expect, test} from 'vitest'
 import {encodeLog, LOG_HEADER} from './log'
 
-/**
- * The byte layout, pinned against the table in tools/replay/main.go. The reader
- * is a different language in a different process, so nothing catches a writer
- * that drifts from it except a test on each side asserting the same offsets.
- */
+/** The byte layout, pinned against the table in tools/replay/main.go. */
 test('the header carries the setup the match was started from', () => {
   const v = new DataView(
     encodeLog({training: true, ai: 2, chars: [1, 3]}, 0xdeadbeef, [0x0201, 0x0010]),

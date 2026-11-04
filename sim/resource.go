@@ -1,16 +1,10 @@
 package sim
 
-// The two resources, per 03 Game Design/Resource System.md. Drive is a
-// per-round tactical gauge — full at the start, spent by defence, and the
-// system that gives the game its texture. Super is a per-match strategic one:
-// built by fighting, never regenerating, carried between rounds.
-//
-// Both live in GameState, so both roll back. A meter that does not roll back
-// is a super that is available on one machine and not the other.
+// The two resources, per 03 Game Design/Resource System.md.
 
-// Units. **One bar is 1000 units, and a resource is never a float or a fraction
-// of a bar** — the design note is explicit, so that a fractional cost is an
-// exact integer and half of an odd number never has to be rounded.
+// Units. One bar is 1000 units, and a resource is never a float or a fraction
+// of a bar — the design note is explicit, so that a fractional cost is an exact
+// integer and half of an odd number never has to be rounded.
 const (
 	BarUnits = 1000
 
@@ -22,17 +16,11 @@ const (
 )
 
 // Balance is the global tunables: costs, regeneration rates and the Burnout
-// penalties. Not character data — it is one set of numbers for the match — but
-// it is loaded the same way and for the same reason. Two clients with different
-// Drive costs run different simulations from identical inputs.
-//
-// Every value is a plain integer. Rates are units per frame; percentages are
-// out of 100 and are applied as a multiply followed by a divide, never the
-// other way round.
+// penalties.
 type Balance struct {
 	// DriveRegen is the neutral rate, DriveRegenWalkF the faster one for
 	// walking forward — moving in is rewarded, and that asymmetry is the whole
-	// point of having two rates. Regeneration pauses in blockstun.
+	// point of having two rates.
 	DriveRegen      int32
 	DriveRegenWalkF int32
 
@@ -41,17 +29,14 @@ type Balance struct {
 	DriveRegenBurnout int32
 
 	// PairFrames is how late the second button of a two-button input may land
-	// and still be read as the pair. See fighter.go's pairLate.
+	// and still be read as the pair.
 	PairFrames int32
 
-	// DriveBlockCost is spent per blocked hit. **Blocking spends Drive** — this
-	// is the pressure loop, and the reason defence has a resource cost.
+	// DriveBlockCost is spent per blocked hit.
 	DriveBlockCost int32
 
 	// ArmorDamagePercent is how much of a move's damage an absorbed hit still
-	// deals to an armoured defender (see Move.Armor). Reduced rather than
-	// nothing, so armouring through a heavy is a decision with a price; it
-	// cannot kill, which is enforced where it is applied.
+	// deals to an armoured defender (see Move.Armor).
 	ArmorDamagePercent int32
 
 	// BurnoutBlockstun is the extra blockstun a burnt-out defender takes, and
@@ -60,9 +45,7 @@ type Balance struct {
 	BurnoutBlockstun   int32
 	BurnoutChipPercent int32
 
-	// The damage pipeline (see damage.go). ComboScale is indexed by hit number
-	// and its last entry is the floor; the starters are the multiplier the move
-	// that began a combo applies to the whole of it.
+	// The damage pipeline (see damage.go).
 	ComboScale       [ComboScaleSteps]int32
 	StarterLight     int32
 	StarterMedium    int32
@@ -76,10 +59,7 @@ type Balance struct {
 	CounterHitstun    int32
 	PunishHitstun     int32
 
-	// Round flow (round.go). Frame counts, not seconds: the sim has no clock
-	// but the frame number, so the loader is what turns 99 seconds into 5940
-	// frames. RoundsToWin is best-of-three's 2; MaxRounds is the cap that stops
-	// draws extending the match forever (D54).
+	// Round flow (round.go).
 	RoundFrames  int32
 	RoundsToWin  int32
 	MaxRounds    int32
@@ -87,20 +67,12 @@ type Balance struct {
 	RoundEndHold int32
 	IntroFrames  int32
 
-	// Throws (03 Game Design/Movement and Defense.md). ThrowTechFrames is how
-	// long the escape window is, ThrowTechRecovery what both players owe after
-	// one, and ThrowTechPush how far apart they end up, in whole units — a
-	// distance, not a speed, because a tech separates rather than launches.
+	// Throws (03 Game Design/Movement and Defense.md).
 	ThrowTechFrames   int32
 	ThrowTechRecovery int32
 	ThrowTechPush     int32
 
-	// Knockback (knockback.go). KnockbackHit and KnockbackBlock are the default
-	// push a connect gives the defender, in units per frame; a move that wants
-	// its own — a launcher — authors it. **The block value is the larger one**:
-	// it is what spaces a blockstring out and therefore what decides whether
-	// pressure continues. KnockbackDecay is the percentage of the push kept per
-	// grounded frame, which is the friction that ends the slide.
+	// Knockback (knockback.go).
 	KnockbackHit   Fix
 	KnockbackBlock Fix
 	KnockbackDecay int32
@@ -119,30 +91,12 @@ type Balance struct {
 	// rabbit hole that adds nothing the thesis needs.
 	KnockdownFrames int32
 
-	// Half the stage and half the screen, in units. **The screen edges are
-	// walls too**: clampToStage holds both players inside whichever is nearer,
-	// which is what caps how far apart they can get on a stage wider than the
-	// screen. The view may zoom in tighter than the screen; it never frames
-	// wider, so the sim's idea of "on screen" is the widest thing drawn.
-	//
-	// CameraMargin is the dead zone's edge: how close to the side of the
-	// screen a player gets before the camera moves (updateCamera). It must be
-	// wider than a pushbox's half-width, or the screen-edge wall stops the
-	// player before the camera ever sees them arrive and it never scrolls.
+	// Half the stage and half the screen, in units.
 	StageHalfWidth  Fix
 	CameraHalfWidth Fix
 	CameraMargin    Fix
 
-	// The scripted opponent (ai.go). **Difficulty is reaction delay and
-	// decision randomness only** (D63), which is what AITier holds one of per
-	// tier; everything below it is shared by all three, because a difficulty
-	// that changed the AI's *options* rather than its timing would be giving it
-	// privileges by another name.
-	//
-	// The ranges are distances between the two fighters, and the percentages
-	// are how often a rule that matched is actually taken — an AI that always
-	// took the rule it found would never whiff, and never whiffing is what
-	// makes an opponent read as a machine.
+	// The scripted opponent (ai.go).
 	AITiers             [aiTierCount]AITier
 	AIDecisionFrames    int32
 	AICloseRange        Fix
@@ -153,8 +107,6 @@ type Balance struct {
 	AIReversalPercent   int32
 
 	// Super is built by dealing damage, by taking it, and by landing a special.
-	// The first two are percentages of the damage; the third is flat, because
-	// it is paid for the connect rather than for the numbers behind it.
 	SuperDealtPercent int32
 	SuperTakenPercent int32
 	SuperOnSpecial    int32
@@ -169,31 +121,19 @@ type AITier struct {
 	RandomPercent int32
 }
 
-// The loaded balance. Package-level and mutable-once, exactly like the roster
-// and for the same reason: it is not gameplay state, it must not roll back, and
-// two clients holding different values desync with no visible cause.
-//
-// The zero value is deliberate. **Nothing here is defaulted in code** — an
-// unloaded balance is a game with no regeneration and no costs, which is
-// obviously broken, rather than one quietly running numbers that are not in the
-// JSON the data hash covers.
+// The loaded balance.
 var balance Balance
 
-// LoadBalance installs the tunables. Validation lives in package data with the
-// rest of it, where the field names to complain about are.
+// LoadBalance installs the tunables.
 func LoadBalance(b Balance) { balance = b }
 
-// BalanceOf returns the loaded tunables. For tests and tools; the sim reads the
-// package var directly.
+// BalanceOf returns the loaded tunables.
 func BalanceOf() Balance { return balance }
 
-// updateResources is the resource half of step 8. Drive only: Super never
-// regenerates, which is what makes it strategic.
+// updateResources is the resource half of step 8.
 func (s *GameState) updateResources() {
 	// Training mode keeps both fighters topped up — infinite resources, per the
-	// mode's own list. Not while anybody is being hit: a gauge that refilled
-	// through a combo would hide the damage the combo did, which is the one
-	// thing the person practising is looking at.
+	// mode's own list.
 	if s.Training != 0 && !s.anyoneStunned() {
 		for i := range s.Players {
 			p := &s.Players[i]
@@ -211,15 +151,13 @@ func (s *GameState) updateResources() {
 		if p.Drive >= DriveMax {
 			p.Drive = DriveMax
 			// Burnout ends when the gauge is *full*, not when it is above zero.
-			// Ending it early would hand back EX specials for one bar and make
-			// being burnt out a formality.
 			p.Burnout = 0
 		}
 	}
 }
 
 // anyoneStunned reports whether either fighter is mid-consequence: hitstun,
-// blockstun, a knockdown or a throw. Training's refill waits for it to end.
+// blockstun, a knockdown or a throw.
 func (s *GameState) anyoneStunned() bool {
 	return stunned(s.Players[0].State) || stunned(s.Players[1].State) ||
 		s.Players[0].Combo > 0 || s.Players[1].Combo > 0
@@ -231,8 +169,7 @@ func (p *PlayerState) driveRegen() int32 {
 	case p.Burnout != 0:
 		return balance.DriveRegenBurnout
 	case p.State == StateBlockstun:
-		// Paused while blocking. Otherwise the gauge the attacker is draining
-		// refills between their hits and the pressure loop does not close.
+		// Paused while blocking.
 		return 0
 	case p.State == StateWalkF:
 		return balance.DriveRegenWalkF
@@ -242,12 +179,6 @@ func (p *PlayerState) driveRegen() int32 {
 }
 
 // spendDrive takes n units and enters Burnout if that empties the gauge.
-//
-// It cannot fail: blocking is not optional, and an EX special the player chooses
-// has already been refused at selection if the gauge could not pay for it
-// (moveFor). So this is a deduction, never a check — the one place that can
-// take Drive, which is what keeps "it came out" and "it was paid for" from
-// disagreeing.
 func (p *PlayerState) spendDrive(n int32) {
 	p.Drive -= n
 	if p.Drive <= 0 {
@@ -256,8 +187,7 @@ func (p *PlayerState) spendDrive(n int32) {
 	}
 }
 
-// gainSuper adds n units, capped. Called for both fighters on a connect: the
-// one dealing damage and the one taking it both build meter.
+// gainSuper adds n units, capped.
 func (p *PlayerState) gainSuper(n int32) {
 	p.Super += n
 	if p.Super > SuperMax {

@@ -3,38 +3,19 @@ import {createSamples, type Samples} from '../game/stats'
 /**
  * The artificial network condition layer — added latency, jitter and packet
  * loss, applied in software (02 Architecture/Transport and Connectivity.md).
- *
- * **Localhost lies.** Two tabs on one machine exchange packets in under a
- * millisecond, which means every rollback path in the netcode is exercised at a
- * depth of one and the interesting half of the implementation never runs. This
- * layer is what turns "it works on my machine" into the measurement matrix the
- * results chapter is made of: 0/50/100/150/200 ms against 0/2/5% loss
- * (05 Tooling/Testing and CI.md).
- *
- * It sits on the **inbound** side, between the data channel and the netplay
- * driver. Inbound because that is the half one end can impair without the other
- * end's cooperation, and because dropping a packet on arrival is
- * indistinguishable from the network having dropped it. The send path stays
- * exactly as it is, which matters: it runs inside the frame loop.
- *
- * The sim never learns any of this exists. Latency is a transport property, and
- * a simulation that could see it would be a simulation whose output depended on
- * the network — which is the one thing rollback exists to prevent.
  */
 export interface Impairment {
   /** Delay added to every arriving packet, in milliseconds, one way. */
   delayMs: number
-  /**
-   * Uniform spread either side of that delay. Packets are scheduled
-   * independently, so jitter reorders them — which is honest: the channel is
-   * unordered by design and the netcode has to cope with it.
-   */
+  /** Uniform spread either side of that delay. */
   jitterMs: number
   /** Chance a packet is dropped outright, 0-100. */
   lossPercent: number
 }
 
-/** No impairment: the packet goes straight through, with no timer in the way. */
+/**
+ * No impairment: the packet goes straight through, with no timer in the way.
+ */
 export const CLEAN: Impairment = {delayMs: 0, jitterMs: 0, lossPercent: 0}
 
 export interface LinkStats {
@@ -45,12 +26,12 @@ export interface LinkStats {
 }
 
 export interface Link {
-  /** Feed an arriving packet in. It reaches the driver late, or never. */
+  /** Feed an arriving packet in. */
   receive(data: ArrayBuffer): void
   set(cfg: Impairment): void
   readonly cfg: Impairment
   readonly stats: LinkStats
-  /** Drops every packet still in flight. Call it when the peer goes away. */
+  /** Drops every packet still in flight. */
   dispose(): void
 }
 
@@ -127,8 +108,7 @@ export function createLink(
 
 /**
  * xorshift32, the same generator the sim uses, for the same reason: small,
- * seedable and identical everywhere. Its output here is cosmetic — it decides
- * which packets suffer — but reproducibility is the whole point of seeding it.
+ * seedable and identical everywhere.
  */
 function createRng(seed: number): () => number {
   let x = seed >>> 0 || 1

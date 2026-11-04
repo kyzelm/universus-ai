@@ -47,10 +47,7 @@ func TestABlockFlagsABlock(t *testing.T) {
 	}
 }
 
-// **A flag describes one frame and does not survive it.** This is the bug in
-// its slower form: a flag that outlived its frame would be fired again on every
-// confirmed frame it survived into, and the hit's own hitstop is six frames of
-// exactly that.
+// A flag describes one frame and does not survive it.
 func TestAnEventLastsOneFrame(t *testing.T) {
 	s := events(t, 0)
 	if s.Hitstop == 0 {
@@ -92,11 +89,7 @@ func hits(t *testing.T, s *Session, hold uint16) uint32 {
 // defender pulls player 1's flags out of a packed event word.
 func defender(bits uint32) int32 { return int32(bits >> 16) }
 
-// **The mechanism, in one test.** A rolled-back frame is simulated again with
-// better inputs, and the events it produces must *replace* what it produced on
-// the guess rather than add to it. A view reading the union would draw the hit
-// that never happened alongside the block that did — which is the classic
-// rollback bug in its visible form.
+// The mechanism, in one test.
 func TestACorrectedReplayReplacesTheEvents(t *testing.T) {
 	s := session()
 	hit := hits(t, &s, 0)
@@ -120,8 +113,7 @@ func TestACorrectedReplayReplacesTheEvents(t *testing.T) {
 	}
 }
 
-// A frame replayed nine times reports what one simulation of it reports. The
-// slot is keyed by the frame, so a replay overwrites rather than appends.
+// A frame replayed nine times reports what one simulation of it reports.
 func TestReplayingAFrameDoesNotRepeatItsEvents(t *testing.T) {
 	const frames = 40
 	in := inputSeq(frames)
@@ -157,9 +149,7 @@ func TestReplayingAFrameDoesNotRepeatItsEvents(t *testing.T) {
 }
 
 // A frame that has fallen out of the ring reports nothing rather than another
-// frame's events. The ring wraps, and a slot keyed only by position would
-// answer for the frame a lap later — a hit spark drawn on a frame where nobody
-// was hit, seconds after the hit that produced it.
+// frame's events.
 func TestEventsFallOutOfTheRingCleanly(t *testing.T) {
 	s := session()
 

@@ -165,8 +165,7 @@ test('the first two connected pads take seat 0 and seat 1', () => {
   input.dispose()
 })
 
-// getGamepads returns a sparse array with holes for empty slots. Indexing it
-// directly would promote pad 2 into seat 0 the moment pad 1 is unplugged.
+// getGamepads returns a sparse array with holes for empty slots.
 test('a disconnected slot does not promote the next pad', () => {
   const target = new EventTarget()
   connectPads(null, fakePad({buttons: [15]}))
@@ -186,8 +185,8 @@ test('keyboard and pad merge for the same seat', () => {
   input.dispose()
 })
 
-// Each device is SOCD-clean on its own; the opposing pair only exists after
-// the merge. An unresolved pair reaching the sim is a desync source.
+// Each device is SOCD-clean on its own; the opposing pair only exists after the
+// merge.
 test('SOCD resolves across devices, not just within one', () => {
   const target = new EventTarget()
   connectPads(fakePad({buttons: [15]})) // pad holds right
@@ -209,9 +208,7 @@ test('attack keys are bound for both seats', () => {
   input.dispose()
 })
 
-// The throw macro. One key has to arrive as both bits on one frame: a frame
-// apart is a jab, and then a light kick the player never asked for, because by
-// the time the second button lands the jab has already started.
+// The throw macro.
 test('the throw key presses both buttons on the same frame', () => {
   const target = new EventTarget()
   const input = createInput(target)

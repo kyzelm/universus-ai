@@ -1,20 +1,5 @@
 /**
  * The account, as the client needs it (02 Architecture/Backend Services.md).
- *
- * **Offline play never touches any of this.** Training, local versus and versus
- * AI require no account at all (03 Game Design/Game Modes.md, D62), and a
- * server running without a database has no accounts to offer — both are
- * ordinary states rather than errors, which is why every call here reports a
- * failure the menu can print instead of throwing.
- *
- * The token lives in localStorage. That is a real trade and worth naming: it is
- * readable by script, so an XSS on this origin is a stolen session. The
- * alternative is an httpOnly cookie, which cannot be read by the page — and the
- * WebSocket endpoints need the token *in a frame*, because a browser cannot set
- * headers on a socket and a credential in the URL is written to every log it
- * passes. Cookies would also bring CSRF back for the sake of a page with no
- * cross-origin forms. At this scale the cookie's advantage is theoretical and
- * its cost is a second mechanism.
  */
 
 const KEY = 'universus.session'
@@ -35,13 +20,14 @@ function read(): Stored | null {
     const raw = localStorage.getItem(KEY)
     return raw ? (JSON.parse(raw) as Stored) : null
   } catch {
-    // Private windows, cleared site data, storage disabled entirely. Signed out
-    // is the honest reading of all three.
+    // Private windows, cleared site data, storage disabled entirely.
     return null
   }
 }
 
-/** The bearer token, or '' — which is exactly what an anonymous client sends. */
+/**
+ * The bearer token, or '' — which is exactly what an anonymous client sends.
+ */
 export function token(): string {
   return read()?.token ?? ''
 }
@@ -58,10 +44,7 @@ export function signOut(): void {
   }
 }
 
-/**
- * Registers or signs in, and remembers the session. The two differ by one field
- * and one path, so they are one function rather than two that drift.
- */
+/** Registers or signs in, and remembers the session. */
 export async function signIn(
   email: string,
   password: string,

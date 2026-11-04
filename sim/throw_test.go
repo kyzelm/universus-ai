@@ -2,9 +2,7 @@ package sim
 
 import "testing"
 
-// The fixture's throw and its buttons. Named because every test below presses
-// them, and `InLP|InLK` at each call site reads like a coincidence rather than
-// like one input.
+// The fixture's throw and its buttons.
 const (
 	throwIndex = int32(10)
 	throwInput = InLP | InLK
@@ -15,12 +13,7 @@ const (
 const away = InRight
 
 // throwUntil starts player 0's throw and advances until stop says to halt or
-// the move is over, giving player 1 defenderIn every frame. It returns the
-// frame of the throw the state stopped on.
-//
-// The loop exists because a throw connects on its own active frames rather than
-// on a frame number the caller can count to, and every test below cares about
-// what was true at exactly that moment.
+// the move is over, giving player 1 defenderIn every frame.
 func throwUntil(t *testing.T, gap int, defenderIn uint16, stop func(s *GameState) bool) GameState {
 	t.Helper()
 
@@ -44,9 +37,7 @@ func resolved(s *GameState) bool {
 	return s.Players[1].State == StateThrown || s.Players[0].State != StateAttack
 }
 
-// Two buttons, and both of them. LP alone is the jab — the whole point of the
-// throw's tier is that the more specific input wins, and the only way to see
-// that is to press the less specific one too.
+// Two buttons, and both of them.
 func TestThrowNeedsBothButtons(t *testing.T) {
 	jab := New()
 	jab.Advance([2]uint16{InLP, 0})
@@ -61,16 +52,7 @@ func TestThrowNeedsBothButtons(t *testing.T) {
 	}
 }
 
-// **The second button may land late, up to the pair window.** This used to
-// assert the opposite — that LP then LK gave the jab and kept it, because
-// nothing retroactively changes a move that came out on the frame it was asked
-// for. Played on a keyboard, that rule means the throw effectively does not
-// exist, so the window replaces it: the jab is taken
-// back while it is still in startup and has not connected. Past that it is a
-// commitment, which TestAnActiveMoveIsNeverTakenBackByAPair covers.
-//
-// The pair completing *late* has always counted when the player could not act
-// on the first button, and that half is unchanged.
+// The second button may land late, up to the pair window.
 func TestBothButtonsMayLandAFrameApart(t *testing.T) {
 	late := New()
 	late.Advance([2]uint16{InLP, 0}) // the jab starts here
@@ -100,8 +82,7 @@ func TestBothButtonsMayLandAFrameApart(t *testing.T) {
 	t.Errorf("the buffered throw never came out: move %d", buffered.Players[0].MoveIndex)
 }
 
-// A throw beats blocking. That is the entire reason it exists: without it the
-// correct play against every strike in the game is to hold back and wait.
+// A throw beats blocking.
 func TestAThrowBeatsBlocking(t *testing.T) {
 	s := throwUntil(t, 30, away, resolved)
 
@@ -165,13 +146,7 @@ func TestAThrowMissesTheAirborneAndCatchesPreJump(t *testing.T) {
 	}
 }
 
-// Stun grants throw immunity, in every state that is one. Without it a blocked
-// light leads to a throw the defender cannot contest, because they are still in
-// stun at the moment it lands — pressure with no answer in it.
-//
-// The states are set directly: what is under test is the rule, and building a
-// real blockstun of the right length at the right distance would be a test of
-// the jab's frame data instead.
+// Stun grants throw immunity, in every state that is one.
 func TestSomeoneInStunCannotBeThrown(t *testing.T) {
 	mv := &char().Moves[throwIndex]
 
@@ -225,8 +200,7 @@ func TestAWhiffedThrowRunsItsRecovery(t *testing.T) {
 	}
 }
 
-// The tech: press throw as it lands and nobody is thrown. Symmetric on purpose
-// — contesting a throw resets the situation rather than winning it.
+// The tech: press throw as it lands and nobody is thrown.
 func TestATechEscapesTheThrow(t *testing.T) {
 	mv := &char().Moves[throwIndex]
 	full := char().Health
@@ -263,11 +237,7 @@ func TestATechEscapesTheThrow(t *testing.T) {
 }
 
 // The window is the balance value and not a number this file invented — and it
-// is the boundary that says a tech is a reaction rather than a state. Tested
-// directly, because arranging a stale press end to end means the defender
-// pressing throw early enough to start a throw of their own, which changes what
-// is being measured. The other half — no press at all, and the throw lands —
-// is TestAThrowBeatsBlocking above.
+// is the boundary that says a tech is a reaction rather than a state.
 func TestTheTechWindowIsTheBalanceValue(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{0, throwInput})
@@ -282,17 +252,15 @@ func TestTheTechWindowIsTheBalanceValue(t *testing.T) {
 	}
 }
 
-// The command throw: one button and a half-circle, and it is the fixture's
-// move 16. The pair below is what the grappler is built out of
-// (03 Game Design/Roster Plan.md).
+// The command throw: one button and a half-circle, and it is the fixture's move
+// 16.
 const (
 	commandThrowIndex = int32(16)
 	commandThrowInput = InHP
 )
 
 // hcf walks player 1 through ← ↙ ↓ ↘ → and then presses the button, one frame
-// each. The directions are written from the facing the fixture starts in —
-// player 1 faces right, so forward is right.
+// each.
 func hcf(s *GameState, button uint16) {
 	for _, in := range []uint16{InLeft, InLeft | InDown, InDown, InDown | InRight, InRight} {
 		s.Advance([2]uint16{in, 0})
@@ -311,12 +279,7 @@ func TestHalfCircleComesOut(t *testing.T) {
 	}
 }
 
-// **A command throw cannot be teched.** The defender presses their throw inside
-// the window — the same press that escapes an ordinary throw in
-// TestATechEscapesTheThrow — and it does not save them.
-//
-// The two throws in the fixture are identical bar the motion, so a failure here
-// is about the rule and not about reach, timing or damage.
+// A command throw cannot be teched.
 func TestACommandThrowCannotBeTeched(t *testing.T) {
 	full := char().Health
 
@@ -347,9 +310,7 @@ func TestACommandThrowCannotBeTeched(t *testing.T) {
 }
 
 // The tech input is the throw *without* a motion, and with two throws in the
-// roster that is a lookup that can pick the wrong one. If it ever did, the
-// character would tech with a single heavy punch — every punch thrown while
-// being grabbed would be an escape.
+// roster that is a lookup that can pick the wrong one.
 func TestTheTechInputIsTheOrdinaryThrow(t *testing.T) {
 	if mv := throwOf(0); mv == nil {
 		t.Fatal("the fixture has no ordinary throw")

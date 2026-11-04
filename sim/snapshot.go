@@ -1,12 +1,7 @@
 package sim
 
 // The render snapshot: everything the view needs to draw a frame, and nothing
-// else. GameState itself never crosses the WASM boundary — the view reads this
-// and draws it, and it never writes back.
-//
-// Layout, little-endian, no padding. All coordinates stay in Fix; converting to
-// units is the view's job, because the view is the only place allowed to have
-// fractions that are not exact.
+// else.
 //
 //	 0  uint32  frame
 //	 4  int32   camera centre X (Fix)
@@ -20,9 +15,6 @@ package sim
 //	36  player 0 block
 //	36+PlayerSnapshotSize    player 1 block
 //	36+2*PlayerSnapshotSize  uint32 projectile count, then MaxProjectiles boxes
-//
-// Player block:
-//
 //	 0  int32   X (Fix)          20  int32  state frame
 //	 4  int32   Y (Fix)          24  int32  health
 //	 8  int32   facing           28  int32  drive
@@ -34,11 +26,6 @@ package sim
 //	68  uint32  hurt count       72  hurtboxes (MaxBoxes x 4 x int32)
 //	72+64 = 136  uint32 hit count
 //	140 hitboxes (MaxBoxes x 4 x int32)
-//
-// Boxes ride along for the debug overlay. It is the tool that debugs every
-// system built on top of them, so it is built early and it reads the same boxes
-// the sim collides — an overlay drawn from separate numbers would confirm the
-// wrong thing.
 const (
 	boxSize = 4 * 4
 	// headerSize covers the match-level fields above: the frame, the camera,
@@ -49,8 +36,7 @@ const (
 	SnapshotSize       = projOffset + 4 + MaxProjectiles*boxSize
 )
 
-// ponytail: hand-rolled little-endian stores. encoding/binary would do this,
-// but sim is a zero-dependency package on purpose and this is four lines.
+// ponytail: hand-rolled little-endian stores.
 func putU32(b []byte, v uint32) {
 	b[0] = byte(v)
 	b[1] = byte(v >> 8)
@@ -75,15 +61,12 @@ func putBox(b []byte, x Box) {
 }
 
 // WriteSnapshot packs the render snapshot into b, which must be at least
-// SnapshotSize bytes. It allocates nothing: the caller owns the buffer and
-// reuses it every frame.
+// SnapshotSize bytes.
 func (s *GameState) WriteSnapshot(b []byte) {
 	_ = b[SnapshotSize-1] // bounds check once, up front
 
 	// Unused box slots are not written below, so without this they keep last
-	// frame's values. The view reads the counts and would never look at them —
-	// but a buffer where some bytes are current and some are stale is a trap
-	// for the next person, and a ~400-byte clear costs nothing.
+	// frame's values.
 	clear(b[:SnapshotSize])
 
 	putU32(b, s.Frame)
@@ -92,9 +75,6 @@ func (s *GameState) WriteSnapshot(b []byte) {
 
 	// The round. The timer crosses in frames, not seconds: the view divides,
 	// because the view is the only place allowed a number that is not exact.
-	// The phase crosses because it is what the announcement on screen says, and
-	// a view that inferred the phase from the clock would announce a KO one
-	// frame out from the sim that decided it.
 	putI32(b[12:], s.Phase)
 	putI32(b[16:], s.Timer)
 	putI32(b[20:], s.Wins[0])
@@ -119,17 +99,11 @@ func (s *GameState) WriteSnapshot(b []byte) {
 		putI32(o[28:], p.Drive)
 		putI32(o[32:], p.Super)
 		putI32(o[36:], p.Burnout)
-		// The combo counter and the counter-hit class. A counter hit that is
-		// not visible is one nobody learns from, which is the only reason
-		// either of them crosses.
+		// The combo counter and the counter-hit class.
 		putI32(o[40:], p.Combo)
 		putI32(o[44:], p.Counter)
 		// Whether this player may act this frame, which is the sim's own
-		// predicate and not a state list the view keeps beside it. The frame
-		// advantage readout in the lab is measured off this: a recovery the
-		// view worked out for itself would confirm the view's idea of the
-		// frame data rather than the sim's, and the readout exists precisely
-		// to check the data against what the game does.
+		// predicate and not a state list the view keeps beside it.
 		putI32(o[48:], b2i(Actionable(p.State)))
 		putBox(o[52:], s.Pushbox(i))
 

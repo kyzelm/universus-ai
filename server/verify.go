@@ -1,17 +1,5 @@
-// Match verification by re-simulation
-// (02 Architecture/Anti-Cheat and Verification.md).
-//
-// **This does not prevent cheating. It detects it after the fact.** In a
-// peer-to-peer architecture there is no authority during the match: both
-// clients hold full simulation state and full control of their own machine.
-// What is achievable is replaying the match here and checking that the reported
-// outcome is the one the rules actually produce.
-//
-// **It is the single strongest justification for the Go→WASM decision** (D6).
-// One simulation codebase, compiled to WASM for the client and native for this
-// binary — without shared code the re-simulation would be a reimplementation,
-// and a reimplementation that must agree bit for bit is a far worse problem
-// than the one being solved.
+// Match verification by re-simulation (02 Architecture/Anti-Cheat and
+// Verification.md).
 package main
 
 import (
@@ -35,9 +23,7 @@ const (
 	// alone.
 	verifyWorkers = 2
 
-	// How often an idle worker looks for work. LISTEN/NOTIFY would make this
-	// instant and would be a second mechanism for a queue that is empty most of
-	// the time; verification is not something anybody waits on.
+	// How often an idle worker looks for work.
 	verifyPoll = 3 * time.Second
 
 	// A job that keeps failing is a bug in this code or a log this build cannot
@@ -49,19 +35,16 @@ const (
 type verdict struct {
 	ok     bool
 	reason string
-	// Where the checksums first diverged, for the report. -1 when they did not.
+	// Where the checksums first diverged, for the report.
 	frame int
-	// What check 3 made of the input stream. Never affects `ok`: a plausibility
-	// anomaly is a flag for review and never a verdict on the match.
+	// What check 3 made of the input stream.
 	anomalies []anomaly
 }
 
 // verifier drains verification_jobs.
 type verifier struct {
 	matches matchStore
-	// The data version this binary was built with. A log recorded against
-	// different frame data replays into a different match through no fault of
-	// the player, which is a "cannot verify" rather than a "you cheated".
+	// The data version this binary was built with.
 	dataVersion uint32
 }
 
@@ -90,11 +73,6 @@ func (v verifier) run(ctx context.Context, workers int) {
 }
 
 // step claims one job, verifies it, and reports whether it found any work.
-//
-// **The claim, the re-simulation and the outcome are one transaction.** A
-// worker that died between deciding and writing would leave the job claimed and
-// the match unjudged; here it leaves nothing at all and the next poll picks the
-// job up again.
 func (v verifier) step(ctx context.Context) bool {
 	tx, err := v.matches.pool.Begin(ctx)
 	if err != nil {
@@ -144,8 +122,8 @@ func (v verifier) step(ctx context.Context) bool {
 		        result = $2 WHERE match_id = $1`,
 		matchID, map[string]any{
 			"ok": result.ok, "reason": result.reason, "frame": result.frame,
-			// Stored whether or not anything tripped, because **the signal is
-			// across matches rather than inside one**: an account that reads
+			// Stored whether or not anything tripped, because the signal is
+			// across matches rather than inside one: an account that reads
 			// "median reaction 11 frames over 12 observations" once is noise
 			// and the same account forty times is not, and only the kept
 			// numbers can tell those apart.
@@ -194,20 +172,12 @@ func (v verifier) judge(ctx context.Context, tx pgx.Tx, matchID int64) (verdict,
 		if _, err := tx.Exec(ctx, `UPDATE matches SET verified = 'ok' WHERE id = $1`, matchID); err != nil {
 			return verdict{}, err
 		}
-		// **Check 3 runs on a match that passed, and changes nothing about it.**
-		// An assist bot does not lie about the match — it plays a real one with
-		// inhuman execution, so every hash it reports is correct and checks 1
-		// and 2 have nothing to say. The result stands, the account is flagged,
-		// and a person decides.
+		// Check 3 runs on a match that passed, and changes nothing about it.
 		result.anomalies = v.flagImplausible(ctx, tx, row, inputLog)
 		return result, nil
 	}
 
-	// **The correction.** LP was paid on cross-client agreement (D109) and this
-	// is where it is taken back: the match is void, the exact amounts that were
-	// paid are subtracted, and both accounts are flagged for a person to read.
-	// Flagged and not banned — a re-simulation mismatch is also what a bug in
-	// this very code looks like.
+	// The correction.
 	if _, err := tx.Exec(ctx,
 		`UPDATE matches SET verified = 'mismatch' WHERE id = $1`, matchID); err != nil {
 		return verdict{}, err
@@ -223,24 +193,6 @@ func (v verifier) judge(ctx context.Context, tx pgx.Tx, matchID int64) (verdict,
 }
 
 // resimulate runs the log through the native sim and compares.
-//
-// The comparison is the checkpoint checksums, **not the final state**. A match
-// whose end state happens to match after diverging in the middle is still a
-// match that did not happen, and the frame the hashes first disagree on is the
-// only diagnostic worth having.
-// disconnected changes what can be checked, and the difference is worth being
-// precise about. A match that ended because somebody stopped sending has a log
-// that **legitimately does not reach a match end**: the winner was decided by
-// policy (D50) rather than by the simulation, so asking the replay who won
-// would fail every honest disconnect.
-//
-// What still holds is that the log replays to its own hashes. That catches a
-// tampered log — somebody editing an honest match's inputs — and it does not
-// catch a fabricated one, because a client that made up the whole match made up
-// hashes to match it. **That is the exploit D52 accepts and the thesis states**:
-// with only one report there is no second copy to compare against, and what is
-// left is that a forgery has to be a plausible simulation rather than any
-// outcome at all.
 func (v verifier) resimulate(inputLog, checksums []byte, winner, endFrame int, disconnected bool) verdict {
 	parsed, err := replaylog.Decode("the uploaded log", inputLog)
 	if err != nil {
@@ -294,8 +246,7 @@ func (v verifier) resimulate(inputLog, checksums []byte, winner, endFrame int, d
 	}
 
 	// The sim counts seats from 0 and reports -1 while a match is undecided;
-	// the server counts them from 1. A match that never ended is a report about
-	// a match that is still being played.
+	// the server counts them from 1.
 	if s.State().Winner == sim.RoundNobody {
 		return verdict{reason: "the log ends before the match does", frame: int(s.Frame())}
 	}
@@ -307,19 +258,9 @@ func (v verifier) resimulate(inputLog, checksums []byte, winner, endFrame int, d
 
 // The client takes a checkpoint every this many frames — CHECKSUM_EVERY in
 // client/src/net/netplay.ts, pinned by a test there that names this constant.
-//
-// **This is the one coupling the determinism gate does not cover.** The gate
-// proves the native and WASM sims agree on the hash at every frame; it says
-// nothing about which frames the client chose to sample. Drift here and every
-// ranked match fails verification with a checkpoint-count mismatch, which is at
-// least loud — but it is loud in production rather than in CI, hence the test.
 const checksumEvery = 30
 
 // flagImplausible runs check 3 and flags the accounts it names.
-//
-// Flag, never ban, and never a penalty: the checks are probabilistic, a short
-// match is a small sample, and a player with genuinely fast hands trips the
-// same threshold a bot does. What this buys is a queue for a person to look at.
 func (v verifier) flagImplausible(ctx context.Context, tx pgx.Tx, row matchRow, inputLog []byte) []anomaly {
 	parsed, err := replaylog.Decode("the uploaded log", inputLog)
 	if err != nil {
@@ -341,11 +282,6 @@ func (v verifier) flagImplausible(ctx context.Context, tx pgx.Tx, row matchRow, 
 }
 
 // reverseLadder subtracts exactly what was paid.
-//
-// Recomputing is not an option: lpChange is a function of both ratings at the
-// time and they have moved since, and the loser's side is not the winner's
-// negated because a loss is floored at a tier boundary. Both amounts were
-// recorded when the match settled (migration 003).
 func reverseLadder(ctx context.Context, tx pgx.Tx, row matchRow, p1Change, p2Change *int) error {
 	if p1Change == nil || p2Change == nil {
 		return nil // casual, or a match that paid nothing
@@ -362,8 +298,7 @@ func reverseLadder(ctx context.Context, tx pgx.Tx, row matchRow, p1Change, p2Cha
 		}
 		// Clamped at zero, which is the one case where the reversal cannot be
 		// exact: a player who lost to the floor and then lost again has fewer
-		// points to give back than were taken. Rare, bounded, and the honest
-		// alternative is a negative rating.
+		// points to give back than were taken.
 		lp = max(lp-u.change, 0)
 
 		won := 0

@@ -14,8 +14,7 @@ describe('artificial network conditions', () => {
   afterEach(() => vi.useRealTimers())
 
   // With the layer off the link must not be in the way at all: no timer, no
-  // reordering, nothing deferred to a later task. A real match is measured
-  // through the same code that plays it.
+  // reordering, nothing deferred to a later task.
   it('passes packets straight through when clean', () => {
     const {got, deliver} = collect()
     const link = createLink(deliver, CLEAN)
@@ -58,9 +57,7 @@ describe('artificial network conditions', () => {
     expect(keeps.stats.dropped).toBe(0)
   })
 
-  // A measurement run that cannot be repeated is an anecdote. Two links on the
-  // same seed must suffer exactly the same packets, and a different seed must
-  // actually change which ones.
+  // A measurement run that cannot be repeated is an anecdote.
   it('drops the same packets for the same seed', () => {
     const cfg: Impairment = {delayMs: 0, jitterMs: 0, lossPercent: 30}
     const run = (seed: number) => {
@@ -80,8 +77,7 @@ describe('artificial network conditions', () => {
   })
 
   // Jitter is what reorders packets, and reordering is the condition the
-  // unordered channel exists to tolerate. The bound is what is testable: a
-  // delay outside it is a bug, and one inside it is the point.
+  // unordered channel exists to tolerate.
   it('keeps jittered delays inside the window and never below zero', () => {
     const {deliver} = collect()
     const link = createLink(deliver, {delayMs: 20, jitterMs: 30, lossPercent: 0})

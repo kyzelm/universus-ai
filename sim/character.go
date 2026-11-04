@@ -1,18 +1,6 @@
 package sim
 
-// Character data: frame data, damage, boxes and speeds. **No gameplay value is
-// hardcoded in sim code.** Adding a character must never require touching this
-// package, which is the property that makes "two now, more later" a data-entry
-// job instead of a rewrite.
-//
-// This is not GameState. It is immutable for the whole match, identical on both
-// machines, and it does not roll back — so it lives beside the state rather
-// than inside it, and the 4-byte layout rule that governs GameState does not
-// apply here.
-//
-// It is still part of the simulation's *identity*: two clients running
-// different numbers desync. The data is embedded in the binary at build time
-// (see package data) and its hash goes in the match handshake.
+// Character data: frame data, damage, boxes and speeds.
 
 // Fixed caps. Static data, so generous is free — but bounded, because a loader
 // that can grow these is a loader that can produce two different sims.
@@ -32,12 +20,6 @@ const (
 
 // Cancel categories — the bitmask a move carries saying what it may be
 // cancelled into once it has connected (03 Game Design/Combat System.md, D34).
-//
-// The three super levels are separate categories rather than one, because the
-// design tiers them by source: a level 1 comes out of cancelable normals only,
-// a level 2 out of those and specials, and a level 3 out of anything at all
-// including the heavies that cancel into nothing else. That tiering is data —
-// each source move names the levels it feeds — and it costs three bits.
 const (
 	CancelChain   uint16 = 1 << 0 // another normal
 	CancelSpecial uint16 = 1 << 1
@@ -46,18 +28,14 @@ const (
 	CancelSuper3  uint16 = 1 << 4
 
 	// CancelTarget is a target combo: the one follow-up written for this exact
-	// move (Move.After). Never authored — the loader sets it on every move some
-	// other move names in its After, so the bit and the follow-ups cannot
-	// disagree.
+	// move (Move.After).
 	CancelTarget uint16 = 1 << 5
 )
 
-// After is a bitmask over move indices, so the move list must fit in it. A
-// MaxMoves above 32 overflows this constant and fails the build here.
+// After is a bitmask over move indices, so the move list must fit in it.
 const _ = uint32(1) << (MaxMoves - 1)
 
-// superCancel is the category of a super at the given level. Index 0 is unused:
-// level 0 is not a super.
+// superCancel is the category of a super at the given level.
 var superCancel = [4]uint16{0, CancelSuper1, CancelSuper2, CancelSuper3}
 
 // Stances a move can be performed from.
@@ -68,18 +46,12 @@ const (
 )
 
 // Box is an axis-aligned rectangle in character-local space: origin at the
-// feet, positive x forward, positive y up. Facing is applied when it is placed
-// in the world, so data is authored once and mirrors for free.
-//
-// AABBs and nothing else — no rotation, no polygons, no physics engine.
-// Fighting games use them precisely because they are exact, cheap and
-// reproducible, which is worth a sentence in the thesis.
+// feet, positive x forward, positive y up.
 type Box struct {
 	X, Y, W, H Fix
 }
 
-// Empty reports a box that should not participate in collision. Zero-size
-// boxes are rejected at load, so this only catches the absent-box case.
+// Empty reports a box that should not participate in collision.
 func (b Box) Empty() bool { return b.W <= 0 || b.H <= 0 }
 
 // World places a local box at a world position for a given facing.
@@ -91,9 +63,7 @@ func (b Box) World(x, y Fix, facing int32) Box {
 	return Box{X: x + b.X, Y: y + b.Y, W: b.W, H: b.H}
 }
 
-// Overlaps is rectangle intersection on integers. Touching edges do not count:
-// a box ending exactly where another begins is a miss, which keeps a hit and a
-// whiff from depending on the last bit of a position.
+// Overlaps is rectangle intersection on integers.
 func (b Box) Overlaps(o Box) bool {
 	if b.Empty() || o.Empty() {
 		return false
@@ -102,19 +72,14 @@ func (b Box) Overlaps(o Box) bool {
 		b.Y < o.Y+o.H && o.Y < b.Y+b.H
 }
 
-// Keyframe is the box set from its frame until the next keyframe. Sparse by
-// design: an entry exists only where boxes change, and the previous entry
-// persists until overridden.
+// Keyframe is the box set from its frame until the next keyframe.
 type Keyframe struct {
 	Frame   int32
 	NumHurt int32
 	NumHit  int32
 
 	// HitNum is which hit of a multi-hit move these hitboxes are, 1-based and
-	// non-decreasing through the move. A hitbox is live while the move has
-	// connected fewer times than its number (PlayerState.HasHit), so hit 2
-	// re-arms a move that hit 1 already spent. Zero reads as 1: every move
-	// that hits once leaves it out.
+	// non-decreasing through the move.
 	HitNum int32
 	Hurt   [MaxBoxes]Box
 	Hit    [MaxBoxes]Box
@@ -123,23 +88,20 @@ type Keyframe struct {
 // HitNumber is HitNum with the zero value read as the first hit.
 func (k *Keyframe) HitNumber() int32 { return max(k.HitNum, 1) }
 
-// ProjectileSpec is the projectile a move fires, if it fires one. Static data,
-// like the rest of the character: the thing in flight is state, its numbers are
-// not.
+// ProjectileSpec is the projectile a move fires, if it fires one.
 type ProjectileSpec struct {
 	// Speed is forward units per frame; Life is how many frames it lives if it
-	// hits nothing. Together they are the range.
+	// hits nothing.
 	Speed Fix
 	Life  int32
 
 	// Spawn is where it appears, relative to the owner's origin and mirrored by
-	// their facing. Box is its hitbox, relative to the projectile itself.
+	// their facing.
 	SpawnX, SpawnY Fix
 	Box            Box
 }
 
-// Exists reports whether the move fires a projectile at all. Life is the marker
-// because a projectile with no life is not one.
+// Exists reports whether the move fires a projectile at all.
 func (p *ProjectileSpec) Exists() bool { return p.Life > 0 }
 
 // Move is an attack: three integers and box data, per the design note.
@@ -158,84 +120,50 @@ type Move struct {
 	Button uint16
 
 	// Motion is the directional sequence the move requires, or MotionNone for a
-	// normal. A move with one is a special: it ignores Stance (see moveFor),
-	// because the motion already identifies it and the stance the button
-	// happens to land on is not part of what the player asked for.
+	// normal.
 	Motion Motion
 
 	// LaunchVX and LaunchVY are the velocity the move gives the character on
-	// its first frame, forward-relative. An uppercut sets a vertical one and
-	// gravity supplies the arc; an advancing normal sets a horizontal one.
-	//
-	// ponytail: one impulse per move, not per keyframe. A move that needs to
-	// change velocity partway is a keyframe field away, and none does yet.
+	// its first frame, forward-relative.
+	// ponytail: one impulse per move, not per keyframe.
 	LaunchVX, LaunchVY Fix
 
 	// KnockbackVX and KnockbackVY are the velocity the move gives the
-	// *defender* on a clean hit, directed away from the attacker. A vertical
-	// component launches them and gravity supplies the arc; a purely
-	// horizontal one is ordinary pushback, which is what spaces a blockstring
-	// out and what the corner reverses.
-	//
-	// Zero means the balance file's default — every move that is not a
-	// launcher wants the same push, and authoring it 24 times would be 24
-	// chances to author it differently by accident. See Knockback.
+	// *defender* on a clean hit, directed away from the attacker.
 	KnockbackVX, KnockbackVY Fix
 
 	// JuggleLimit is the juggle count at or above which this move refuses to
 	// connect with an airborne defender: the knob that designates a move a
-	// combo ender. Zero means the balance file's default.
+	// combo ender.
 	JuggleLimit int32
 
-	// Landing is the recovery owed on touchdown by a move that was still in
-	// the air when it ended. Without it an air normal or an uppercut that runs
-	// out above the ground makes the character actionable the instant they
-	// touch it, which is a free reversal and a free jump-in.
+	// Landing is the recovery owed on touchdown by a move that was still in the
+	// air when it ended.
 	Landing int32
 
 	// InvulnStart and InvulnEnd bound the frames on which the move has no
 	// hurtboxes at all, in the move's own frames and half-open: [start, end).
-	// Equal means none, which is most moves.
-	//
-	// ponytail: one window, whole-body. Strike-only and throw-only invuln are
-	// different windows on the same move in a full game; there are no throws
-	// yet, and a second pair of fields with nothing to distinguish them from
-	// the first is a guess about a system that does not exist.
+	// ponytail: one window, whole-body.
 	InvulnStart, InvulnEnd int32
 
 	// Knockdown marks a move that puts the defender on the floor when its
-	// hitstun runs out — a sweep, a throw. A flag and not a duration: the
-	// design note fixes one wakeup timing for every knockdown in the game, so
-	// what varies per move is whether it knocks down at all.
+	// hitstun runs out — a sweep, a throw.
 	Knockdown int32
 
 	// Throw marks a throw: unblockable, refused against anyone airborne or in
 	// stun, and escapable by teching (03 Game Design/Movement and Defense.md).
-	// A flag rather than a level, because a throw is one kind of thing and the
-	// numbers that vary between throws are the ones every move already has.
 	Throw int32
 
 	// Drive is the move's cost in Drive bars, or 0 for everything that does not
-	// spend the gauge (03 Game Design/Resource System.md). Only EX specials do
-	// since D115 cut the other Drive mechanics, and they are data rather than
-	// code, in the same way the three super levels are.
+	// spend the gauge (03 Game Design/Resource System.md).
 	Drive int32
 
-	// Armor is how many hits the move absorbs while it is coming out. An
-	// absorbed hit deals reduced damage that cannot kill, and costs the
-	// defender no hitstun — the move keeps going, which is what the motion,
-	// the bars or the super level that paid for it bought.
-	//
+	// Armor is how many hits the move absorbs while it is coming out.
 	// ponytail: armour covers startup and the active frames, and the recovery
-	// is exposed. A per-move window is the InvulnStart/InvulnEnd pair over
-	// again; add it when a second armoured move wants different frames.
+	// is exposed.
 	Armor int32
 
-	// Super is the move's super level, 1 to 3, or 0 for everything else. It is
-	// both the identity and the price: a level N super costs N bars, which is
-	// the design's own table read straight down (03 Game Design/Resource
-	// System.md). Split the two apart when a character wants a level 2 that
-	// costs 3, and not before.
+	// Super is the move's super level, 1 to 3, or 0 for everything else.
 	Super int32
 
 	// CancelInto is the set of categories this move may be cancelled into once
@@ -245,58 +173,35 @@ type Move struct {
 
 	// After makes the move a follow-up — a target combo step or the second
 	// stage of a special: the set of move indices it may come out of, one bit
-	// per index, and nowhere else. Zero is an ordinary move. A set rather than
-	// one index so one second stage can follow all three strengths of a
-	// special (D121).
-	//
-	// A follow-up is its own move with its own frame data and its own sprite
-	// tag, not a permission between two existing ones: that is what lets HP>HP
-	// exist without making HP>HP>HP>... a loop, and LP>LK>MP exist without
-	// making a bare LK>MP a combo.
+	// per index, and nowhere else.
 	After uint32
 
 	// Whiff lets the follow-up come out whether or not the source connected.
-	// Zero is the D74 rule, a connect required; a target combo wants that, a
-	// fireball's second stage cannot have it, since the fireball's move has no
-	// hitbox and its projectile lands long after the move is over.
 	Whiff int32
 
 	// WindowStart and WindowEnd bound the source frames the follow-up may come
-	// out on, half-open. WindowEnd zero is the default: from the source's
-	// first active frame when a connect is required — HasHit cannot be set
-	// earlier anyway — and from the end of its active frames when it is not,
-	// so a whiffable second stage cannot cut the first one's active frames
-	// short: the first stage plays out every hit it has before it can be
-	// followed.
+	// out on, half-open.
 	WindowStart, WindowEnd int32
 
 	// Dir is the facing-relative numpad direction the follow-up's button must
-	// be pressed with, or 0 for none. Read at the frame of the press, like a
-	// motion.
-	//
-	// ponytail: follow-ups only. A command normal from neutral (6MP beside
-	// 5MP) needs a tie-break between the two on one press, and nothing asks
-	// for one yet.
+	// be pressed with, or 0 for none.
+	// ponytail: follow-ups only.
 	Dir uint8
 
 	NumKeys int32
 	Keys    [MaxKeyframes]Keyframe
 
-	// Proj is the projectile this move fires, if any. A fireball's damage and
-	// stun stay here, on the move — the projectile in flight reads them back
-	// through its move index.
+	// Proj is the projectile this move fires, if any.
 	Proj ProjectileSpec
 }
 
-// IsThrow reports a throw. Named rather than compared inline: the flag is read
-// in five places and "mv.Throw != 0" reads like an amount of throw.
+// IsThrow reports a throw.
 func (m *Move) IsThrow() bool { return m.Throw != 0 }
 
 // KnocksDown reports a move that ends with the defender on the ground.
 func (m *Move) KnocksDown() bool { return m.Knockdown != 0 }
 
-// SuperCost is what the move costs to perform, in resource units. Zero for
-// everything that is not a super, which is everything the meter does not gate.
+// SuperCost is what the move costs to perform, in resource units.
 func (m *Move) SuperCost() int32 { return m.Super * BarUnits }
 
 // DriveCost is what the move takes out of the Drive gauge, in resource units.
@@ -306,9 +211,7 @@ func (m *Move) DriveCost() int32 { return m.Drive * BarUnits }
 func (m *Move) Armored() bool { return m.Armor > 0 }
 
 // Category is the cancel category the move *is*, as opposed to the ones it
-// cancels into. Derived rather than authored: a super declares its level, a
-// motion makes a move a special, and the absence of both makes it a normal — so
-// nothing has to say twice what it already is, and the two cannot disagree.
+// cancels into.
 func (m *Move) Category() uint16 {
 	if m.After != 0 {
 		return CancelTarget
@@ -322,13 +225,11 @@ func (m *Move) Category() uint16 {
 	return CancelChain
 }
 
-// Launches reports whether the move sets its own velocity. A move that does
-// not is content to be carried by whatever the character was already doing.
+// Launches reports whether the move sets its own velocity.
 func (m *Move) Launches() bool { return m.LaunchVX != 0 || m.LaunchVY != 0 }
 
 // Invulnerable reports whether the move is invulnerable on the given frame of
-// itself. A move with no window answers false for every frame, since the empty
-// half-open range contains nothing.
+// itself.
 func (m *Move) Invulnerable(frame int32) bool {
 	return frame >= m.InvulnStart && frame < m.InvulnEnd
 }
@@ -336,8 +237,7 @@ func (m *Move) Invulnerable(frame int32) bool {
 // Total is the move's full duration in frames.
 func (m *Move) Total() int32 { return m.Startup + m.Active + m.Recovery }
 
-// Advantage values are computed, never authored. A hand-entered advantage
-// drifts out of sync with the frame data the moment anything is tuned.
+// Advantage values are computed, never authored.
 
 // OnHit is the frame advantage when the move connects on its first active frame.
 func (m *Move) OnHit() int32 { return m.Hitstun - (m.Active - 1 + m.Recovery) }
@@ -346,8 +246,6 @@ func (m *Move) OnHit() int32 { return m.Hitstun - (m.Active - 1 + m.Recovery) }
 func (m *Move) OnBlock() int32 { return m.Blockstun - (m.Active - 1 + m.Recovery) }
 
 // BoxesAt returns the box set in effect on the given frame of the move.
-// Scanning forward over at most MaxKeyframes entries, in index order — no map
-// iteration, nothing that could order differently on another machine.
 func (m *Move) BoxesAt(frame int32) *Keyframe {
 	var cur *Keyframe
 	for i := int32(0); i < m.NumKeys; i++ {
@@ -360,11 +258,6 @@ func (m *Move) BoxesAt(frame int32) *Keyframe {
 }
 
 // Character is one fighter's complete data.
-//
-// Not GameState: this is immutable reference data loaded once, so the rules
-// about pointers and fixed sizes do not apply to it. The name is here for the
-// character select to read — the sim itself never looks at it, and it takes no
-// part in the checksum, which covers the *files* by way of their hash.
 type Character struct {
 	Name string
 
@@ -391,25 +284,16 @@ type Character struct {
 	Moves    [MaxMoves]Move
 }
 
-// The loaded roster. Package-level and mutable-once rather than a GameState
-// field, because it is not gameplay state and must not roll back.
-//
-// Two clients with different rosters produce different simulations from
-// identical inputs, and nothing in the sim can detect that — which is exactly
-// why the handshake compares the data hash before the match starts, and why
-// this is set once at startup and never again.
+// The loaded roster.
 var (
 	characters    [MaxCharacters]Character
 	numCharacters int32
 
-	// Returned for an out-of-range index. A package var rather than a fresh
-	// &Character{}, which would allocate on every frame that asked.
+	// Returned for an out-of-range index.
 	zeroCharacter Character
 )
 
-// LoadCharacters installs the roster. Extra entries beyond MaxCharacters are
-// refused rather than truncated: silently dropping a character is a desync
-// between a client that has it and one that does not.
+// LoadCharacters installs the roster.
 func LoadCharacters(cs []Character) bool {
 	if len(cs) == 0 || len(cs) > MaxCharacters {
 		return false
@@ -421,8 +305,7 @@ func LoadCharacters(cs []Character) bool {
 }
 
 // CharacterAt returns a roster entry, or the zero character for an out-of-range
-// index. The zero character cannot move or attack, which is a visible failure
-// rather than a crash inside a rollback replay.
+// index.
 func CharacterAt(i int32) *Character {
 	if i < 0 || i >= numCharacters {
 		return &zeroCharacter

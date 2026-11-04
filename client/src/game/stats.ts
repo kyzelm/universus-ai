@@ -1,14 +1,8 @@
-/**
- * A rolling window of timing samples.
- *
- * Report distributions and 99th percentiles, never bare means: the whole point
- * of the measurement is the tail. A mean sim step of 0.1 ms with a p99 of 9 ms
- * is a game that drops frames, and the mean hides it completely.
- */
+/** A rolling window of timing samples. */
 export interface Samples {
   push(v: number): void
 
-  /** Nearest-rank percentile, 0-100. NaN when empty. */
+  /** Nearest-rank percentile, 0-100. */
   percentile(p: number): number
 
   readonly count: number

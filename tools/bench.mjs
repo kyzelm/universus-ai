@@ -1,10 +1,5 @@
 // Measures the sim in WASM against the two M0 pass criteria: one frame under
 // 0.5 ms, and one frame plus a full-depth rollback under 4 ms.
-//
-// Percentiles, never bare means — a mean hides exactly the stalls that drop a
-// frame. The bars are checked against p99.
-//
-// Usage: node tools/bench.mjs [samples]
 import {execFileSync} from 'node:child_process'
 import {mkdtempSync, rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
@@ -33,14 +28,13 @@ try {
 }
 
 // quit() ends Go's main, but the runtime leaves a timer pending that resumes an
-// exited program and throws. Exiting in the same tick means it never fires.
+// exited program and throws.
 sim.quit()
 process.exit(process.exitCode ?? 0)
 
 function report(sim, samples) {
   // A single call is far below timer resolution, so each sample times a batch
-  // and divides. The distribution is therefore over batches, not over frames —
-  // it catches sustained stalls (GC, deopt), not one-off spikes.
+  // and divides.
   const results = [
     measure('boundary crossing', null, 500, samples, () => sim.noop()),
     measure('sim step', 0.5, 500, samples, advanceOnly(sim)),
@@ -84,10 +78,6 @@ function advanceOnly(sim) {
 /**
  * One frame plus a correction at maximum depth: 9 sim steps and 10 boundary
  * crossings, the worst case that still has to fit in 16.6 ms.
- *
- * The replay is driven from JS, exactly as the net layer drives it — that costs
- * a crossing per replayed frame instead of one per rollback, and this is the
- * number that says whether that is affordable.
  */
 function advanceWithRollback(sim) {
   let frame = 0

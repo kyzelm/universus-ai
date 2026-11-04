@@ -5,10 +5,6 @@ import {runSweep, toCSV, type SweepRow} from './sweep'
 /**
  * `?sweep` — the M-A page: frame time at forced rollback depths 0 through 8,
  * measured in the browser (01 Thesis/Measurement Methodology.md).
- *
- * It is its own page rather than a key in the game, because it drives the sim
- * itself: the render loop advancing frames underneath it would time something
- * else entirely, exactly as `?bench` avoids.
  */
 
 // The sweep owns the sim for as long as it runs, and StrictMode mounts twice in
@@ -20,12 +16,8 @@ export default function Sweep() {
   const [rows, setRows] = useState<SweepRow[] | null>(null)
   const [at, setAt] = useState(0)
   const [error, setError] = useState('')
-  // **A background tab is not a measurement** (01 Thesis/Measurement
-  // Methodology.md). The batches here are timed around synchronous work, so a
-  // hidden tab does not corrupt them the way it corrupts an rAF loop — but
-  // Chrome throttles a hidden tab's timers and eventually freezes it outright,
-  // and a number taken across that is not one to put in a chapter. Recorded
-  // rather than prevented: the run is what it is, and the file says so.
+  // A background tab is not a measurement (01 Thesis/Measurement
+  // Methodology.md).
   const [wasHidden, setWasHidden] = useState(document.hidden)
 
   useEffect(() => {

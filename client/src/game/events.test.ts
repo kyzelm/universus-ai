@@ -29,11 +29,7 @@ test('a frame with nothing on it fires nothing', () => {
   expect(fired).toEqual([])
 })
 
-/**
- * **The bug this file exists for.** The confirmed line is read every display
- * frame and mostly has not moved; a view that fired on what it sees would fire
- * the same hit on every one of them.
- */
+/** The bug this file exists for. */
 test('draining again fires nothing new', () => {
   const {fired, drain} = ring({2: [0, EVENT_HIT]})
   drain(5)
@@ -71,9 +67,8 @@ test('nothing fires before anything is confirmed', () => {
 })
 
 /**
- * A backgrounded tab confirms hundreds of frames at once, and the sim kept
- * none of them. The catch-up stops where the sim's ring does rather than
- * replaying a minute of hit sparks at a player who has just come back.
+ * A backgrounded tab confirms hundreds of frames at once, and the sim kept none
+ * of them.
  */
 test('catching up stops at the end of the sim ring', () => {
   const reads: number[] = []

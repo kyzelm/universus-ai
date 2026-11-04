@@ -10,7 +10,7 @@ beforeAll(async () => {
   await initSim(readFileSync('public/main.wasm'))
 })
 
-/** The real generated sheets, not a fixture. Relative to the vitest root. */
+/** The real generated sheets, not a fixture. */
 function sheet(name: string): SheetMeta {
   return JSON.parse(readFileSync(`public/sprites/${name}.json`, 'utf8')) as SheetMeta
 }
@@ -41,7 +41,7 @@ test('three strengths of one special share an animation, normals do not', () => 
   const index = (want: string) => meta.meta.moveTags.indexOf(want)
 
   // The fireball is one animation at three speeds (D21), so the three move
-  // indices land on one tag. Lose this and the sheet needs 20 more animations.
+  // indices land on one tag.
   const fireballs = meta.meta.moveTags.filter((t) => t === '236P')
   expect(fireballs).toHaveLength(3)
 

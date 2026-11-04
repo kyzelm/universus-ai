@@ -3,11 +3,7 @@ import {advantageText, createLab, line, numpad} from './lab'
 import {IN_DOWN, IN_LEFT, IN_LK, IN_LP, IN_MK, IN_MP, IN_RIGHT, IN_UP} from './input'
 import type {Snapshot} from '../sim/wasm'
 
-/**
- * A snapshot with nothing in it but the two fields the overlay reads. The real
- * one comes from the sim; what matters here is the frame each seat stops and
- * starts being able to act.
- */
+/** A snapshot with nothing in it but the two fields the overlay reads. */
 function at(frame: number, p1: boolean, p2: boolean): Snapshot {
   const player = (actionable: boolean) => ({actionable: actionable ? 1 : 0})
   return {frame, players: [player(p1), player(p2)]} as unknown as Snapshot
@@ -15,7 +11,9 @@ function at(frame: number, p1: boolean, p2: boolean): Snapshot {
 
 const NONE = [0, 0] as const
 
-/** Runs an exchange: both busy from `from`, seat 0 free at `f0`, seat 1 at `f1`. */
+/**
+ * Runs an exchange: both busy from `from`, seat 0 free at `f0`, seat 1 at `f1`.
+ */
 function exchange(f0: number, f1: number, from = 10) {
   const lab = createLab()
   for (let f = 0; f < from; f++) lab.step(at(f, true, true), NONE)
@@ -31,11 +29,7 @@ test('advantage is the gap between the two recoveries', () => {
   expect(exchange(30, 30).advantage()).toBe(0)
 })
 
-/**
- * The gate the readout needs. One player attacking while the other stands
- * still is not an exchange, and posting a figure for it would report the
- * attacker's whole recovery as the other player's advantage.
- */
+/** The gate the readout needs. */
 test('nothing is reported until both players were busy at once', () => {
   const lab = createLab()
   for (let f = 0; f < 20; f++) lab.step(at(f, f < 5 || f > 12, true), NONE)
@@ -74,7 +68,9 @@ test('directions read as numpad notation', () => {
   expect(numpad(IN_UP | IN_LEFT)).toBe('7')
 })
 
-/** A pair is the input the display exists for: it shows whether both arrived. */
+/**
+ * A pair is the input the display exists for: it shows whether both arrived.
+ */
 test('a two-button input shows both buttons', () => {
   expect(line({bits: IN_LP | IN_LK, frames: 1})).toBe('5 LP+LK')
   expect(line({bits: IN_MP | IN_MK, frames: 2})).toBe('5 MP+MK    2')

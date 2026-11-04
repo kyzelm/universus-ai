@@ -9,9 +9,7 @@ import (
 	"universus/sim"
 )
 
-// The embedded roster must actually load. A character file that fails
-// validation fails the build's most basic promise, and it fails here rather
-// than at the start of a match.
+// The embedded roster must actually load.
 func TestEmbeddedRosterLoads(t *testing.T) {
 	cs, err := Load()
 	if err != nil {
@@ -35,8 +33,7 @@ func TestEmbeddedRosterLoads(t *testing.T) {
 		}
 	}
 
-	// The full grounded normal set: every button, standing and crouching. A
-	// missing one reads in play as a button that does nothing.
+	// The full grounded normal set: every button, standing and crouching.
 	for _, stance := range []int32{sim.StanceStand, sim.StanceCrouch} {
 		for _, b := range []uint16{sim.InLP, sim.InMP, sim.InHP, sim.InLK, sim.InMK, sim.InHK} {
 			found := false
@@ -51,9 +48,7 @@ func TestEmbeddedRosterLoads(t *testing.T) {
 	}
 
 	// Frame advantage is computed from the frame data, never authored, so this
-	// is a check on the numbers rather than on a field. Nothing may be more
-	// than +3 on block: a normal that is safely plus on block with no cost is
-	// a button with no answer to it.
+	// is a check on the numbers rather than on a field.
 	for m := int32(0); m < cs[0].NumMoves; m++ {
 		mv := &cs[0].Moves[m]
 		if adv := mv.OnBlock(); adv > 3 {
@@ -63,9 +58,6 @@ func TestEmbeddedRosterLoads(t *testing.T) {
 
 	// The strength variants are the data-driven claim in miniature: three moves
 	// that differ only in numbers, sharing one motion and one code path.
-	// The EX version is not one of them: it shares the motion but it is a
-	// different move at a different price, and counting it would say the claim
-	// holds for four strengths when the character has three.
 	strengths := map[uint16]bool{}
 	for m := int32(0); m < cs[0].NumMoves; m++ {
 		if mv := &cs[0].Moves[m]; mv.Motion == sim.MotionQCF && mv.Drive == 0 {
@@ -77,8 +69,7 @@ func TestEmbeddedRosterLoads(t *testing.T) {
 	}
 }
 
-// The handshake compares this. If it were not stable across calls, every match
-// would be refused; if it did not change with the data, none would be.
+// The handshake compares this.
 func TestVersionIsStableAndCoversTheData(t *testing.T) {
 	a, err := Version()
 	if err != nil {
@@ -150,8 +141,7 @@ func TestParseFixRoundsSymmetrically(t *testing.T) {
 	}
 }
 
-// Validation exists to catch authoring mistakes loudly. Each case below is a
-// real mistake someone makes: the numbers look fine individually.
+// Validation exists to catch authoring mistakes loudly.
 func TestValidationRejectsBadData(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -223,8 +213,7 @@ func TestValidationRejectsBadData(t *testing.T) {
 		}},
 
 		// Target combos: after names a move by id, so ids must be unique and
-		// must exist, a move cannot follow itself (HP>HP>HP... forever), and
-		// only a plain normal can be a follow-up.
+		// must exist, a move cannot follow itself (HP>HP>HP...
 		{"two moves with one id", func(c *jsonCharacter) { c.Moves[1].ID = c.Moves[0].ID }},
 		{"a follow-up of no move", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].After = []string{"nope"} }},
 		{"a move that follows itself", func(c *jsonCharacter) {
@@ -278,8 +267,7 @@ func TestValidationRejectsBadData(t *testing.T) {
 
 // A renamed or mistyped JSON key parses to zero without complaint, and the
 // symptom is a move that is quietly no longer invincible, no longer cancelable
-// and free on landing. Cheap insurance: the shipped roster must actually use
-// each of the three.
+// and free on landing.
 func TestTheShippedRosterUsesThePerMoveProperties(t *testing.T) {
 	cs, err := Load()
 	if err != nil {
@@ -378,9 +366,7 @@ func TestEmbeddedBalanceLoads(t *testing.T) {
 		}
 	}
 
-	// The shipped numbers have to produce a game, not just a valid file. The
-	// design note asks for a Burnout of roughly nine seconds and a Drive gauge
-	// that a blocking player can actually empty.
+	// The shipped numbers have to produce a game, not just a valid file.
 	if f := sim.DriveMax / b.DriveRegenBurnout; f < 300 || f > 720 {
 		t.Errorf("Burnout lasts %d frames, want roughly the ~9 seconds the design asks for", f)
 	}
@@ -496,9 +482,7 @@ func TestVersionCoversTheBalanceFile(t *testing.T) {
 	}
 }
 
-// Three supers per character, one at each level, each with a motion. A super
-// with no motion comes out on a bare button and beats the normal on it for the
-// rest of the match, which is why the loader refuses one.
+// Three supers per character, one at each level, each with a motion.
 func TestTheShippedRosterHasThreeSupers(t *testing.T) {
 	cs, err := Load()
 	if err != nil {
@@ -536,17 +520,6 @@ func TestTheShippedRosterHasThreeSupers(t *testing.T) {
 }
 
 // The cancel tiering is data, and it is only tiering if the sources differ.
-// Level 1 out of cancelable normals, level 3 out of anything — including the
-// heavies, which cancel into nothing else.
-// The throw is what makes blocking a decision, so every character in the
-// shipped roster has exactly one ordinary throw — and it is on more than one
-// button, since a throw sharing a button with a normal would take that button
-// over for the rest of the match.
-//
-// A *command* throw is the other kind and obeys the opposite rule: one button,
-// and a motion is what buys it. The motion is also the discriminator the sim
-// uses, so if these two ever describe the same move the grappler techs with a
-// single punch.
 func TestTheShippedRosterHasAThrow(t *testing.T) {
 	cs, err := Load()
 	if err != nil {
@@ -610,10 +583,7 @@ func TestSuperCancelsAreTieredBySource(t *testing.T) {
 	}
 }
 
-// The damage pipeline's numbers. The structure is the thesis content and the
-// values are a starting point, but a value that is structurally wrong — a
-// scaling table that rises, a counter hit worth less than a clean one — is a
-// balance bug the loader can catch for free.
+// The damage pipeline's numbers.
 func TestTheShippedScalingTable(t *testing.T) {
 	b, err := LoadBalance()
 	if err != nil {
@@ -624,7 +594,7 @@ func TestTheShippedScalingTable(t *testing.T) {
 		t.Errorf("the first hit of a combo scales to %d%%, want 100", b.ComboScale[0])
 	}
 	// The floor is the last entry, and it is what every hit past the table
-	// takes. Zero there is the degenerate-loop bug the design note warns about.
+	// takes.
 	if floor := b.ComboScale[sim.ComboScaleSteps-1]; floor <= 0 || floor > 50 {
 		t.Errorf("the scaling floor is %d%%, want a small positive percentage", floor)
 	}
@@ -648,8 +618,6 @@ func TestTheShippedScalingTable(t *testing.T) {
 
 // Every shipped target combo must actually combo: each follow-up, pressed the
 // frame its source's hitstop ends, has to land before the defender recovers.
-// The loader proves the chain is well-formed; only running it proves the frame
-// data and the pushback leave it connected.
 func TestTheShippedTargetCombosCombo(t *testing.T) {
 	cs := loadRoster(t)
 
@@ -658,8 +626,6 @@ func TestTheShippedTargetCombosCombo(t *testing.T) {
 		c := &cs[ci]
 		for leaf := int32(0); leaf < c.NumMoves; leaf++ {
 			// Start from the end of each chain: a follow-up nothing follows.
-			// Only the chains that need a connect claim to be combos; a
-			// whiffable second stage has its own test.
 			if c.Moves[leaf].After == 0 || c.Moves[leaf].CancelInto&sim.CancelTarget != 0 ||
 				c.Moves[leaf].Whiff != 0 {
 				continue
@@ -753,9 +719,7 @@ func perform(t *testing.T, s *sim.GameState, c *sim.Character, m int32) {
 }
 
 // Every shipped multi-hit move must land every hit it is written with, on a
-// standing opponent at close range. The loader proves the hit numbers are in
-// order; only running the move proves the pushback after hit 1 leaves hit 2 in
-// reach.
+// standing opponent at close range.
 func TestTheShippedMultiHitMovesHitEveryTime(t *testing.T) {
 	cs := loadRoster(t)
 	found := 0

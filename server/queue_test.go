@@ -15,8 +15,7 @@ func at(lp int, waitedFor time.Duration, now time.Time) *waiting {
 	return &waiting{c: &client{lp: lp}, joined: now.Add(-waitedFor)}
 }
 
-// The table from the design note, read back. It is the whole of the policy, so
-// a typo in it is the policy.
+// The table from the design note, read back.
 func TestTheBandsAreTheOnesTheDesignSpecifies(t *testing.T) {
 	for _, c := range []struct {
 		waited  time.Duration
@@ -97,9 +96,7 @@ func TestThePingBandRefusesAndThenStopsRefusing(t *testing.T) {
 	}
 }
 
-// Oldest first. Pairing the closest pair overall is defensible for fairness and
-// indefensible for whoever sits between two clusters — the point of a widening
-// band is that waiting eventually works.
+// Oldest first.
 func TestTheLongestWaiterIsServedFirst(t *testing.T) {
 	now := time.Now()
 	m := newMatchmaker()
@@ -169,8 +166,7 @@ func tokenFor(t *testing.T, h *hub, email, name string) string {
 	return decodeSession(t, w).Token
 }
 
-// **D104: a private match by code needs an account exactly as a ranked one
-// does.** One identity path online, or two to keep honest.
+// D104: a private match by code needs an account exactly as a ranked one does.
 func TestBothSocketsRefuseAnUnsignedClient(t *testing.T) {
 	h, base := authedHub(t)
 	token := tokenFor(t, h, "player@example.com", "player-one")
@@ -232,10 +228,7 @@ func TestTheRoundTripIsActuallyMeasured(t *testing.T) {
 	h, base := authedHub(t)
 	conn := dialAs(t, base+"/ws/queue?mode=casual", tokenFor(t, h, "a@example.com", "player-a"))
 
-	// A pong is only sent by an end that is reading. A browser answers pings in
-	// the protocol layer whether or not the page is reading; this client has to
-	// be told to, which is a fact about the test harness and not about the
-	// server.
+	// A pong is only sent by an end that is reading.
 	go func() {
 		for {
 			if _, _, err := conn.Read(context.Background()); err != nil {

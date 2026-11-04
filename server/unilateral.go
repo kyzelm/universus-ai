@@ -1,20 +1,7 @@
 package main
 
-// A match only one side ever reported on
-// (02 Architecture/Disconnect and Match Integrity.md).
-//
-// **The surviving client's unilateral upload counts** (D52). The alternative is
-// that every ranked match can be voided by quitting, which is a worse exploit
-// than the one it would prevent.
-//
-// **And it is exploitable, which the thesis has to say rather than hide.** A
-// cheater can force a disconnect and submit a fabricated log. What constrains
-// them is that verification still runs: a fabricated log has to be a *valid
-// simulation* that actually produces the claimed result when the server replays
-// it. That reduces forgery from "claim any outcome" to "claim an outcome I
-// could plausibly have achieved" — a real reduction, not a fix. The statistical
-// guard beside it is the unilateral-win rate, which is a review signal and
-// never an automatic penalty.
+// A match only one side ever reported on (02 Architecture/Disconnect and Match
+// Integrity.md).
 
 import (
 	"context"
@@ -27,21 +14,15 @@ import (
 
 const (
 	// How long a lone submission waits for its pair before it is accepted on
-	// its own. **The wait is the whole mechanism**: without it, whichever
-	// client's packet arrived first would decide the match, and a quitter who
-	// fabricates a counter-claim would be racing the player they quit on.
-	// With it, both claims are in hand before anything is settled, and two
-	// disagreeing claims void the match as they would in any other case.
+	// its own.
 	unilateralGrace = 30 * time.Second
 
-	// How often to look for one that has waited long enough. Nobody is watching
-	// the ladder this closely, and the survivor has already seen their win on
-	// their own screen.
+	// How often to look for one that has waited long enough.
 	unilateralPoll = 10 * time.Second
 )
 
 // sweepUnilateral settles every match whose single submission has outlived the
-// grace period. Reports whether it did any work, so a caller can drain.
+// grace period.
 func (v verifier) sweepUnilateral(ctx context.Context) bool {
 	tx, err := v.matches.pool.Begin(ctx)
 	if err != nil {
@@ -93,9 +74,7 @@ func (v verifier) sweepUnilateral(ctx context.Context) bool {
 	}
 	stored.into(&s)
 
-	// **Accepted as a disconnect whatever the client called it.** One report and
-	// one silence is what a disconnect looks like from here, and the client that
-	// never spoke is the one that stopped playing.
+	// Accepted as a disconnect whatever the client called it.
 	s.disconnect = true
 
 	if err := v.matches.settleTx(ctx, tx, row, s); err != nil {

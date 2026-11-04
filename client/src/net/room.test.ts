@@ -5,11 +5,7 @@ import type {Connection, Peer} from './peer'
 /** Drains pending microtasks and any timer due now. */
 const flush = () => vi.advanceTimersByTimeAsync(0)
 
-/**
- * What this end picked in the character select. Not [0, 0]: a pair that
- * survives the negotiation only because every index happens to be zero proves
- * nothing about the negotiation.
- */
+/** What this end picked in the character select. */
 const PICKED: [number, number] = [1, 0]
 
 function fakeSignal() {
@@ -155,8 +151,7 @@ describe('room negotiation', () => {
 
   /**
    * The host decides for both, and a guest whose own channel did open still
-   * plays over the relay. One end on P2P and the other on the relay is a match
-   * where neither sees the other's inputs.
+   * plays over the relay.
    */
   it('joins: follows the relay verdict even with a working channel', async () => {
     const sig = fakeSignal()
@@ -192,11 +187,7 @@ describe('room negotiation', () => {
   })
 
   /**
-   * **The host picks the fighters for both ends**, the way it picks the
-   * transport. The guest arrives having chosen `PICKED` and leaves playing what
-   * the host said, because the characters are `GameState`: two ends that kept
-   * their own choices would not play a mismatch, they would disagree on the
-   * frame-0 checksum and desync before either player pressed anything.
+   * The host picks the fighters for both ends, the way it picks the transport.
    */
   it('joins: plays the host\'s pair rather than its own', async () => {
     const sig = fakeSignal()

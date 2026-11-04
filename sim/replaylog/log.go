@@ -9,21 +9,6 @@
 //	9  [3] reserved, zero
 //	12 u32 data version (hash of the embedded character and balance files)
 //	16 ..  little-endian uint16 pairs, player 1 then player 2, one per frame
-//
-// **The header exists because the log records what the caller fed the sim**,
-// and two modes generate inputs the caller never sent: the AI's presses come
-// from inside Advance, and the lab changes what a frame does. Replayed without
-// its setup, a lab session comes back as one where seat 2 stands still (D102).
-//
-// It lives here, in one package, because it now has **two readers** — the
-// headless replay harness and the server's verification worker — and a format
-// with two implementations is a format with two behaviours. The writer is the
-// third, in TypeScript, and is pinned to these offsets by a test on each side.
-//
-// A subpackage of sim rather than a package beside it: the float ban greps
-// ./sim/ recursively, and a decoder for the bytes the sim consumes belongs
-// under the same rule as the sim. Like sim itself it has no dependencies and
-// hand-rolls its little-endian reads.
 package replaylog
 
 import (
@@ -44,9 +29,7 @@ var magic = [4]byte{'U', 'N', 'I', 'V'}
 // Log is a decoded input log: how the match was set up, and every frame of it.
 type Log struct {
 	Setup sim.Setup
-	// DataVersion the log was recorded against. **Reported, never enforced**: a
-	// log taken against older frame data is still a log, and the mismatch is
-	// the explanation for a divergence rather than a reason to refuse the file.
+	// DataVersion the log was recorded against.
 	DataVersion uint32
 	Inputs      [][2]uint16
 }
@@ -69,7 +52,7 @@ func putU32(b []byte, v uint32) {
 	b[3] = byte(v >> 24)
 }
 
-// Encode packs a log. The name is what it is written to, for errors.
+// Encode packs a log.
 func Encode(setup sim.Setup, dataVersion uint32, inputs [][2]uint16) []byte {
 	b := make([]byte, HeaderSize+len(inputs)*4)
 	copy(b, magic[:])
@@ -91,11 +74,6 @@ func Encode(setup sim.Setup, dataVersion uint32, inputs [][2]uint16) []byte {
 }
 
 // Decode parses a log and refuses anything it could not replay faithfully.
-//
-// **A setup naming a character or a difficulty this build does not have is
-// refused rather than clamped.** CharacterAt answers an unknown index with the
-// zero character, so a clamped log would replay as a match between two fighters
-// who cannot move — a confusing way to learn the log was not for this build.
 func Decode(name string, b []byte) (Log, error) {
 	fail := func(format string, a ...any) (Log, error) {
 		return Log{}, fmt.Errorf("%s: "+format, append([]any{name}, a...)...)

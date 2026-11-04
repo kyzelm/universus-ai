@@ -2,12 +2,9 @@ package sim
 
 import "testing"
 
-// Move-driven velocity. Before it, advanceState zeroed VX for every attack and
-// never touched VY, so no move could carry the character anywhere — which is
-// what blocked the uppercut and every advancing normal behind it.
+// Move-driven velocity.
 
-// The arc is not authored. The move sets a velocity once and gravity does the
-// rest, the same integration the jump goes through.
+// The arc is not authored.
 func TestALaunchingMoveRisesAndLands(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InHP, 0})
@@ -43,8 +40,7 @@ func TestALaunchingMoveRisesAndLands(t *testing.T) {
 	}
 }
 
-// Forward is forward for both seats. Player 1 faces left, so their uppercut
-// travels left.
+// Forward is forward for both seats.
 func TestLaunchIsFacingRelative(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InHP, InHP})
@@ -62,8 +58,7 @@ func TestLaunchIsFacingRelative(t *testing.T) {
 	}
 }
 
-// A walk does not carry into the attack that comes out of it. Without the
-// velocity handover in enterMove, every jab thrown while walking would drift.
+// A walk does not carry into the attack that comes out of it.
 func TestAnAttackDoesNotInheritWalkVelocity(t *testing.T) {
 	s := New()
 	start := s.Players[0].X
@@ -86,7 +81,7 @@ func TestAnAttackDoesNotInheritWalkVelocity(t *testing.T) {
 }
 
 // A move that runs out while the character is still in the air hands over to
-// StateAir. Idle is actionable, and actionable in mid-air is a different game.
+// StateAir.
 func TestAMoveEndingInTheAirFallsOutIntoAJump(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InHK, 0}) // total 6 frames, ~32 frames of airtime
@@ -104,8 +99,7 @@ func TestAMoveEndingInTheAirFallsOutIntoAJump(t *testing.T) {
 	}
 
 	// Being in StateAir rather than idle is what keeps the ground options off:
-	// no second jump, no walking, no dash. Buttons are a different matter —
-	// air normals are exactly what a jump is for, and they have their own test.
+	// no second jump, no walking, no dash.
 	s.Advance([2]uint16{pad[8], 0})
 	if got := s.Players[0].State; got != StateAir {
 		t.Errorf("holding up in mid-air put the player in state %d, want a second jump to be impossible", got)

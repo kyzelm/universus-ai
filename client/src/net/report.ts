@@ -2,26 +2,15 @@ import {token} from './account'
 
 /**
  * Uploading a finished match (02 Architecture/Anti-Cheat and Verification.md).
- *
- * **Both clients upload independently and the server compares them.** That
- * comparison is the whole point: one client's word about its own match is worth
- * nothing in a peer-to-peer architecture, and two clients' identical words are
- * worth something. Nothing here tries to prevent a lie; it makes one detectable
- * after the fact.
  */
 export interface MatchReport {
   /** The winning seat, 1 or 2 — the server knows who sat where. */
   winner: number
   endFrame: number
   chars: [number, number]
-  /**
-   * The match ended because the other side stopped sending. **A disconnect is
-   * a loss for the disconnecting player** (D50), and a lone report is accepted
-   * after a grace period rather than immediately, so a fabricated counter-claim
-   * cannot win by arriving first (D52).
-   */
+  /** The match ended because the other side stopped sending. */
   disconnect?: boolean
-  /** Which transport it was played on, and how it went. Measurement columns. */
+  /** Which transport it was played on, and how it went. */
   transport?: 'p2p' | 'relay'
   rttMs?: number
   rollbackAvg?: number
@@ -41,11 +30,7 @@ function base64(bytes: Uint8Array): string {
   return btoa(out)
 }
 
-/**
- * Sends the report. Resolves with what the server made of it, and never throws:
- * a match that has been played is over whatever the ladder thinks, and an
- * upload that fails must not be an error on top of the result screen.
- */
+/** Sends the report. */
 export async function uploadResult(matchID: number, r: MatchReport): Promise<string> {
   try {
     const res = await fetch(`/api/match/${matchID}/result`, {

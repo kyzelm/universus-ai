@@ -2,11 +2,11 @@
   "id": 1,
   "name": "Torv",
 
-  "_comment": "The second character, and the one that proves the system generalises (03 Game Design/Roster Plan.md). One character proves nothing — everything could be hardcoded to it. The pair is chosen to stress opposite parts of the engine: the Shoto is projectiles and invincibility, this is throw targeting, armour states and walk-speed balance. Placeholder numbers, legible rather than balanced, same as its counterpart.",
+  "_comment": "The second character, and the one that proves the system generalises (03 Game Design/Roster Plan.md).",
 
   "health": 11000,
 
-  "_comment_walk": "Slower on the ground in both directions, which is the whole of what makes the archetype a problem to play: closing distance is the cost of everything it does. The dash is the compensation — further and it keeps its frames, so the forward option is the dash rather than the walk.",
+  "_comment_walk": "Slower on the ground in both directions, which is the whole of what makes the archetype a problem to play: closing distance is the cost of everything it does.",
   "walkForward": 1.1,
   "walkBack": 0.9,
 
@@ -19,7 +19,7 @@
   "gravity": -0.36,
   "preJumpFrames": 5,
 
-  "_comment_boxes": "Bigger in every dimension. A larger hurtbox is the honest price of more health rather than a second stat nobody can see, and a larger pushbox means it occupies the space it is trying to control.",
+  "_comment_boxes": "Bigger in every dimension.",
   "pushbox": [-14, 0, 28, 52],
   "standHurt": [-14, 0, 28, 52],
   "crouchHurt": [-14, 0, 28, 36],
@@ -27,7 +27,7 @@
 
   "moves": [
     {
-      "_comment": "Level 1. QCF x2 + LP, one bar. The damage ender the roster plan asks for: no projectile to convert into, so this is what a cancelable normal cashes out as. A double quarter-circle rather than a half-circle, because the supers are scanned first and a half-circle is a motion this character actually uses — the two must not be able to read as each other.",
+      "_comment": "Level 1. QCF x2 + LP, one bar.",
       "id": "236236LP",
       "input": { "stance": "stand", "button": "LP", "motion": "qcfx2" },
       "super": 1,
@@ -49,7 +49,7 @@
       ]
     },
     {
-      "_comment": "Level 2. QCF x2 + LK, two bars: the armoured advance, and the reason this character has no invincible reversal. It eats two hits on the way in rather than refusing them, which is a different answer to pressure and a worse one on wake-up — armour loses to a throw, and invulnerability does not. That asymmetry is the archetype.",
+      "_comment": "Level 2. QCF x2 + LK, two bars: the armoured advance, and the reason this character has no invincible reversal.",
       "id": "236236LK",
       "input": { "stance": "stand", "button": "LK", "motion": "qcfx2" },
       "super": 2,
@@ -73,7 +73,7 @@
       ]
     },
     {
-      "_comment": "Level 3. QCB x2 + LP, three bars, and it is a throw — the cinematic command grab the roster plan names. Unblockable and untechable, which is what three bars buys, and answered the only way a command throw is ever answered: by not being on the ground in front of it. Short range and a long recovery, so a missed one loses the round it was meant to win.",
+      "_comment": "Level 3. QCB x2 + LP, three bars, and it is a throw — the cinematic command grab the roster plan names.",
       "id": "214214LP",
       "input": { "stance": "stand", "button": "LP", "motion": "qcbx2" },
       "super": 3,
@@ -94,7 +94,7 @@
       ]
     },
     {
-      "_comment": "EX command throw. Two bars, two punches, the same half-circle: the fastest and furthest of the four, and the one that beats a defender who thought they were out of range. Nothing new in code — an EX special is a special with a Drive cost.",
+      "_comment": "EX command throw.",
       "id": "63214EX",
       "input": { "stance": "stand", "button": "LP+MP", "motion": "hcf" },
       "drive": 2,
@@ -115,7 +115,7 @@
       ]
     },
     {
-      "_comment": "EX armoured advance. Two bars for two hits of armour instead of one, and it crosses most of the screen — the button that answers a fireball war this character cannot otherwise join.",
+      "_comment": "EX armoured advance.",
       "id": "214EX",
       "input": { "stance": "stand", "button": "LP+MP", "motion": "qcb" },
       "drive": 2,
@@ -139,7 +139,7 @@
       ]
     },
     {
-      "_comment": "The command throw. HCF+P per the roster plan, standing in for the 360 that D37 defers — documented as a substitution rather than quietly shipped as the design. Unblockable like every throw and **untechable unlike every throw**, which is the one rule the code needed for this character: a throw you press with a motion cannot be pressed back. It is paid for in these numbers instead — no invulnerability, short range, and a whiff that is a free punish. Three strengths trade startup and range against recovery, which is the same data-driven claim the Shoto's fireball makes.",
+      "_comment": "The command throw.",
       "id": "63214LP",
       "input": { "stance": "stand", "button": "LP", "motion": "hcf" },
       "throw": true,
@@ -197,7 +197,7 @@
       ]
     },
     {
-      "_comment": "The armoured advance. QCB+P, and the second mechanism this character needed — except it needed none: armour is a number on a move (D91) and the advance is a launch velocity, so the whole special is data. It absorbs one hit while closing and does not cover its own recovery, which is what keeps it from being the answer to everything. Light is the shortest and safest, heavy crosses the most ground and is the most punished for missing.",
+      "_comment": "The armoured advance.",
       "id": "214LP",
       "input": { "stance": "stand", "button": "LP", "motion": "qcb" },
       "armor": 1,
@@ -262,7 +262,7 @@
       ]
     },
     {
-      "_comment": "The ordinary throw, LP+LK, the one every character has. It is also the only throw this character can *tech* with, and the only one of its four throws that can be teched at all — the motion is what tells the two kinds apart, so no move needed a field saying which it was.",
+      "_comment": "The ordinary throw, LP+LK, the one every character has.",
       "id": "LPLK",
       "input": { "stance": "stand", "button": "LP+LK" },
       "throw": true,
@@ -282,7 +282,7 @@
       ]
     },
     {
-      "_comment": "Standing normals. A frame or two slower than the Shoto's across the board and worth more when they land, which is the archetype in its least dramatic form: the same buttons, a worse neutral, a better reward.",
+      "_comment": "Standing normals.",
       "id": "5LP",
       "input": { "stance": "stand", "button": "LP" },
       "startup": 5,
@@ -319,7 +319,7 @@
       ]
     },
     {
-      "_comment": "The heavy punch, and the punish button. Heavies do not cancel into specials (D74) — only into the level 3 — so the reward for a read is the damage rather than a route.",
+      "_comment": "The heavy punch, and the punish button.",
       "id": "5HP",
       "input": { "stance": "stand", "button": "HP" },
       "startup": 11,
@@ -395,7 +395,7 @@
       ]
     },
     {
-      "_comment": "Crouching normals. The crouching light kick is the low that starts pressure, and pressure is the only reason this character is ever close enough to throw.",
+      "_comment": "Crouching normals.",
       "id": "2LP",
       "input": { "stance": "crouch", "button": "LP" },
       "startup": 5,
@@ -450,7 +450,7 @@
       ]
     },
     {
-      "_comment": "The crouching heavy punch is the anti-air, and it is a hitbox rather than an invincible reversal. It can be beaten by an attack from above, which is exactly the hole the archetype is supposed to have.",
+      "_comment": "The crouching heavy punch is the anti-air, and it is a hitbox rather than an invincible reversal.",
       "id": "2HP",
       "input": { "stance": "crouch", "button": "HP" },
       "startup": 9,
@@ -510,7 +510,7 @@
       ]
     },
     {
-      "_comment": "Jumping normals. Overheads by nature, and they owe landing recovery the heavier the button — a jump-in must not be free on the way down as well as on the way in.",
+      "_comment": "Jumping normals.",
       "id": "jLP",
       "input": { "stance": "air", "button": "LP" },
       "startup": 6,
@@ -565,7 +565,7 @@
       ]
     },
     {
-      "_comment": "Target combo HP>HP. Its own move, so the second HP has no follow-up of its own and HP>HP>HP is not a loop. Frame data copied from 5HP; tune here.",
+      "_comment": "Target combo HP>HP.",
       "id": "5HP>5HP",
       "after": ["5HP"],
       "input": { "stance": "stand", "button": "HP" },

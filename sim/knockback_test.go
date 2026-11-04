@@ -9,8 +9,7 @@ const (
 )
 
 // strike presses p0 until the move it selects lands on player 1, and returns
-// the state on the frame of the connect. p1 is what the defender holds, which
-// is what decides whether they block.
+// the state on the frame of the connect.
 func strike(t *testing.T, gap int, p0, p1 uint16) GameState {
 	t.Helper()
 
@@ -26,9 +25,8 @@ func strike(t *testing.T, gap int, p0, p1 uint16) GameState {
 	return GameState{}
 }
 
-// pushStep advances until player 1's position changes, and returns the state and
-// how far they moved. The hit that precedes it freezes the match for its
-// hitstop frames, so the push does not show up on the frame it was given.
+// pushStep advances until player 1's position changes, and returns the state
+// and how far they moved.
 func pushStep(t *testing.T, s *GameState) Fix {
 	t.Helper()
 
@@ -43,10 +41,7 @@ func pushStep(t *testing.T, s *GameState) Fix {
 	return 0
 }
 
-// **A hit moves the defender.** Before knockback existed nothing a connect did
-// touched anyone's position, so a blockstring never spaced itself out — the
-// first frame of the push is the move's own number, and friction takes it from
-// there rather than out of the impulse.
+// A hit moves the defender.
 func TestAHitPushesTheDefenderAway(t *testing.T) {
 	s := strike(t, 40, InLP, 0)
 
@@ -105,10 +100,9 @@ func TestPushbackIsAwayFromTheAttacker(t *testing.T) {
 	}
 }
 
-// **The corner rule**, and the reason pushback is worth having at all: the wall
+// The corner rule, and the reason pushback is worth having at all: the wall
 // does not move, so the push the clamp would have eaten moves the attacker back
-// instead. Without it corner pressure — a core mechanic, not a side effect —
-// would be the one place pushback silently did nothing.
+// instead.
 func TestTheCornerPushesTheAttackerBack(t *testing.T) {
 	s := facing(40)
 	// Player 1's pushbox is 12 wide either side, so this is exactly the wall.
@@ -168,9 +162,7 @@ func TestALauncherPutsTheDefenderInTheAir(t *testing.T) {
 	}
 }
 
-// **Hitstun does not run out in mid-air, and a juggle ends on the floor.** The
-// alternative is an opponent who becomes actionable in the air at the end of a
-// combo, which was reachable by any air-to-air hit before launchers existed.
+// Hitstun does not run out in mid-air, and a juggle ends on the floor.
 func TestAJuggleEndsInAKnockdown(t *testing.T) {
 	s := strike(t, 40, launcherInput, 0)
 	stun := char().Moves[launcherIndex].Hitstun
@@ -236,9 +228,7 @@ func TestJuggleHitsCountOnlyInTheAir(t *testing.T) {
 }
 
 // airborne puts player 1 in the air with n juggle hits already on them, still
-// rising so they are still up there when the follow-up lands. Set up rather
-// than played out: reaching an exact juggle count by playing is a timing test
-// wearing a limit test's name.
+// rising so they are still up there when the follow-up lands.
 func airborne(n int32) GameState {
 	s := facing(40)
 	s.Players[1].enter(StateAir)
@@ -248,9 +238,7 @@ func airborne(n int32) GameState {
 	return s
 }
 
-// **The limit refuses the connect.** It has to be a whiff and not a softened
-// hit: the combo ends because the move misses, which is also what gives the
-// defender the frames the miss costs.
+// The limit refuses the connect.
 func TestAMoveRefusesToConnectAtTheJuggleLimit(t *testing.T) {
 	for _, tc := range []struct {
 		name string

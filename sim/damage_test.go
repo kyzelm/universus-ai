@@ -21,8 +21,7 @@ func TestScalingFollowsTheTable(t *testing.T) {
 	}
 }
 
-// The floor is not decoration. Without it a long combo deals literally zero and
-// the game grows loops that do nothing but burn the clock.
+// The floor is not decoration.
 func TestScalingNeverReachesZero(t *testing.T) {
 	m := Move{Damage: 300, Button: InLP}
 	for hit := int32(1); hit < 60; hit++ {
@@ -43,10 +42,7 @@ func TestMinimumDamageHoldsUnderTheScaling(t *testing.T) {
 	}
 }
 
-// The order of operations is part of the deterministic spec. This is the case
-// that tells the specified order from the plausible one: the counter bonus is
-// applied *after* the minimum-damage clamp, so a hit that has been floored
-// still gets its bonus. Multiplying before the clamp gives 12 here, not 15.
+// The order of operations is part of the deterministic spec.
 func TestCounterBonusIsAppliedAfterTheFloor(t *testing.T) {
 	m := Move{Damage: 100, Button: InLP}
 
@@ -86,7 +82,6 @@ func TestStarterScaleIsDerived(t *testing.T) {
 
 // A counter hit is a hit landed while the opponent's own attack is in its
 // startup or active frames; a punish counter is one landed in the recovery.
-// Both are read off the defender's state before anything is applied to it.
 func TestCounterClassReadsTheDefendersMove(t *testing.T) {
 	mv := &char().Moves[0] // 4 startup, 3 active, 6 recovery
 
@@ -150,9 +145,7 @@ func TestACounterHitPaysDamageAndFrames(t *testing.T) {
 	}
 }
 
-// A combo lasts as long as the hitstun holding it together. The moment the
-// defender recovers, the next hit is a first hit again — at full damage and
-// with a fresh starter.
+// A combo lasts as long as the hitstun holding it together.
 func TestTheComboEndsWithTheHitstun(t *testing.T) {
 	s := facing(30)
 	full := s.Players[1].Health
@@ -224,8 +217,7 @@ func TestTheSecondHitOfACombo(t *testing.T) {
 	}
 }
 
-// Chip cannot kill. Losing to a blocked fireball is the least satisfying way to
-// lose a round in any game that allows it.
+// Chip cannot kill.
 func TestChipCannotKill(t *testing.T) {
 	s := facing(60)
 	burnt(t, &s)

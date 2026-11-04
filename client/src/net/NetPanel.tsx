@@ -9,27 +9,12 @@ import {roster} from '../sim/wasm'
 
 /**
  * The measurement matrix, as buttons (01 Thesis/Measurement Methodology.md,
- * M-B): 0/50/100/150/200 ms against 0/2/5% loss. Fifteen cells, run by hand,
- * so they are one click each rather than three numbers typed correctly.
- *
- * The presets are **round-trip** figures because that is how the matrix is
- * labelled and how the HUD reports what it measured. The layer delays packets
- * on arrival, one direction only, so the delay it is given is half the RTT —
- * and **both ends must select the same preset**, or the path is impaired in
- * one direction and the condition is not the one on the label.
+ * M-B): 0/50/100/150/200 ms against 0/2/5% loss.
  */
 const RTT_PRESETS = [0, 50, 100, 150, 200]
 const LOSS_PRESETS = [0, 2, 5]
 
-/**
- * A whole run out of the URL: `?room=CODE&bot&rtt=200&loss=5&jitter=15`.
- *
- * This is what makes a measurement cell repeatable and a two-machine test one
- * link to send rather than a list of instructions — both ends open the same
- * address and are in the same condition by construction. Setting one end by
- * hand is how a cell gets measured with the impairment on one side only, which
- * is not the condition on the label.
- */
+/** A whole run out of the URL: `?room=CODE&bot&rtt=200&loss=5&jitter=15`. */
 function urlImpairment(): Impairment | null {
   const p = new URLSearchParams(location.search)
   if (!p.has('rtt') && !p.has('loss') && !p.has('jitter')) return null
@@ -40,20 +25,8 @@ function urlImpairment(): Impairment | null {
   return {delayMs: num('rtt') / 2, jitterMs: num('jitter'), lossPercent: num('loss')}
 }
 
-/**
- * Two ways in. **A room code** goes through our own server, which pairs the two
- * ends, carries the blobs for them and becomes the transport if WebRTC cannot
- * connect (Decision Log D15). **Manual signalling** — copy the blob across,
- * paste the one that comes back — needs no server at all, which is why it stays:
- * a playtest should not be blocked on the backend being up.
- *
- * Once the channel opens this hands the peer to the game and gets out of the
- * way — the netplay numbers live in the HUD, next to the frame they describe.
- */
-/**
- * "Shoto vs Grappler". Read from the sim rather than kept here, so a roster
- * change cannot leave the panel naming a fighter nobody is playing.
- */
+/** Two ways in. */
+/** "Shoto vs Grappler". */
 function matchup(chars: [number, number]): string {
   const names = roster()
   return `${names[chars[0]]?.name ?? '?'} vs ${names[chars[1]]?.name ?? '?'}`
@@ -70,9 +43,7 @@ export default function NetPanel({game}: {game: Game | null}) {
 
   const conn = useRef<Connection | null>(null)
   const room = useRef<Session | null>(null)
-  // Who is signed in, if anybody. Only the queue needs it — a private match by
-  // code needs one too (D104), but the server is what enforces that and saying
-  // so twice is two places to disagree.
+  // Who is signed in, if anybody.
   const [who, setWho] = useState<Account | null>(account)
   const autoJoined = useRef(false)
 
@@ -102,7 +73,7 @@ export default function NetPanel({game}: {game: Game | null}) {
       game.connect(s.peer, s.seat, {chars: s.chars, matchID: s.matchID, transport: s.kind})
       // Naming the pair is not decoration for the guest: the host picked it, so
       // a player who chose one fighter and is handed another needs the line
-      // that says why. It costs the host nothing to read the same line.
+      // that says why.
       setStatus(`connected — ${matchup(s.chars)}`)
 
       // Applied after connecting, not before: connect() builds the link, so a
@@ -160,8 +131,7 @@ export default function NetPanel({game}: {game: Game | null}) {
     }
   }
 
-  // ?room=CODE joins on load. Same link on both ends, nothing typed, which is
-  // the only way a two-machine run is set up identically on both sides.
+  // ?room=CODE joins on load.
   useEffect(() => {
     const joining = new URLSearchParams(location.search).get('room')
     if (!game || !joining || autoJoined.current) return
@@ -193,8 +163,7 @@ export default function NetPanel({game}: {game: Game | null}) {
   }
 
   // Training is offline by construction: the mode is sim state, so two ends
-  // that disagreed about it would desync on the first checksum. Refused here
-  // rather than explained after the fact.
+  // that disagreed about it would desync on the first checksum.
   if (game?.training) {
     return (
       <section className="net">
@@ -211,13 +180,7 @@ export default function NetPanel({game}: {game: Game | null}) {
       <section className="net">
         <SignIn onChange={setWho} />
 
-        {/*
-          Ranked and casual are the same socket and the same negotiation; what
-          differs is how wide the skill bands open while you wait (D43, D44).
-          Both need an account, so they are offered only once there is one —
-          a button that always answers "sign in first" is a button that should
-          have been a sentence.
-        */}
+        {/* Ranked and casual are the same socket and the same negotiation; what differs is how wide the skill bands open while you wait (D43, D44). */}
         {who && (
           <div className="row">
             <button onClick={() => void queueUp('ranked')}>ranked queue</button>

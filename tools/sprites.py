@@ -1,32 +1,7 @@
 #!/usr/bin/env python3
 """Placeholder sprite sheets, generated rather than drawn.
 
-**These are not art and are not meant to become art.** They are flat two-tone
-silhouettes at the real dimensions, wearing the real tag names (D113), so the
-view's sprite path can be written and tested against the real Aseprite export
-format before a single frame is drawn.
-
-**Drawn art goes in art/<character>/, never over the files this writes.**
-Export from Aseprite into that folder (JSON Array, untrimmed, tags named per
-D113, a slice named "origin" whose pivot is the feet) and rerun this script:
-drawn tags replace their placeholders one at a time, so a sheet with only an
-idle drawn still loads. Any number of exports per character — one file per
-animation, per group, or one for everything — each with its own canvas size;
-they are lined up on their origin slices. Nothing in the client changes.
-
-Every character in data/characters/ gets a sheet, named after its "name"
-lowercased, which is the name the client asks for.
-
-Deliberately ugly for the same reason the game has drawn rectangles since M1:
-placeholder art that looks finished is placeholder art nobody replaces.
-
-The tag list is read out of data/characters/*.json rather than written here, so
-it cannot drift from the roster — which is also the D113 rule demonstrated: the
-tag is the name the sim already has.
-
-    python3 tools/sprites.py
-
-Reads art/<name>/*.{png,json} if present; writes client/public/sprites/<name>.{png,json}.
+python3 tools/sprites.py
 """
 
 import json
@@ -39,38 +14,30 @@ from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "client" / "public" / "sprites"
-# Hand-drawn Aseprite exports, art/<name>/*.{png,json}. Sources, not what ships.
+# Hand-drawn Aseprite exports, art/<name>/*.{png,json}.
 ART = ROOT / "art"
 # The largest texture every WebGL device is safe to assume.
 MAX_TEXTURE = 4096
 FRAME_MS = 1000 / 60
 
-# The placeholder canvas, used until a character has a drawn export, whose
-# own canvas then wins. One sprite pixel is half a sim unit (the view draws
-# sprites 1:1 at SCALE 2), so 128 px in front of the feet is 64 units: the
-# longest hitbox on the roster is 58. Headroom is the 623HP's 72 units. The
-# 64 px behind the feet is lean and a body lying flat.
+# The placeholder canvas, used until a character has a drawn export, whose own
+# canvas then wins.
 CELL = (192, 160)
 COLS = 16
-# The feet, matching the simulation's coordinate origin. One per sheet.
+# The feet, matching the simulation's coordinate origin.
 ORIGIN = (64, 152)
 
-# Frames per animation, by category. These are the Animation Budget's counts
-# after D113 cut the ones the view cannot select between.
+# Frames per animation, by category.
 FRAMES = {
     "idle": 6, "walk": 6, "crouch": 4, "dash": 5, "jump": 5,
     "stun": 4, "block": 3, "thrown": 6, "down": 8,
     "normal": 6, "air": 4, "special": 8, "super": 12, "throw": 6,
 }
 
-# Game frames each placeholder drawing is held in the tags that loop. One
-# frame per drawing is right for attacks, which must fit their frame data,
-# and wrong for a loop: a 1 px bob cycling every 0.1 s reads as a shake.
-# Drawn art sets this itself, through Aseprite's frame durations.
+# Game frames each placeholder drawing is held in the tags that loop.
 HOLD = {"idle": 8, "walk": 5}
 
-# The eleven state tags. StateAttack has none — its animation is the move.
-# StatePreJump and StateLanding reuse crouch.
+# The eleven state tags.
 STATE_TAGS = [
     ("idle", "idle"), ("walk_f", "walk"), ("walk_b", "walk"),
     ("crouch", "crouch"), ("dash", "dash"), ("dash_b", "dash"),
@@ -79,13 +46,9 @@ STATE_TAGS = [
 ]
 
 # Silhouette metrics, in sim units at 1 px each, measured up from the feet.
-# The two must be identifiable from outline alone (Art Direction rule 1), so
-# every number below is the opposite of its neighbour: line against wedge.
 BODIES = {
     # Kai carries a neck: the head clears the shoulders, so the outline is a
-    # column with a notch. Torv's head is sunk *into* the shoulder line and
-    # never clears it, which is the wedge's flat top. That one gap is most of
-    # what tells them apart at 96 px.
+    # column with a notch.
     "kai": dict(
         height=96, head_r=9, head_y=86, shoulder_w=34, hip_w=24,
         torso_top=74, torso_bot=44, leg_w=9, arm_w=7,
@@ -97,21 +60,12 @@ BODIES = {
         fill=(196, 150, 118), shade=(134, 100, 78), tails=False,
     ),
 }
-# A character added to the roster before anyone gives it a silhouette. Grey,
-# so it is obviously nobody's final look.
+# A character added to the roster before anyone gives it a silhouette.
 DEFAULT_BODY = dict(BODIES["kai"], fill=(170, 170, 170), shade=(110, 110, 110), tails=False)
 
 
 def strength_groups(moves):
-    """Map each move id to the tag it draws from.
-
-    A special in three strengths is one animation at three speeds (D21), so the
-    three ids collapse onto one strength-stripped tag. A *normal* never does —
-    5LP and 5HP are different animations — and the discriminator is data rather
-    than a spelling rule: only a move with a motion is a special. Collapse also
-    needs a group of more than one, which is what keeps the supers apart: there
-    is exactly one 236236LP, so it keeps its own name.
-    """
+    """Map each move id to the tag it draws from."""
     stripped = {}
     for mv in moves:
         mid = mv["id"]
@@ -141,14 +95,7 @@ def move_category(mv):
 
 
 def tags_for(character):
-    """Every tag this character's sheet must carry, in draw order.
-
-    Also returns the move-index-to-tag table. The view gets a `moveIndex` in
-    the render snapshot and has no way to turn it into a name — `sim.Move`
-    carries frame data, not its own id — so the table ships with the sheet,
-    built from the same JSON array the sim loads its moves from, in the same
-    order. Presentation naming stays out of the simulation.
-    """
+    """Every tag this character's sheet must carry, in draw order."""
     tags = [(name, cat) for name, cat in STATE_TAGS]
     groups = strength_groups(character["moves"])
     seen = set()
@@ -164,12 +111,7 @@ def tags_for(character):
 
 
 def pose(cat, f, n):
-    """Pose parameters for frame f of n. Crude on purpose.
-
-    Returns bob, squash, lean, reach (how far the leading limb extends) and
-    split (how far the legs part). Enough that each tag animates visibly and
-    differently, which is all the loader needs to be tested against.
-    """
+    """Pose parameters for frame f of n."""
     t = f / max(n - 1, 1)
     if cat == "idle":
         return dict(bob=[0, 1, 1, 0, -1, -1][f % 6])
@@ -208,8 +150,7 @@ def draw(d, body, p, ox, oy):
 
     fill, shade = body["fill"], body["shade"]
     # A body laid flat is as long as it was tall, so it has to be pulled back
-    # over the origin or half of it lands outside the cell. The origin is still
-    # the feet — it is the art that moved, not the coordinate system.
+    # over the origin or half of it lands outside the cell.
     recentre = -down * body["height"] * 0.42
 
     def box(x0, y0, x1, y1, color):
@@ -259,18 +200,7 @@ def draw(d, body, p, ox, oy):
 
 
 def read_export(src):
-    """One Aseprite export: ({tag: [(cell, sim frames), ...]}, canvas, origin).
-
-    A frame's Aseprite duration becomes that many sim frames, because the view
-    shows texture N on the Nth frame of a state. What plays in Aseprite's
-    preview is what plays in the game, at 60 fps rounding.
-
-    The canvas and the feet come from the export, so the canvas can grow
-    mid-drawing. Aseprite exports no origin, but it does export slice pivots,
-    and resizing the canvas moves a slice with the pixels. The feet are the
-    pivot of a slice named "origin". Without one the fighter would float or
-    sink against its boxes, so it is required.
-    """
+    """One Aseprite export: ({tag: [(cell, sim frames), ...]}, canvas, origin)."""
     sheet = json.loads(src.read_text())
     if not isinstance(sheet["frames"], list):
         raise SystemExit(f"{src}: export the sheet as JSON Array, not Hash")
@@ -285,8 +215,7 @@ def read_export(src):
 
     # A slice keyed per frame is an origin that moves, which is the bug this
     # exists to prevent — the feet are the sim's position, and the boxes hang
-    # off it. Refused rather than read from the first key, or a nudge on frame
-    # 40 would be silently ignored and the drawing would drift from its boxes.
+    # off it.
     slices = [sl for sl in sheet["meta"].get("slices", []) if sl["name"] == "origin"]
     if slices and len(slices[0]["keys"]) > 1:
         frames = [k["frame"] for k in slices[0]["keys"]]
@@ -304,8 +233,7 @@ def read_export(src):
 
     out = {}
     for t in sheet["meta"]["frameTags"]:
-        # ponytail: forward only. Reverse and ping-pong are frame orderings a
-        # few lines could expand, add them when an animation asks for one.
+        # ponytail: forward only.
         if t.get("direction", "forward") != "forward":
             raise SystemExit(f"{src}: tag {t['name']} is {t['direction']}, only forward is read")
         cells = []
@@ -318,20 +246,7 @@ def read_export(src):
 
 
 def drawn(key, art):
-    """Every drawn tag for key, lined up in one cell: (tags, cell, origin).
-
-    Aseprite's exports are *sources* here, not the file the client loads: they
-    carry no move table, and an artist working tag by tag has a sheet that is
-    mostly missing, which the loader refuses outright. So the published sheet
-    is a composite — drawn tags where they exist, placeholders everywhere
-    else — and the game runs at every stage of the drawing.
-
-    The exports may have different canvases, so each is placed in a shared
-    cell big enough for all of them *measured from the feet*: the most room
-    any export has behind, in front of, above and below its origin. The
-    placeholder canvas takes part, so placeholders never clip. One cell, one
-    anchor, which is all the client knows how to read.
-    """
+    """Every drawn tag for key, lined up in one cell: (tags, cell, origin)."""
     exports = []
     for src in sorted((art / key).glob("*.json")):
         exports.append((src, *read_export(src)))
@@ -365,7 +280,7 @@ def build(key, character, art=None, out=None):
     have, (cw, ch), origin = drawn(key, art)
 
     # A drawn tag the roster never asks for is almost always a typo, and a
-    # typo'd tag is silently a placeholder forever. Say so every run.
+    # typo'd tag is silently a placeholder forever.
     for name in sorted(set(have) - {n for n, _ in tags}):
         print(f"{key}: art tag {name!r} matches no state or move, ignored", file=sys.stderr)
 
@@ -413,10 +328,7 @@ def build(key, character, art=None, out=None):
             "size": {"w": img.width, "h": img.height}, "scale": "1",
             "origin": {"x": origin[0], "y": origin[1]},
             "frameTags": frame_tags,
-            # Move index to tag, in roster order. Not an Aseprite field, which
-            # is why the drawn export is a source and this file is generated:
-            # the price of keeping move ids out of sim.Move. CI reruns this
-            # script and refuses a diff, so the table cannot drift.
+            # Move index to tag, in roster order.
             "moveTags": move_tags,
         },
     }, indent=2) + "\n")
@@ -424,9 +336,7 @@ def build(key, character, art=None, out=None):
 
 
 def check_composite(roster):
-    """Drawn tags replace their placeholders, durations become sim frames, and
-    two exports with different canvases land in one cell lined up on their
-    feet — asserted on two tiny exports in a temp dir."""
+    """Drawn tags replace their placeholders, durations become sim frames, and two exports with different canvases land in one cell lined up on their feet — asserted on two tiny exports in a temp dir."""
 
     def export(d, name, w, h, origin, tag, durations):
         Image.new("RGBA", (len(durations) * w, h), (255, 0, 0, 255)).save(d / f"{name}.png")
@@ -457,7 +367,7 @@ def check_composite(roster):
         assert tags["walk_b"]["to"] - tags["walk_b"]["from"] + 1 == FRAMES["walk"] * HOLD["walk"]
         assert len(tags) == len(tags_for(roster)[0]) and sheet["meta"]["moveTags"]
 
-        # Behind: 70 (idle). In front: 130 (idle). Above: 159 (idle). Below: 20 (walk).
+        # Behind: 70 (idle).
         assert {(f["frame"]["w"], f["frame"]["h"]) for f in sheet["frames"]} == {(200, 179)}
         assert sheet["meta"]["origin"] == {"x": 70, "y": 159}, sheet["meta"]["origin"]
         # The walk cell's feet are on the shared feet: its 100x100 canvas starts
@@ -469,12 +379,7 @@ def check_composite(roster):
 
 
 def check(rosters):
-    """The collapse rule, asserted on the real roster.
-
-    It is the only part of this file with a decision in it, and it has exactly
-    two ways to be wrong: collapsing a normal (5LP and 5HP are different
-    animations) or renaming a super that had no sibling to merge with.
-    """
+    """The collapse rule, asserted on the real roster."""
     kai, torv = (strength_groups(rosters[name]["moves"]) for name in ("kai", "torv"))
 
     # Three strengths of one special, one animation (D21, D113).
