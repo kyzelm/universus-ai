@@ -245,6 +245,15 @@ export async function startGame(
   await app.init({width: VIEW_W, height: VIEW_H, background: 0x14161a, antialias: false})
   parent.appendChild(app.canvas)
 
+  // CSS stretches the canvas to the window (index.css). Layout stays 800x450,
+  // but the backing store follows the displayed size, so text and shapes are
+  // drawn at screen pixels instead of upscaled from 800 wide. Resizing the
+  // backing store does not change the CSS width, so this cannot feed back.
+  const sizer = new ResizeObserver(() =>
+    app.renderer.resize(VIEW_W, VIEW_H, (app.canvas.clientWidth * devicePixelRatio) / VIEW_W),
+  )
+  sizer.observe(app.canvas)
+
   // The world scrolls under a fixed camera; the stage layer does not.
   const world = new Container()
   // Balance data, read once from the sim so the view frames what it collides.
@@ -733,6 +742,7 @@ export async function startGame(
       link?.dispose()
       // The Go runtime keeps running: quit() cannot be undone and loadSim is
       // cached, so a remount would have no sim. reset() on start covers it.
+      sizer.disconnect()
       app.destroy(true, {children: true})
     },
   }

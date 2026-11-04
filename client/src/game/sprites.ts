@@ -148,5 +148,9 @@ export async function loadSheet(name: string): Promise<Sheet> {
   const res = await fetch(`/sprites/${name}.json`)
   if (!res.ok) throw new Error(`sprites: /sprites/${name}.json (${res.status})`)
   const meta = (await res.json()) as SheetMeta
-  return buildSheet(meta, await Assets.load(`/sprites/${name}.png`))
+  const base: Texture = await Assets.load(`/sprites/${name}.png`)
+  // The renderer draws at display resolution, so sprites are magnified on the
+  // GPU now, not by the browser's CSS scale. Nearest keeps pixel art crisp.
+  base.source.scaleMode = 'nearest'
+  return buildSheet(meta, base)
 }

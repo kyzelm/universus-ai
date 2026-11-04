@@ -105,6 +105,17 @@ export default function App() {
 
   const ai = setup?.ai ?? 0
 
+  // The panel under the game: Esc shows and hides it over the canvas. The
+  // match keeps running under it — netplay cannot pause for one side.
+  const [panel, setPanel] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Escape') setPanel((p) => !p)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   useEffect(() => {
     if (setup === null) return
 
@@ -179,39 +190,57 @@ export default function App() {
   }
 
   return (
-    <main>
-      <div ref={host} />
+    <>
+      {/* The game owns the window; everything else is one key away. */}
+      <div className="stage" ref={host} />
 
-      <div className="bar">
-        <span className="keys">
-          P1 <b>WASD</b> · P2 <b>{ai ? AI_TIERS[ai] : 'arrows'}</b>
-          {game?.training && ' · training: R resets · 0-7 dummy (6 record, 7 play)'}
-        </span>
-        {/*
-          Back to the title. Only offered when the URL did not name the run:
-          a measurement harness, a CI run and a link somebody was sent all
-          arrive with parameters, and none of them has a menu to return to.
-        */}
-        {setupFromURL() === null && (
-          <button type="button" onClick={() => setSetup(null)}>
-            menu
-          </button>
-        )}
-        {/*
-          Every mode saves now, including the lab and an AI match. The log used
-          to be the inputs the *caller* fed the sim and nothing else, which is
-          why those two were refused or silently wrong: the AI's presses are
-          generated inside the sim and the lab changes what a frame does. The
-          header carries the setup, so the log replays the match that was
-          played rather than one that resembles it.
-        */}
-        <button type="button" onClick={() => game && saveLog(game)} disabled={!game}>
-          save input log
-        </button>
+      {/*
+        Hidden, not unmounted: NetPanel holds the live connection, and
+        unmounting it would drop the match.
+      */}
+      <div className="overlay" hidden={!panel}>
+        <main>
+          <div className="bar">
+            <span className="keys">
+              P1 <b>WASD</b> · P2 <b>{ai ? AI_TIERS[ai] : 'arrows'}</b>
+              {game?.training && ' · training: R resets · 0-7 dummy (6 record, 7 play)'}
+            </span>
+            {/*
+              Back to the title. Only offered when the URL did not name the run:
+              a measurement harness, a CI run and a link somebody was sent all
+              arrive with parameters, and none of them has a menu to return to.
+            */}
+            {setupFromURL() === null && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPanel(false)
+                  setSetup(null)
+                }}
+              >
+                menu
+              </button>
+            )}
+            {/*
+              Every mode saves now, including the lab and an AI match. The log used
+              to be the inputs the *caller* fed the sim and nothing else, which is
+              why those two were refused or silently wrong: the AI's presses are
+              generated inside the sim and the lab changes what a frame does. The
+              header carries the setup, so the log replays the match that was
+              played rather than one that resembles it.
+            */}
+            <button type="button" onClick={() => game && saveLog(game)} disabled={!game}>
+              save input log
+            </button>
+          </div>
+
+          <Controls />
+          <NetPanel game={game} />
+        </main>
       </div>
-
-      <Controls />
-      <NetPanel game={game} />
-    </main>
+      <span className="hint">
+        <b>Esc</b> {panel ? 'close' : 'menu'}
+      </span>
+    </>
   )
 }

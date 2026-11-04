@@ -20,20 +20,27 @@ body {
   padding: 16px 0 32px;
 }
 
-/* The canvas is 800 wide and everything under it is a caption for it, so the
-   column is the canvas width. Without this the key list sets the page width,
-   and the canvas ends up left-aligned against a much wider paragraph. */
+/* Everything under the canvas is a caption for it, so the column is the canvas
+   width. Without this the key list sets the page width, and the canvas ends up
+   left-aligned against a much wider paragraph. The column is as big as the
+   window allows at 16:9 (the sim renders 800x450): full width, unless that
+   would make the canvas taller than the window minus #root's padding. */
 main {
-  width: 800px;
+  width: min(100vw - 32px, (100vh - 48px) * 16 / 9);
   display: grid;
   gap: 8px;
 }
 
+/* Drawn at 800x450 and stretched by CSS; height follows the width attributes'
+   ratio, so the aspect never changes. Nothing reads pointer coordinates off
+   the canvas, so the CSS scale needs no mapping back. */
 canvas {
   display: block;
+  width: 100%;
+  height: auto;
   image-rendering: pixelated;
   /* A ring rather than a border: it costs no layout, so the canvas stays
-     exactly 800 wide and the column above still lines up with it. */
+     exactly the column width and lines up with it. */
   box-shadow: 0 0 0 1px var(--line);
 }
 
@@ -73,6 +80,64 @@ button.on {
   margin: 0;
   color: var(--dim);
   font-size: 0.8rem;
+}
+
+/* In a match the canvas fills the window, letterboxed at 16:9, and the panel
+   (keys, menu, log, netplay) is an overlay Esc toggles. */
+/* #root's padding would otherwise give the match a page scrollbar. */
+body:has(.stage) {
+  overflow: hidden;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+.stage canvas {
+  width: min(100vw, 100vh * 16 / 9);
+  box-shadow: none;
+}
+
+.hint {
+  position: fixed;
+  right: 8px;
+  bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgb(0 0 0 / 0.6);
+  color: var(--text);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  display: grid;
+  place-items: start center;
+  padding: 48px 16px;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(3px);
+}
+
+/* display: grid above would otherwise beat the hidden attribute. */
+.overlay[hidden] {
+  display: none;
+}
+
+/* A solid card: over a moving game a translucent page reads as part of it. */
+.overlay main {
+  width: min(800px, 100%);
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--dim);
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.6);
 }
 
 .bar {
