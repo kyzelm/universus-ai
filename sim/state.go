@@ -75,8 +75,10 @@ type PlayerState struct {
 	// MoveIndex is the active move while State is StateAttack, else -1.
 	MoveIndex int32
 
-	// HasHit marks a move that has already connected, so one active window
-	// cannot hit twice. Cleared when the move starts.
+	// HasHit is the HitNum of the last hit the current move connected with,
+	// 0 for none, so one hit cannot connect twice and a multi-hit move's next
+	// hit can. Nonzero is "has connected" to everything else. Cleared when the
+	// move starts.
 	HasHit int32
 
 	// Armor is how many hits the current move has already absorbed. Counted
@@ -453,14 +455,17 @@ func (s *GameState) Advance(in [2]uint16) {
 	// attack — so by the time the second resolution ran, the move that was
 	// about to land no longer existed and the trade silently became a
 	// one-sided hit. Character data is immutable, so these pointers stay valid.
+	// The hit number too, for the same reason: it is read off the attacker's
+	// current frame, and the first resolution may have reset that frame.
 	mv0, mv1 := s.Players[0].move(), s.Players[1].move()
+	n0, n1 := s.hitNum(0), s.hitNum(1)
 	hit0 := s.connects(0, 1)
 	hit1 := s.connects(1, 0)
 	if hit0 {
-		s.resolveHit(0, 1, mv0, in[1])
+		s.resolveHit(0, 1, mv0, n0, in[1])
 	}
 	if hit1 {
-		s.resolveHit(1, 0, mv1, in[0])
+		s.resolveHit(1, 0, mv1, n1, in[0])
 	}
 
 	// Projectiles resolve after both players, so a fireball and the punch that
@@ -537,7 +542,7 @@ func (s *GameState) connects(attacker, defender int) bool {
 // resolveHit applies one connect. mv is the attacker's move as captured before
 // any resolution ran; defenderIn is the defender's input this frame, which is
 // what decides whether they were holding back.
-func (s *GameState) resolveHit(attacker, defender int, mv *Move, defenderIn uint16) {
+func (s *GameState) resolveHit(attacker, defender int, mv *Move, hit int32, defenderIn uint16) {
 	ap := &s.Players[attacker]
 
 	if mv == nil {
@@ -552,8 +557,20 @@ func (s *GameState) resolveHit(attacker, defender int, mv *Move, defenderIn uint
 		return
 	}
 
-	ap.HasHit = 1
+	ap.HasHit = hit
 	s.applyHit(attacker, defender, mv, defenderIn)
+}
+
+// hitNum is the HitNum of the hitboxes the player's move has on this frame, or
+// 0 when it has none.
+func (s *GameState) hitNum(i int) int32 {
+	p := &s.Players[i]
+	if mv := p.move(); mv != nil {
+		if k := mv.BoxesAt(p.StateFrame); k != nil && k.NumHit > 0 {
+			return k.HitNumber()
+		}
+	}
+	return 0
 }
 
 // applyHit is the half of a connect that lands on the defender: block or hit,

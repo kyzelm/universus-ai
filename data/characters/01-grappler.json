@@ -238,13 +238,14 @@
       ]
     },
     {
+      "_comment": "Two hits (hitNum, D120): frames 18-19 and 20-21, each a full hit with the move's damage, stun and hitstop, so the 900 of the single-hit version is split across them.",
       "id": "214HP",
       "input": { "stance": "stand", "button": "HP", "motion": "qcb" },
       "armor": 1,
       "startup": 18,
       "active": 4,
       "recovery": 32,
-      "damage": 900,
+      "damage": 500,
       "hitstun": 22,
       "blockstun": 15,
       "hitstop": 11,
@@ -256,6 +257,7 @@
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
         { "frame": 18, "hurt": [[-14, 0, 36, 52]], "hit": [[12, 4, 38, 44]] },
+        { "frame": 20, "hurt": [[-14, 0, 36, 52]], "hit": [[12, 4, 38, 44]], "hitNum": 2 },
         { "frame": 22, "hurt": [[-14, 0, 28, 52]] }
       ]
     },

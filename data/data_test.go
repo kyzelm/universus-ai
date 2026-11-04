@@ -242,6 +242,26 @@ func TestValidationRejectsBadData(t *testing.T) {
 		{"a dir that is not numpad", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Dir = "forward" }},
 		{"an empty window", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Window = []int{10, 10} }},
 		{"a window past the source's end", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Window = []int{0, 999} }},
+		// Multi-hit: numbers only where there are hitboxes, never going back.
+		{"a hitNum with no hitboxes", func(c *jsonCharacter) {
+			for i := range c.Moves {
+				if c.Moves[i].ID == "5LP" {
+					c.Moves[i].Boxes[0].HitNum = 2
+				}
+			}
+		}},
+		{"a hitNum that goes back down", func(c *jsonCharacter) {
+			for i := range c.Moves {
+				if c.Moves[i].ID == "5LP" {
+					b := &c.Moves[i].Boxes
+					*b = append(*b, (*b)[1])
+					(*b)[1].HitNum = 2
+					(*b)[3].Frame, (*b)[3].HitNum = 5, 1
+					(*b)[2], (*b)[3] = (*b)[3], (*b)[2]
+				}
+			}
+		}},
+
 		// The one the design note itself got wrong: 8.0 and -0.03 pass every
 		// individual check and give a nine-second jump.
 		{"jump constants that do not go together", func(c *jsonCharacter) { c.Gravity = "-0.03" }},
@@ -729,6 +749,48 @@ func perform(t *testing.T, s *sim.GameState, c *sim.Character, m int32) {
 	s.Advance([2]uint16{numpad[last] | mv.Button, 0})
 	if got := s.Players[0].MoveIndex; got != m {
 		t.Fatalf("inputs for move %d gave move %d", m, got)
+	}
+}
+
+// Every shipped multi-hit move must land every hit it is written with, on a
+// standing opponent at close range. The loader proves the hit numbers are in
+// order; only running the move proves the pushback after hit 1 leaves hit 2 in
+// reach.
+func TestTheShippedMultiHitMovesHitEveryTime(t *testing.T) {
+	cs := loadRoster(t)
+	found := 0
+	for ci := range cs {
+		c := &cs[ci]
+		for m := int32(0); m < c.NumMoves; m++ {
+			mv := &c.Moves[m]
+			hits := int32(0)
+			for k := int32(0); k < mv.NumKeys; k++ {
+				if mv.Keys[k].NumHit > 0 {
+					hits = max(hits, mv.Keys[k].HitNumber())
+				}
+			}
+			if hits < 2 {
+				continue
+			}
+			found++
+
+			s := sim.NewMatch(int32(ci), int32(ci))
+			s.Players[0].X, s.Players[1].X = sim.FromInt(-15), sim.FromInt(15)
+			perform(t, &s, c, m)
+			// The highest combo seen, not the last: the defender may have
+			// recovered by the time the attacker has.
+			best := int32(0)
+			for f := 0; s.Players[0].State == sim.StateAttack && f < 300; f++ {
+				s.Advance([2]uint16{0, 0})
+				best = max(best, s.Players[1].Combo)
+			}
+			if best != hits {
+				t.Errorf("character %d move %d: %d hits written, combo reached %d", ci, m, hits, best)
+			}
+		}
+	}
+	if found == 0 {
+		t.Error("the roster has no multi-hit moves")
 	}
 }
 

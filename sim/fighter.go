@@ -793,17 +793,17 @@ func (s *GameState) Hurtboxes(i int, out *[MaxBoxes]Box) int32 {
 }
 
 // Hitboxes writes the player's active hitboxes into out and returns how many.
-// A move that has already connected has none: that is what stops one active
-// window from hitting twice.
+// A hit that has already connected has none: that is what stops one active
+// window from hitting twice. A multi-hit move re-arms with each new HitNum.
 func (s *GameState) Hitboxes(i int, out *[MaxBoxes]Box) int32 {
 	p := &s.Players[i]
 
 	mv := p.move()
-	if mv == nil || p.HasHit != 0 {
+	if mv == nil {
 		return 0
 	}
 	k := mv.BoxesAt(p.StateFrame)
-	if k == nil {
+	if k == nil || p.HasHit >= k.HitNumber() {
 		return 0
 	}
 	for b := int32(0); b < k.NumHit; b++ {

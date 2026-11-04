@@ -671,9 +671,11 @@ type jsonProjectile struct {
 }
 
 type jsonKeyframe struct {
-	Frame int             `json:"frame"`
-	Hurt  [][]json.Number `json:"hurt"`
-	Hit   [][]json.Number `json:"hit"`
+	Frame int `json:"frame"`
+	// HitNum is which hit of a multi-hit move the hitboxes are. Absent is 1.
+	HitNum int             `json:"hitNum"`
+	Hurt   [][]json.Number `json:"hurt"`
+	Hit    [][]json.Number `json:"hit"`
 }
 
 var buttons = map[string]uint16{
@@ -1038,7 +1040,7 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 		return m, fmt.Errorf("%d box keyframes, max %d", len(jm.Boxes), sim.MaxKeyframes)
 	}
 
-	prev := int32(-1)
+	prev, lastHit := int32(-1), int32(1)
 	for i := range jm.Boxes {
 		k, err := jm.Boxes[i].convert()
 		if err != nil {
@@ -1053,6 +1055,14 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 			return m, fmt.Errorf("box keyframe at frame %d, but the move is %d frames", k.Frame, m.Total())
 		}
 		prev = k.Frame
+		// Hits are numbered in the order they come out. A number that went
+		// back down would be a hit already spent, and it would never connect.
+		if k.NumHit > 0 {
+			if k.HitNumber() < lastHit {
+				return m, fmt.Errorf("box frame %d: hitNum %d after %d", k.Frame, k.HitNumber(), lastHit)
+			}
+			lastHit = k.HitNumber()
+		}
 		m.Keys[i] = k
 	}
 	m.NumKeys = int32(len(jm.Boxes))
@@ -1183,6 +1193,11 @@ func (jk *jsonKeyframe) convert() (sim.Keyframe, error) {
 		k.Hit[i] = b
 	}
 	k.NumHit = int32(len(jk.Hit))
+
+	if jk.HitNum < 0 || (jk.HitNum > 0 && k.NumHit == 0) {
+		return k, fmt.Errorf("hitNum %d needs hitboxes and a positive number", jk.HitNum)
+	}
+	k.HitNum = int32(jk.HitNum)
 
 	return k, nil
 }

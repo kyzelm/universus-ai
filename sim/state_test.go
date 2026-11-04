@@ -829,6 +829,37 @@ func TestASecondStageWaitsForTheFirstToPlayOut(t *testing.T) {
 	t.Error("the buffered second stage never came out")
 }
 
+// A multi-hit move connects once per hit number: hit 2 re-arms a move hit 1
+// spent. Without the number the same hitboxes connect once, which is the rule
+// every single-hit move relies on.
+func TestAMultiHitMoveHitsOncePerNumber(t *testing.T) {
+	c := char()
+	saved := *c
+	t.Cleanup(func() { *c = saved })
+
+	jab := &c.Moves[0]
+	// The jab's three active frames as two hits: frame 4 and frame 5.
+	jab.Keys[3] = jab.Keys[2]
+	jab.Keys[2] = jab.Keys[1]
+	jab.Keys[2].Frame = 5
+	jab.NumKeys = 4
+
+	for _, tc := range []struct {
+		num  int32
+		want int32
+	}{{0, 1}, {2, 2}} {
+		jab.Keys[2].HitNum = tc.num
+		s := facing(30)
+		s.Advance([2]uint16{InLP, 0})
+		for s.Players[0].State == StateAttack {
+			s.Advance([2]uint16{0, 0})
+		}
+		if got := s.Players[1].Combo; got != tc.want {
+			t.Errorf("second keyframe hitNum %d: combo %d, want %d", tc.num, got, tc.want)
+		}
+	}
+}
+
 // **The camera has a dead zone.** Walking toward a player who is standing still
 // must not move the camera, or the standing player slides across the screen
 // and reads as moving too — which is exactly what the midpoint camera did.

@@ -109,9 +109,19 @@ type Keyframe struct {
 	Frame   int32
 	NumHurt int32
 	NumHit  int32
-	Hurt    [MaxBoxes]Box
-	Hit     [MaxBoxes]Box
+
+	// HitNum is which hit of a multi-hit move these hitboxes are, 1-based and
+	// non-decreasing through the move. A hitbox is live while the move has
+	// connected fewer times than its number (PlayerState.HasHit), so hit 2
+	// re-arms a move that hit 1 already spent. Zero reads as 1: every move
+	// that hits once leaves it out.
+	HitNum int32
+	Hurt   [MaxBoxes]Box
+	Hit    [MaxBoxes]Box
 }
+
+// HitNumber is HitNum with the zero value read as the first hit.
+func (k *Keyframe) HitNumber() int32 { return max(k.HitNum, 1) }
 
 // ProjectileSpec is the projectile a move fires, if it fires one. Static data,
 // like the rest of the character: the thing in flight is state, its numbers are
