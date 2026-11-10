@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+docs
+art
+testdata
+tools
+**/node_modules
+client/dist
+client/public/main.wasm
+client/public/wasm_exec.js
+client/_tmp_*
