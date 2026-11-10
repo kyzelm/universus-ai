@@ -4,6 +4,9 @@ services:
     environment:
       POSTGRES_PASSWORD: dev
       POSTGRES_DB: universus
+    # Host access for `go run ./server` in dev; loopback only, the password is "dev".
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
