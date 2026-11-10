@@ -8,13 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	"universus/data"
 	"universus/sim"
 )
 
 // The roster and the balance data are part of the simulation's identity, and
 // main loads them before anything touches the sim.
 func TestMain(m *testing.M) {
-	if err := loadRoster(); err != nil {
+	if err := data.Install(); err != nil {
 		fmt.Fprintln(os.Stderr, "replay:", err)
 		os.Exit(1)
 	}

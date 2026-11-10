@@ -18,7 +18,6 @@ import (
 	"github.com/coder/websocket"
 
 	"universus/data"
-	"universus/sim"
 )
 
 const (
@@ -272,15 +271,9 @@ func main() {
 		go h.queue.run(ctx)
 
 		// The roster this binary re-simulates with.
-		cs, err := data.Load()
-		if err != nil || !sim.LoadCharacters(cs) {
-			log.Fatalf("the sim refused the embedded roster: %v", err)
+		if err := data.Install(); err != nil {
+			log.Fatalf("game data: %v", err)
 		}
-		balance, err := data.LoadBalance()
-		if err != nil {
-			log.Fatalf("balance data: %v", err)
-		}
-		sim.LoadBalance(balance)
 
 		version, err := data.Version()
 		if err != nil {

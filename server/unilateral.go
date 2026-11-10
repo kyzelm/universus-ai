@@ -65,17 +65,15 @@ func (v verifier) sweepUnilateral(ctx context.Context) bool {
 	}
 
 	var s submission
-	var stored storedResult
 	if err := tx.QueryRow(ctx,
 		`SELECT input_log, checksums, result FROM match_submissions WHERE match_id = $1`, id).
-		Scan(&s.inputLog, &s.checksums, &stored); err != nil {
+		Scan(&s.inputLog, &s.checksums, &s.outcome); err != nil {
 		log.Printf("unilateral: reading the submission for %d: %v", id, err)
 		return false
 	}
-	stored.into(&s)
 
 	// Accepted as a disconnect whatever the client called it.
-	s.disconnect = true
+	s.Disconnect = true
 
 	if err := v.matches.settleTx(ctx, tx, row, s); err != nil {
 		log.Printf("unilateral: settling %d: %v", id, err)
@@ -85,7 +83,7 @@ func (v verifier) sweepUnilateral(ctx context.Context) bool {
 		log.Printf("unilateral: committing %d: %v", id, err)
 		return false
 	}
-	log.Printf("match %d settled on one report: seat %d won", id, s.winner)
+	log.Printf("match %d settled on one report: seat %d won", id, s.Winner)
 	return true
 }
 

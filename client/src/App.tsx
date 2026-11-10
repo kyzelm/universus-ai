@@ -112,12 +112,12 @@ export default function App() {
 
     // ?bench leaves the sim untouched so a measurement harness can drive it
     // without the render loop advancing frames underneath it.
-    if (new URLSearchParams(location.search).has('bench')) return
+    const params = new URLSearchParams(location.search)
+    if (params.has('bench')) return
 
     // ?bot hands the local player to a seeded input device, which is what a
     // measurement run needs: rollback only happens when a prediction is wrong,
     // and nobody pressing anything is a prediction that is always right.
-    const params = new URLSearchParams(location.search)
     const bot = params.has('bot') ? createBot() : undefined
     // Training is the lab (03 Game Design/Game Modes.md): infinite resources,
     // no clock, no round end, and no netplay — the mode is sim state, so a
@@ -129,11 +129,11 @@ export default function App() {
     const showBoxes = training || params.has('boxes')
     const {ai, chars} = setup
 
+    // StrictMode mounts twice in dev, and startGame is async: the first run can
+    // still be in flight when the cleanup fires.
     let started: Game | undefined
     let cancelled = false
 
-    // StrictMode mounts twice in dev, and startGame is async: the first run can
-    // still be in flight when the cleanup fires.
     const onKey = (e: KeyboardEvent) => {
       if (!training) return
       if (e.code === 'KeyR') started?.restart()

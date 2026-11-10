@@ -90,9 +90,9 @@ func (s *GameState) spawn(owner, move int32, mv *Move) {
 			Active: 1,
 			Owner:  owner,
 			Move:   move,
-			X:      p.X + mv.Proj.SpawnX.Mul(FromInt(int(p.Facing))),
+			X:      p.X + p.forward(mv.Proj.SpawnX),
 			Y:      p.Y + mv.Proj.SpawnY,
-			VX:     mv.Proj.Speed.Mul(FromInt(int(p.Facing))),
+			VX:     p.forward(mv.Proj.Speed),
 			Life:   mv.Proj.Life,
 		}
 		return

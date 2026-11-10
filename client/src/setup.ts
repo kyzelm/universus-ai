@@ -1,4 +1,4 @@
-import {AI_TIERS} from './sim/wasm'
+import {AI_TIERS, type AITier} from './sim/wasm'
 
 /** The modes a run can be started in (03 Game Design/Game Modes.md). */
 export const MODES = ['local', 'ai', 'training', 'online'] as const
@@ -19,7 +19,7 @@ export interface RunSetup {
 /** ?ai, or ?ai=easy|normal|hard. */
 export function aiFromURL(params: URLSearchParams): number {
   if (!params.has('ai')) return 0
-  const tier = AI_TIERS.indexOf((params.get('ai') || 'normal') as (typeof AI_TIERS)[number])
+  const tier = AI_TIERS.indexOf((params.get('ai') || 'normal') as AITier)
   return tier > 0 ? tier : AI_TIERS.indexOf('normal')
 }
 

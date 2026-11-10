@@ -13,16 +13,9 @@ import (
 
 // The shipped roster, loaded once.
 var loadRoster = sync.OnceValue(func() uint32 {
-	cs, err := data.Load()
-	if err != nil || !sim.LoadCharacters(cs) {
-		panic("the sim refused the embedded roster")
-	}
-	b, err := data.LoadBalance()
-	if err != nil {
+	if err := data.Install(); err != nil {
 		panic(err)
 	}
-	sim.LoadBalance(b)
-
 	v, err := data.Version()
 	if err != nil {
 		panic(err)

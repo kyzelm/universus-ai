@@ -90,12 +90,10 @@ func (p *PlayerState) land(n int32) {
 }
 
 // hurt takes n damage, floored at zero.
-func (p *PlayerState) hurt(n int32) {
-	p.Health -= n
-	if p.Health < 0 {
-		p.Health = 0
-	}
-}
+func (p *PlayerState) hurt(n int32) { p.Health = max(p.Health-n, 0) }
+
+// forward turns a speed authored facing right into the direction the player faces.
+func (p *PlayerState) forward(v Fix) Fix { return v * Fix(p.Facing) }
 
 // stay is enter for a state the player may already be in: holding forward for
 // twenty frames is one walk, not twenty.
@@ -134,7 +132,7 @@ func (p *PlayerState) enterMove(index int32, now uint32) {
 	p.Armor = 0
 
 	if !p.Airborne() || mv.Launches() {
-		p.VX = mv.LaunchVX.Mul(FromInt(int(p.Facing)))
+		p.VX = p.forward(mv.LaunchVX)
 		p.VY = mv.LaunchVY
 	}
 }
@@ -171,9 +169,8 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 
 	// The second button of a two-button input lands late, and the move it was
 	// meant to be still comes out.
-	if p.State == StateAttack && !Actionable(p.State) {
-		if m := s.moveFor(i, stance, now, 0); m >= 0 &&
-			s.pairLate(i, in, CharacterAt(p.Char).Moves[m].Button) {
+	if p.State == StateAttack {
+		if m := s.moveFor(i, stance, now, 0); m >= 0 && s.pairLate(i, in, c.Moves[m].Button) {
 			p.enterMove(m, now)
 			return
 		}
@@ -218,9 +215,9 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 		// The jump direction is committed here, at the *start* of pre-jump.
 		switch dir {
 		case DirUpFwd:
-			p.JumpVX = c.JumpForwardVX.Mul(FromInt(int(p.Facing)))
+			p.JumpVX = p.forward(c.JumpForwardVX)
 		case DirUpBack:
-			p.JumpVX = -c.JumpForwardVX.Mul(FromInt(int(p.Facing)))
+			p.JumpVX = -p.forward(c.JumpForwardVX)
 		default:
 			p.JumpVX = 0
 		}
@@ -442,10 +439,10 @@ func (s *GameState) advanceState(i int) {
 
 	switch p.State {
 	case StateWalkF:
-		p.VX = c.WalkForward.Mul(FromInt(int(p.Facing)))
+		p.VX = p.forward(c.WalkForward)
 
 	case StateWalkB:
-		p.VX = -c.WalkBack.Mul(FromInt(int(p.Facing)))
+		p.VX = -p.forward(c.WalkBack)
 
 	case StateDash, StateBackdash:
 		frames, dist := c.DashFrames, c.DashDistance
@@ -460,7 +457,7 @@ func (s *GameState) advanceState(i int) {
 		// Constant speed over the dash: distance divided by duration, computed
 		// once per frame in fixed-point rather than stored, so a rollback into
 		// the middle of a dash needs no extra state.
-		p.VX = dist.Div(FromInt(int(frames))).Mul(FromInt(int(p.Facing)))
+		p.VX = p.forward(dist.Div(FromInt(int(frames))))
 
 	case StatePreJump:
 		// Grounded, motionless, and throwable.

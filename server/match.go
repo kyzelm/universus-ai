@@ -20,39 +20,31 @@ import (
 // A match is under 20 KB packed (02 Architecture/WASM Boundary.md).
 const maxUpload int64 = 256 << 10
 
-type result struct {
+// outcome is what a client reports about a match, stored as the submission's JSONB.
+type outcome struct {
 	// 1 or 2 — the seat, not the account.
-	Winner   int    `json:"winner"`
-	EndFrame int    `json:"endFrame"`
-	Chars    [2]int `json:"chars"`
+	Winner     int    `json:"winner"`
+	EndFrame   int    `json:"endFrame"`
+	Chars      [2]int `json:"chars"`
+	Disconnect bool   `json:"disconnect"`
 
-	// The match ended because the other side stopped sending, rather than by a
-	// KO or a timeout.
-	Disconnect bool `json:"disconnect"`
-
-	// Measurement, and the reason these columns exist: the P2P-versus-relay
-	// comparison in the results chapter is a figure that only exists if both
-	// are recorded on the matches that produced them.
+	// Measurement for the P2P-versus-relay comparison in the results chapter.
 	Transport   string  `json:"transport"`
 	RTTMs       int     `json:"rttMs"`
 	RollbackAvg float64 `json:"rollbackAvg"`
-	// The replay log, header and all: exactly the bytes tools/replay reads and
-	// exactly the bytes the re-simulation will consume.
+}
+
+// result is the upload body: the outcome plus the replay log and checksums in base64.
+type result struct {
+	outcome
 	InputLog  string `json:"inputLog"`
 	Checksums string `json:"checksums"`
 }
 
 // submission is one client's upload as stored.
 type submission struct {
-	winner     int
-	endFrame   int
-	chars      [2]int
-	disconnect bool
-	transport  string
-	rttMs      int
-	rollback   float64
-	inputLog   []byte
-	checksums  []byte
+	outcome
+	inputLog, checksums []byte
 }
 
 // matchRow is what the server knows about a match before anybody reports on it.
@@ -98,11 +90,7 @@ func (m matchStore) record(ctx context.Context, id, user int64, s submission) (*
 	_, err := m.pool.Exec(ctx,
 		`INSERT INTO match_submissions (match_id, user_id, input_log, checksums, result)
 		 VALUES ($1, $2, $3, $4, $5)`,
-		id, user, s.inputLog, s.checksums, map[string]any{
-			"winner": s.winner, "endFrame": s.endFrame, "chars": s.chars,
-			"disconnect": s.disconnect, "transport": s.transport,
-			"rttMs": s.rttMs, "rollbackAvg": s.rollback,
-		})
+		id, user, s.inputLog, s.checksums, s.outcome)
 	if uniqueViolation(err) {
 		return nil, errAlreadySent
 	}
@@ -111,51 +99,22 @@ func (m matchStore) record(ctx context.Context, id, user int64, s submission) (*
 	}
 
 	var other submission
-	var res storedResult
 	err = m.pool.QueryRow(ctx,
 		`SELECT input_log, checksums, result FROM match_submissions
 		 WHERE match_id = $1 AND user_id <> $2`, id, user).
-		Scan(&other.inputLog, &other.checksums, &res)
+		Scan(&other.inputLog, &other.checksums, &other.outcome)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil // theirs has not arrived
 	}
 	if err != nil {
 		return nil, err
 	}
-	res.into(&other)
 	return &other, nil
-}
-
-// storedResult is the JSONB half of a submission, which is every field that is
-// not one of the two byte arrays.
-type storedResult struct {
-	Winner      int     `json:"winner"`
-	EndFrame    int     `json:"endFrame"`
-	Chars       [2]int  `json:"chars"`
-	Disconnect  bool    `json:"disconnect"`
-	Transport   string  `json:"transport"`
-	RTTMs       int     `json:"rttMs"`
-	RollbackAvg float64 `json:"rollbackAvg"`
-}
-
-func (r storedResult) into(s *submission) {
-	s.winner, s.endFrame, s.chars = r.Winner, r.EndFrame, r.Chars
-	s.disconnect, s.transport = r.Disconnect, r.Transport
-	s.rttMs, s.rollback = r.RTTMs, r.RollbackAvg
 }
 
 // settle writes the agreed result, applies the ladder, and queues verification.
 func (m matchStore) settle(ctx context.Context, r matchRow, s submission) error {
-	tx, err := m.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if err := m.settleTx(ctx, tx, r, s); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	return pgx.BeginFunc(ctx, m.pool, func(tx pgx.Tx) error { return m.settleTx(ctx, tx, r, s) })
 }
 
 // settleTx is the same work inside a transaction somebody else owns — the
@@ -176,10 +135,10 @@ func (m matchStore) settleTx(ctx context.Context, tx pgx.Tx, r matchRow, s submi
 		`UPDATE matches SET winner = $2, end_frame = $3, p1_character = $4, p2_character = $5,
 		        verified = $6, disconnected = $7, transport = $8, avg_rtt_ms = $9,
 		        rollback_avg = $10 WHERE id = $1`,
-		r.id, s.winner, s.endFrame, s.chars[0], s.chars[1], verified, s.disconnect,
-		nullable(s.transport != "", s.transport),
-		nullable(s.rttMs > 0, s.rttMs),
-		nullable(s.rollback > 0, s.rollback)); err != nil {
+		r.id, s.Winner, s.EndFrame, s.Chars[0], s.Chars[1], verified, s.Disconnect,
+		nullable(s.Transport != "", s.Transport),
+		nullable(s.RTTMs > 0, s.RTTMs),
+		nullable(s.RollbackAvg > 0, s.RollbackAvg)); err != nil {
 		return err
 	}
 
@@ -187,7 +146,7 @@ func (m matchStore) settleTx(ctx context.Context, tx pgx.Tx, r matchRow, s submi
 		// The amounts are recorded with the match, because the verification
 		// worker reverses exactly what was paid and cannot recompute it once
 		// the ratings have moved (migration 003).
-		p1Change, p2Change, err := applyLadder(ctx, tx, r, s.winner)
+		p1Change, p2Change, err := applyLadder(ctx, tx, r, s.Winner)
 		if err != nil {
 			return err
 		}
@@ -203,8 +162,8 @@ func (m matchStore) settleTx(ctx context.Context, tx pgx.Tx, r matchRow, s submi
 			return err
 		}
 	}
-	if s.disconnect {
-		return recordDisconnect(ctx, tx, r, s.winner)
+	if s.Disconnect {
+		return recordDisconnect(ctx, tx, r, s.Winner)
 	}
 	return nil
 }
@@ -217,12 +176,17 @@ func nullable[T any](ok bool, v T) any {
 	return v
 }
 
+// players is the match's two accounts, winner first, for a 1-based winning seat.
+func (r matchRow) players(winnerSeat int) (winner, loser int64) {
+	if winnerSeat == 2 {
+		return r.p2, r.p1
+	}
+	return r.p1, r.p2
+}
+
 // recordDisconnect keeps the two counts the policy rests on.
 func recordDisconnect(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) error {
-	winner, loser := r.p1, r.p2
-	if winnerSeat == 2 {
-		winner, loser = r.p2, r.p1
-	}
+	winner, loser := r.players(winnerSeat)
 	if _, err := tx.Exec(ctx,
 		`UPDATE ratings SET disconnects = disconnects + 1 WHERE user_id = $1`, loser); err != nil {
 		return err
@@ -234,10 +198,7 @@ func recordDisconnect(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int
 
 // applyLadder moves both ratings.
 func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (int, int, error) {
-	winner, loser := r.p1, r.p2
-	if winnerSeat == 2 {
-		winner, loser = r.p2, r.p1
-	}
+	winner, loser := r.players(winnerSeat)
 
 	// Locked in a fixed order — lowest id first — because two matches settling
 	// at once on overlapping players is exactly how a deadlock is written.
@@ -270,13 +231,11 @@ func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (in
 	newLoser := applyLoss(lp[loser], change)
 
 	for _, u := range []struct {
-		id   int64
-		lp   int
-		won  int
-		name string
+		id      int64
+		lp, won int
 	}{
-		{winner, newWinner, 1, "winner"},
-		{loser, newLoser, 0, "loser"},
+		{winner, newWinner, 1},
+		{loser, newLoser, 0},
 	} {
 		if _, err := tx.Exec(ctx,
 			`UPDATE ratings SET lp = $2, tier = $3, matches = matches + 1, wins = wins + $4,
@@ -295,19 +254,13 @@ func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (in
 // void is what a disagreement costs: no winner, no LP, and both accounts
 // flagged for a person to look at.
 func (m matchStore) void(ctx context.Context, r matchRow) error {
-	tx, err := m.pool.Begin(ctx)
-	if err != nil {
+	return pgx.BeginFunc(ctx, m.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE matches SET verified = 'mismatch' WHERE id = $1`, r.id); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE users SET flagged = true WHERE id IN ($1, $2)`, r.p1, r.p2)
 		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if _, err := tx.Exec(ctx, `UPDATE matches SET verified = 'mismatch' WHERE id = $1`, r.id); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `UPDATE users SET flagged = true WHERE id IN ($1, $2)`, r.p1, r.p2); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	})
 }
 
 func (a *auth) submitResult(w http.ResponseWriter, r *http.Request, u User) {
@@ -380,7 +333,7 @@ func (a *auth) submitResult(w http.ResponseWriter, r *http.Request, u User) {
 
 // agree is check 1: do the two uploaded input logs match?
 func agree(a, b submission) bool {
-	return a.winner == b.winner && a.endFrame == b.endFrame && a.chars == b.chars &&
+	return a.Winner == b.Winner && a.EndFrame == b.EndFrame && a.Chars == b.Chars &&
 		bytes.Equal(a.inputLog, b.inputLog) && bytes.Equal(a.checksums, b.checksums)
 }
 
@@ -402,10 +355,5 @@ func (in result) decode() (submission, error) {
 	if in.Transport != "" && in.Transport != "p2p" && in.Transport != "relay" {
 		return submission{}, errors.New("transport must be p2p or relay")
 	}
-	return submission{
-		winner: in.Winner, endFrame: in.EndFrame, chars: in.Chars,
-		disconnect: in.Disconnect, transport: in.Transport,
-		rttMs: in.RTTMs, rollback: in.RollbackAvg,
-		inputLog: inputLog, checksums: checksums,
-	}, nil
+	return submission{in.outcome, inputLog, checksums}, nil
 }

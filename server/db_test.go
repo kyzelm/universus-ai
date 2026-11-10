@@ -132,7 +132,7 @@ func twoPlayers(t *testing.T, ctx context.Context, p *pgxpool.Pool) (pgStore, ma
 
 func upload(winner int) submission {
 	return submission{
-		winner: winner, endFrame: 3600, chars: [2]int{0, 1},
+		outcome:   outcome{Winner: winner, EndFrame: 3600, Chars: [2]int{0, 1}},
 		inputLog:  []byte("UNIV\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 inputs"),
 		checksums: []byte{1, 0, 0, 0, 2, 0, 0, 0},
 	}
@@ -245,8 +245,8 @@ func TestADisagreementVoidsTheMatchAndFlagsBoth(t *testing.T) {
 	if agree(upload(2), *other) {
 		t.Fatal("two different winners agreed")
 	}
-	if other.winner != 1 {
-		t.Errorf("the stored result came back with winner %d, want 1", other.winner)
+	if other.Winner != 1 {
+		t.Errorf("the stored result came back with winner %d, want 1", other.Winner)
 	}
 
 	row, _ := matches.byID(ctx, id)
@@ -312,7 +312,7 @@ func settled(t *testing.T, ctx context.Context, p *pgxpool.Pool, tamper func(s *
 
 	logBytes, checksums, winner, endFrame := playedMatch(t)
 	s := submission{
-		winner: winner, endFrame: endFrame, chars: [2]int{0, 1},
+		outcome:  outcome{Winner: winner, EndFrame: endFrame, Chars: [2]int{0, 1}},
 		inputLog: logBytes, checksums: checksums,
 	}
 	if tamper != nil {
@@ -457,8 +457,10 @@ func TestALoneSubmissionWaitsBeforeItCounts(t *testing.T) {
 
 	logBytes, checksums, winner, endFrame := playedMatch(t)
 	s := submission{
-		winner: winner, endFrame: endFrame, chars: [2]int{0, 1},
-		disconnect: true, transport: "relay", rttMs: 84, rollback: 1.75,
+		outcome: outcome{
+			Winner: winner, EndFrame: endFrame, Chars: [2]int{0, 1},
+			Disconnect: true, Transport: "relay", RTTMs: 84, RollbackAvg: 1.75,
+		},
 		inputLog: logBytes, checksums: checksums,
 	}
 
@@ -560,8 +562,8 @@ func TestAnImplausibleMatchIsFlaggedButStillCounts(t *testing.T) {
 	// because it is a real simulation, and it looks nothing like a hand.
 	logBytes, checksums, frames := macroMatch(t)
 	s := submission{
-		winner: 1, endFrame: frames, chars: [2]int{0, 1},
-		disconnect: true, inputLog: logBytes, checksums: checksums,
+		outcome:  outcome{Winner: 1, EndFrame: frames, Chars: [2]int{0, 1}, Disconnect: true},
+		inputLog: logBytes, checksums: checksums,
 	}
 
 	id, err := matches.create(ctx, "ranked", a.ID, b.ID)

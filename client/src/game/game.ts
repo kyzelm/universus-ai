@@ -140,7 +140,6 @@ export interface Game {
   dispose(): void
 }
 
-/** Starts the sim, the render loop and the input layer. */
 /** What the room agreed on, as the game needs it. */
 export interface MatchSession {
   chars?: [number, number]
@@ -148,6 +147,7 @@ export interface MatchSession {
   transport?: 'p2p' | 'relay'
 }
 
+/** Starts the sim, the render loop and the input layer. */
 export async function startGame(
   parent: HTMLElement,
   bot?: Bot,
@@ -219,73 +219,39 @@ export async function startGame(
   const bars = [new Graphics(), new Graphics()]
   bars.forEach((b) => app.stage.addChild(b))
 
-  // The combo readout, one per seat.
-  const combos = [0, 1].map((seat) => {
-    const t = new Text({
-      text: '',
-      style: {fill: 0xe0c04a, fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold'},
-    })
-    t.position.set(seat === 0 ? 12 : VIEW_W - 12, 48)
-    t.anchor.set(seat === 0 ? 0 : 1, 0)
+  const addText = (x: number, y: number, ax: number, ay: number, fontSize: number,
+    fill = 0x8a94a6, fontWeight: 'bold' | 'normal' = 'normal'): Text => {
+    const t = new Text({text: '', style: {fill, fontFamily: 'monospace', fontSize, fontWeight}})
+    t.position.set(x, y)
+    t.anchor.set(ax, ay)
     app.stage.addChild(t)
     return t
-  })
+  }
+
+  // The combo readout, one per seat.
+  const combos = [0, 1].map((seat) =>
+    addText(seat ? VIEW_W - 12 : 12, 48, seat, 0, 14, 0xe0c04a, 'bold'))
 
   // The round clock and the announcement.
-  const timer = new Text({
-    text: '',
-    style: {fill: 0xe8ecf2, fontFamily: 'monospace', fontSize: 26, fontWeight: 'bold'},
-  })
-  timer.position.set(VIEW_W / 2, 6)
-  timer.anchor.set(0.5, 0)
-  app.stage.addChild(timer)
-
-  const announce = new Text({
-    text: '',
-    style: {fill: 0xe8ecf2, fontFamily: 'monospace', fontSize: 30, fontWeight: 'bold'},
-  })
-  announce.position.set(VIEW_W / 2, 150)
-  announce.anchor.set(0.5, 0.5)
-  app.stage.addChild(announce)
+  const timer = addText(VIEW_W / 2, 6, 0.5, 0, 26, 0xe8ecf2, 'bold')
+  const announce = addText(VIEW_W / 2, 150, 0.5, 0.5, 30, 0xe8ecf2, 'bold')
 
   const strip = new Graphics()
   app.stage.addChild(strip)
-
-  const stripKey = new Text({
-    text: '',
-    style: {fill: 0x8a94a6, fontFamily: 'monospace', fontSize: 10},
-  })
-  stripKey.position.set(STRIP_X, STRIP_Y + STRIP_H + 2)
-  app.stage.addChild(stripKey)
-
-  const hud = new Text({
-    text: '',
-    style: {fill: 0x8a94a6, fontFamily: 'monospace', fontSize: 12},
-  })
-  hud.position.set(8, 66)
-  app.stage.addChild(hud)
+  const stripKey = addText(STRIP_X, STRIP_Y + STRIP_H + 2, 0, 0, 10)
+  const hud = addText(8, 66, 0, 0, 12)
 
   // The lab overlay.
   const lab = training ? createLab() : null
   const dummy = training ? createDummy() : null
-  const labText = (x: number, y: number, anchor: number, size: number) => {
-    const t = new Text({
-      text: '',
-      style: {fill: 0x8a94a6, fontFamily: 'monospace', fontSize: size},
-    })
-    t.position.set(x, y)
-    t.anchor.set(anchor, 0)
-    app.stage.addChild(t)
-    return t
-  }
   // One column per seat, at the edges the fighters spend least time against.
-  const inputCols = lab ? [labText(8, 190, 0, 11), labText(VIEW_W - 8, 190, 1, 11)] : null
+  const inputCols = lab ? [addText(8, 190, 0, 0, 11), addText(VIEW_W - 8, 190, 1, 0, 11)] : null
   // Over the column for the seat it drives, so what the dummy is doing and what
   // it is pressing read as one thing.
-  const dummyText = dummy ? labText(VIEW_W - 8, 176, 1, 11) : null
+  const dummyText = dummy ? addText(VIEW_W - 8, 176, 1, 0, 11) : null
   // Named for the frame advantage on screen, not the netplay one: net.advantage
   // is how far ahead of the other machine this one is running.
-  const advText = lab ? labText(VIEW_W / 2, 38, 0.5, 16) : null
+  const advText = lab ? addText(VIEW_W / 2, 38, 0.5, 0, 16) : null
 
   const input = createInput()
   const clock = createClock()
@@ -314,8 +280,6 @@ export async function startGame(
   // any single test in here — but only if it is actually recorded.
   const recorded: number[] = []
 
-  // Effects fire from state, on confirmed frames, and never from inside the
-  // sim.
   /** The session so far in the replay log format. */
   const logBytes = (): ArrayBuffer => {
     const src = net ? net.log : recorded
@@ -323,6 +287,7 @@ export async function startGame(
     return encodeLog(setup, dataVersion(), src)
   }
 
+  // Effects fire from state, on confirmed frames, and never from inside the sim.
   const pump = createEvents(eventsAt)
   const sparks: {x: number; y: number; life: number; color: number}[] = []
 
@@ -823,11 +788,7 @@ function costByDepth(step: Samples, net: Netplay | null) {
 }
 
 /** The cost line, shown in both modes. */
-function costHud(
-  stepCost: ReturnType<typeof createSamples>,
-  frameCost: ReturnType<typeof createSamples>,
-  longFrames: number,
-): string {
+function costHud(stepCost: Samples, frameCost: Samples, longFrames: number): string {
   const sim = (p: number) => stepCost.percentile(p).toFixed(3)
   const frame = (p: number) => frameCost.percentile(p).toFixed(1)
 
@@ -837,7 +798,6 @@ function costHud(
   )
 }
 
-/** The numbers this project exists to report. */
 /**
  * Mean rollback depth over the session — a measurement column, and the one
  * place a float is welcome: it is reported, never simulated from.

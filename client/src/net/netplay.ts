@@ -56,9 +56,24 @@ export function depthP99(depths: readonly number[]): number {
   return 0
 }
 
-/** One empty sampler per depth, so a reset cell starts with no history. */
-function freshDepths(): Samples[] {
-  return Array.from({length: MAX_ROLLBACK + 1}, () => createSamples())
+/** Every counter in NetplayStats at zero. */
+function freshStats(): Omit<NetplayStats, 'dataMismatch'> {
+  return {
+    frames: 0,
+    rollbacks: 0,
+    depths: Array(MAX_ROLLBACK + 1).fill(0),
+    predicted: 0,
+    mispredicted: 0,
+    stalls: 0,
+    skipped: 0,
+    dropped: 0,
+    malformed: 0,
+    verified: 0,
+    desyncs: 0,
+    desyncFrame: -1,
+    rtt: createSamples(),
+    replayByDepth: Array.from({length: MAX_ROLLBACK + 1}, () => createSamples()),
+  }
 }
 
 /** The sim, from the driver's side. */
@@ -208,23 +223,7 @@ export function createNetplay(
     slotDepth[i] = 0
   }
 
-  const stats: NetplayStats = {
-    dataMismatch: false,
-    frames: 0,
-    rollbacks: 0,
-    depths: Array(MAX_ROLLBACK + 1).fill(0),
-    predicted: 0,
-    mispredicted: 0,
-    stalls: 0,
-    skipped: 0,
-    dropped: 0,
-    malformed: 0,
-    verified: 0,
-    desyncs: 0,
-    desyncFrame: -1,
-    rtt: createSamples(),
-    replayByDepth: freshDepths(),
-  }
+  const stats: NetplayStats = {dataMismatch: false, ...freshStats()}
 
   /** Prediction: repeat the last input we actually saw. */
   function remoteAt(f: number): number {
@@ -244,12 +243,12 @@ export function createNetplay(
     return frame - theirFrame - flight
   }
 
-  /** Appends every frame that is both simulated and confirmed. */
   /** The newest frame that is settled *and* simulated here. */
   function settled(): number {
     return Math.min(confirmed, frame - 1)
   }
 
+  /** Appends every frame that is both simulated and confirmed. */
   function record(): void {
     const upTo = settled()
     for (let f = logged + 1; f <= upTo; f++) {
@@ -275,9 +274,9 @@ export function createNetplay(
   /** Sends and compares checksums for frames that can no longer change. */
   function settle(): void {
     record()
-    const settled = confirmed + 1
+    const upTo = confirmed + 1
 
-    for (let f = sentThrough + CHECKSUM_EVERY; f <= settled; f += CHECKSUM_EVERY) {
+    for (let f = sentThrough + CHECKSUM_EVERY; f <= upTo; f += CHECKSUM_EVERY) {
       const sum = sums.get(f)
       if (sum === undefined) break // not simulated yet; it will go out later
       send(encodeChecksum(f, sum))
@@ -285,13 +284,13 @@ export function createNetplay(
     }
 
     for (const [f, theirs] of theirSums) {
-      if (f > settled) continue // still predicted here; judging it now is unfair
+      if (f > upTo) continue // still predicted here; judging it now is unfair
 
       const ours = sums.get(f)
       if (ours === undefined) {
         // Settled but not simulated here yet — inputs can arrive faster than we
         // step.
-        if (f < settled - CHECKSUM_EVERY * 4) theirSums.delete(f)
+        if (f < upTo - CHECKSUM_EVERY * 4) theirSums.delete(f)
         continue
       }
 
@@ -417,24 +416,22 @@ export function createNetplay(
 
       let earliest = -1
       try {
-        if (packetType(data) === PacketType.ping) {
-          const {stamp, reply} = decodePing(data)
-          if (reply) stats.rtt.push((stampNow() - stamp) / 10)
-          else send(encodePing(stamp, true))
-          return
-        }
-
-        if (packetType(data) === PacketType.control) {
-          const {dataVersion} = decodeControl(data)
-          if (dataVersion !== sim.dataVersion()) stats.dataMismatch = true
-          return
-        }
-
-        if (packetType(data) === PacketType.checksum) {
-          const {frame: f, sum} = decodeChecksum(data)
-          theirSums.set(f, sum)
-          settle()
-          return
+        switch (packetType(data)) {
+          case PacketType.ping: {
+            const {stamp, reply} = decodePing(data)
+            if (reply) stats.rtt.push((stampNow() - stamp) / 10)
+            else send(encodePing(stamp, true))
+            return
+          }
+          case PacketType.control:
+            if (decodeControl(data).dataVersion !== sim.dataVersion()) stats.dataMismatch = true
+            return
+          case PacketType.checksum: {
+            const {frame: f, sum} = decodeChecksum(data)
+            theirSums.set(f, sum)
+            settle()
+            return
+          }
         }
 
         const {startFrame, inputs} = decodeInputs(data)
@@ -468,24 +465,8 @@ export function createNetplay(
     },
 
     resetStats() {
-      Object.assign(stats, {
-        frames: 0,
-        rollbacks: 0,
-        depths: Array(MAX_ROLLBACK + 1).fill(0),
-        predicted: 0,
-        mispredicted: 0,
-        stalls: 0,
-        skipped: 0,
-        dropped: 0,
-        malformed: 0,
-        replayByDepth: freshDepths(),
-        verified: 0,
-        desyncs: 0,
-        desyncFrame: -1,
-        rtt: createSamples(),
-      })
-      // dataMismatch is deliberately not cleared: it is a fact about the peer,
-      // not a measurement, and it does not stop being true.
+      // dataMismatch is a fact about the peer, not a measurement, so it stays.
+      Object.assign(stats, freshStats())
     },
 
     silentMs() {

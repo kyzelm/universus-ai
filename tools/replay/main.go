@@ -23,7 +23,7 @@ const usage = `usage:
 
 func main() {
 	// Both entrypoints load the same embedded roster before touching the sim.
-	if err := loadRoster(); err != nil {
+	if err := data.Install(); err != nil {
 		fmt.Fprintln(os.Stderr, "replay:", err)
 		os.Exit(1)
 	}
@@ -31,23 +31,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, "replay:", err)
 		os.Exit(1)
 	}
-}
-
-func loadRoster() error {
-	cs, err := data.Load()
-	if err != nil {
-		return err
-	}
-	if !sim.LoadCharacters(cs) {
-		return fmt.Errorf("sim refused the roster (%d characters)", len(cs))
-	}
-
-	b, err := data.LoadBalance()
-	if err != nil {
-		return err
-	}
-	sim.LoadBalance(b)
-	return nil
 }
 
 func cli(args []string) error {

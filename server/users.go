@@ -52,28 +52,24 @@ type pgStore struct{ pool *pgxpool.Pool }
 
 // createUser writes the account and its starting rating together.
 func (s pgStore) createUser(ctx context.Context, email, hash, name string) (User, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return User{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
 	var u User
-	err = tx.QueryRow(ctx,
-		`INSERT INTO users (email, password_hash, display_name)
-		 VALUES ($1, $2, $3) RETURNING id, email, display_name`,
-		email, hash, name).Scan(&u.ID, &u.Email, &u.DisplayName)
-	if err != nil {
-		if uniqueViolation(err) {
-			return User{}, errTaken
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO users (email, password_hash, display_name)
+			 VALUES ($1, $2, $3) RETURNING id, email, display_name`,
+			email, hash, name).Scan(&u.ID, &u.Email, &u.DisplayName); err != nil {
+			return err
 		}
+		_, err := tx.Exec(ctx, `INSERT INTO ratings (user_id) VALUES ($1)`, u.ID)
+		return err
+	})
+	if uniqueViolation(err) {
+		return User{}, errTaken
+	}
+	if err != nil {
 		return User{}, err
 	}
-
-	if _, err := tx.Exec(ctx, `INSERT INTO ratings (user_id) VALUES ($1)`, u.ID); err != nil {
-		return User{}, err
-	}
-	return u, tx.Commit(ctx)
+	return u, nil
 }
 
 func (s pgStore) credentials(ctx context.Context, email string) (User, string, error) {

@@ -81,6 +81,23 @@ func LoadBalance() (sim.Balance, error) {
 	return b, nil
 }
 
+// Install loads the embedded roster and balance into the sim.
+func Install() error {
+	cs, err := Load()
+	if err != nil {
+		return err
+	}
+	if !sim.LoadCharacters(cs) {
+		return fmt.Errorf("sim refused the roster (%d characters)", len(cs))
+	}
+	b, err := LoadBalance()
+	if err != nil {
+		return err
+	}
+	sim.LoadBalance(b)
+	return nil
+}
+
 // Version is a hash of the raw embedded bytes — the value the match handshake
 // compares.
 func Version() (uint32, error) {

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -115,22 +116,14 @@ func migrate(ctx context.Context, pool *pgxpool.Pool, dir fs.FS) (int, error) {
 }
 
 func applyOne(ctx context.Context, pool *pgxpool.Pool, m migration) error {
-	tx, err := pool.Begin(ctx)
-	if err != nil {
+	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, m.sql); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx,
+			`INSERT INTO schema_migrations (version, name) VALUES ($1, $2)`, m.version, m.name)
 		return err
-	}
-	// Rollback after a commit is a no-op, so this is the only unwind path and
-	// there is no branch that can forget it.
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if _, err := tx.Exec(ctx, m.sql); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO schema_migrations (version, name) VALUES ($1, $2)`, m.version, m.name); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	})
 }
 
 // openDB connects and migrates.

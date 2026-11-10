@@ -12,7 +12,6 @@ import {guest, host, type Connection, type Peer} from './peer'
 export const FALLBACK_MS = 5000
 
 export type Kind = 'p2p' | 'relay'
-export type Role = 'host' | 'guest'
 
 export interface Session {
   readonly peer: Peer
