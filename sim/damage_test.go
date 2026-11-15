@@ -34,7 +34,7 @@ func TestScalingNeverReachesZero(t *testing.T) {
 // Minimum damage is a floor under the scaling, so a super deep in a combo does
 // not arrive as forty points.
 func TestMinimumDamageHoldsUnderTheScaling(t *testing.T) {
-	m := Move{Damage: 3600, Button: InHP} // a level 3
+	m := Move{Damage: 3600, Button: InHP} // a super
 	want := m.Damage * BalanceOf().MinDamagePercent / 100
 
 	if got := scaledDamage(&m, 100, 20, CounterNone); got != want {
@@ -186,10 +186,9 @@ func TestTheSecondHitOfACombo(t *testing.T) {
 	s := facing(30)
 	dp := &s.Players[1]
 
-	// Land the jab, then cancel it into the level 1 super while the defender is
-	// still in hitstun — the fixture's jab names super1 as a cancel target
-	// exactly so a two-hit combo can be built without a second character.
-	s.Players[0].Super = 3 * BarUnits
+	// Land the jab, then cancel it into the super while the defender is still
+	// in hitstun, so a two-hit combo is built without a second character.
+	s.Players[0].Super = 2 * BarUnits
 	connect(t, &s, InLP)
 	if dp.Combo != 1 {
 		t.Fatalf("setup: combo counter = %d after the jab", dp.Combo)
@@ -198,7 +197,7 @@ func TestTheSecondHitOfACombo(t *testing.T) {
 	before := dp.Health
 	qcfx2(&s, InLP)
 	if s.Players[0].MoveIndex != 8 {
-		t.Fatalf("setup: move %d came out of the cancel, want the level 1", s.Players[0].MoveIndex)
+		t.Fatalf("setup: move %d came out of the cancel, want the super", s.Players[0].MoveIndex)
 	}
 	for range 30 {
 		s.Advance([2]uint16{0, 0})

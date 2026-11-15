@@ -37,9 +37,8 @@ const (
 	MotionQCB         // ↓ ↙ ←
 	MotionDP          // → ↓ ↘
 
-	// The super motions: the same quarter-circle twice.
+	// The super motion: the same quarter-circle twice.
 	MotionQCFx2 // ↓ ↘ → ↓ ↘ →
-	MotionQCBx2 // ↓ ↙ ← ↓ ↙ ←
 
 	MotionHCF // ← ↙ ↓ ↘ → — the grappler's command throw
 )
@@ -53,8 +52,6 @@ func (m Motion) satisfies(want Motion) bool {
 	switch m {
 	case MotionQCFx2:
 		return want == MotionQCF
-	case MotionQCBx2:
-		return want == MotionQCB
 	case MotionHCF:
 		// A half-circle forward ends in a quarter-circle forward, and this line
 		// is what keeps the table's new row from changing anything for a
@@ -72,7 +69,6 @@ var motions = []struct {
 	tight  bool
 }{
 	{MotionQCFx2, []uint8{DirDown, DirDownFwd, DirFwd, DirDown, DirDownFwd, DirFwd}, 26, false},
-	{MotionQCBx2, []uint8{DirDown, DirDownBack, DirBack, DirDown, DirDownBack, DirBack}, 26, false},
 	{MotionDP, []uint8{DirFwd, DirDown, DirDownFwd}, 13, false},
 	{MotionDP, []uint8{DirFwd, DirDown, DirFwd}, 13, true}, // the shortcut: no diagonal
 	{MotionHCF, []uint8{DirBack, DirDownBack, DirDown, DirDownFwd, DirFwd}, 20, false},
@@ -189,9 +185,9 @@ func held(mask uint16, need int32, in uint16) bool {
 	return need > 0 && count(in&mask) >= need
 }
 
-// pressed is the edge rule: held now, and not held the frame before.
+// pressed is the edge rule: held now, with one of the buttons newly down.
 func pressed(mask uint16, need int32, now, before uint16) bool {
-	return held(mask, need, now) && !held(mask, need, before)
+	return held(mask, need, now) && now&^before&mask != 0
 }
 
 // pressFrame is the newest frame within the buffer window on which need of

@@ -76,8 +76,7 @@ def strength_groups(moves):
     counts = {}
     for name in stripped.values():
         counts[name] = counts.get(name, 0) + 1
-    # A group of one keeps its own id: there is exactly one 236236LP, and
-    # collapsing it to 236236P would rename a super for no reason.
+    # A group of one keeps its own id.
     return {mid: (name if counts[name] > 1 else mid) for mid, name in stripped.items()}
 
 
@@ -391,8 +390,8 @@ def check(rosters):
     for mid in ("5LP", "5MP", "5HP", "2LP", "2HP", "jLP", "jHP"):
         assert kai[mid] == mid, f"{mid} collapsed to {kai[mid]}"
 
-    # A group of one keeps its own name: there is one 236236LP, not three.
-    for mid in ("236236LP", "236236LK", "214214LP", "236EX", "623EX", "LPLK"):
+    # A group of one keeps its own name.
+    for mid in ("236236P", "236EX", "623EX", "LPLK"):
         assert kai[mid] == mid, f"{mid} renamed to {kai[mid]}"
 
     print("collapse rule ok")

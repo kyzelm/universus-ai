@@ -2,13 +2,8 @@ package sim
 
 // The super meter, per 03 Game Design/Resource System.md.
 
-// One bar is 1000 units, so a fractional cost is an exact integer.
-const (
-	BarUnits = 1000
-
-	SuperBars = 3
-	SuperMax  = SuperBars * BarUnits
-)
+// BarUnits is one bar, so a fractional cost is an exact integer.
+const BarUnits = 1000
 
 // Balance is the global tunables.
 type Balance struct {
@@ -85,7 +80,9 @@ type Balance struct {
 	AIProjectilePercent int32
 	AIReversalPercent   int32
 
-	// Super is built by dealing damage, by taking it, and by landing a special.
+	// SuperMax is the full gauge; Super is built by dealing damage, by taking
+	// it, and by landing a special.
+	SuperMax          int32
 	SuperDealtPercent int32
 	SuperTakenPercent int32
 	SuperOnSpecial    int32
@@ -117,7 +114,7 @@ func (s *GameState) updateResources() {
 		for i := range s.Players {
 			p := &s.Players[i]
 			p.Health = CharacterAt(p.Char).Health
-			p.Super = SuperMax
+			p.Super = balance.SuperMax
 		}
 	}
 }
@@ -131,8 +128,5 @@ func (s *GameState) anyoneStunned() bool {
 
 // gainSuper adds n units, capped.
 func (p *PlayerState) gainSuper(n int32) {
-	p.Super += n
-	if p.Super > SuperMax {
-		p.Super = SuperMax
-	}
+	p.Super = min(p.Super+n, balance.SuperMax)
 }

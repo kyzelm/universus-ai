@@ -193,7 +193,7 @@ func TestValidationRejectsBadData(t *testing.T) {
 		{"a negative juggle limit", func(c *jsonCharacter) { c.Moves[0].JuggleLimit = -1 }},
 		{"unknown cancel category", func(c *jsonCharacter) { c.Moves[0].Cancel = []string{"super4"} }},
 
-		{"a fourth super level", func(c *jsonCharacter) { c.Moves[0].Super = 4 }},
+		{"a free super", func(c *jsonCharacter) { c.Moves[0].Meter = 0 }},
 		{"a super with no motion", func(c *jsonCharacter) { c.Moves[0].Input.Motion = "" }},
 
 		{"an unknown button inside a combination", func(c *jsonCharacter) {
@@ -202,13 +202,13 @@ func TestValidationRejectsBadData(t *testing.T) {
 		{"a throw that releases immediately", func(c *jsonCharacter) {
 			c.Moves[0].Throw, c.Moves[0].Hitstun = true, 0
 		}},
-		// A throw *super* is legal — the grappler's level 3 is a command grab —
+		// A throw super is legal,
 		// but two throws with no motion are not: the motion-less one is the
 		// tech input, and a second would make the lookup pick by file order.
 		{"two throws with no motion", func(c *jsonCharacter) {
 			for i := range c.Moves {
 				c.Moves[i].Throw, c.Moves[i].Hitstun = true, 20
-				c.Moves[i].Super, c.Moves[i].Input.Motion = 0, ""
+				c.Moves[i].Super, c.Moves[i].Input.Motion = false, ""
 			}
 		}},
 
@@ -353,6 +353,7 @@ func TestEmbeddedBalanceLoads(t *testing.T) {
 		{"damage.counterHitPercent", b.CounterHitPercent},
 		{"damage.counterHitstun", b.CounterHitstun},
 		{"damage.punishHitstun", b.PunishHitstun},
+		{"super.max", b.SuperMax},
 		{"super.dealtPercent", b.SuperDealtPercent},
 		{"super.takenPercent", b.SuperTakenPercent},
 		{"super.onSpecial", b.SuperOnSpecial},
@@ -464,44 +465,35 @@ func TestVersionCoversTheBalanceFile(t *testing.T) {
 	}
 }
 
-// Three supers per character, one at each level, each with a motion.
-func TestTheShippedRosterHasThreeSupers(t *testing.T) {
-	cs, err := Load()
+// One super per character, on any one button of a kind, affordable.
+func TestTheShippedRosterHasOneSuperEach(t *testing.T) {
+	cs := loadRoster(t)
+	b, err := LoadBalance()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, c := range cs {
-		levels := map[int32]int{}
+		supers := 0
 		for m := int32(0); m < c.NumMoves; m++ {
 			mv := &c.Moves[m]
 			if mv.Super == 0 {
 				continue
 			}
-			levels[mv.Super]++
-
-			if mv.Motion == sim.MotionNone {
-				t.Errorf("character %d: a level %d super with no motion", i, mv.Super)
+			supers++
+			if mv.Need != 1 || bits.OnesCount16(mv.Button) != 3 {
+				t.Errorf("character %d: super on buttons %#x need %d, want any one of a kind", i, mv.Button, mv.Need)
 			}
-			if got, want := mv.Meter, mv.Super*sim.BarUnits; got != want {
-				t.Errorf("character %d: level %d costs %d, want %d", i, mv.Super, got, want)
-			}
-			// The design's own table: cheap and low damage at level 1, the
-			// round-closer at level 3.
-			if mv.Super == 3 && mv.Damage < 2000 {
-				t.Errorf("character %d: the level 3 deals %d, which is not a round-closer", i, mv.Damage)
+			if mv.Meter > b.SuperMax {
+				t.Errorf("character %d: the super costs %d of a %d gauge", i, mv.Meter, b.SuperMax)
 			}
 		}
-
-		for lvl := int32(1); lvl <= 3; lvl++ {
-			if levels[lvl] != 1 {
-				t.Errorf("character %d has %d supers at level %d, want exactly 1", i, levels[lvl], lvl)
-			}
+		if supers != 1 {
+			t.Errorf("character %d has %d supers, want exactly 1", i, supers)
 		}
 	}
 }
 
-// The cancel tiering is data, and it is only tiering if the sources differ.
 func TestTheShippedRosterHasAThrow(t *testing.T) {
 	cs, err := Load()
 	if err != nil {
@@ -529,39 +521,6 @@ func TestTheShippedRosterHasAThrow(t *testing.T) {
 	}
 	if plain != len(cs) {
 		t.Errorf("%d ordinary throws across %d characters, want one each", plain, len(cs))
-	}
-}
-
-func TestSuperCancelsAreTieredBySource(t *testing.T) {
-	cs, err := Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i, c := range cs {
-		var feedsL1, feedsL3Only, feedsFromSpecial int
-		for m := int32(0); m < c.NumMoves; m++ {
-			mv := &c.Moves[m]
-			switch {
-			case mv.CancelInto&sim.CancelSuper1 != 0:
-				feedsL1++
-			case mv.CancelInto == sim.CancelSuper3:
-				feedsL3Only++
-			}
-			if mv.Motion != sim.MotionNone && mv.Super == 0 && mv.CancelInto&sim.CancelSuper2 != 0 {
-				feedsFromSpecial++
-			}
-		}
-
-		if feedsL1 == 0 {
-			t.Errorf("character %d: nothing cancels into the level 1", i)
-		}
-		if feedsL3Only == 0 {
-			t.Errorf("character %d: no move reaches only the level 3, so the tiering is not tiered", i)
-		}
-		if feedsFromSpecial == 0 {
-			t.Errorf("character %d: no special cancels into the level 2", i)
-		}
 	}
 }
 

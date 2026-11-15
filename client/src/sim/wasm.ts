@@ -66,8 +66,8 @@ export const PHASE_MATCH_END = 4
 /** No winner: a draw round, or a match that is still being played. */
 export const NOBODY = -1
 
-/** The super meter, mirroring sim/resource.go: a bar is a thousand units. */
-export const SUPER_BARS = 3
+/** The super meter, mirroring super.max in balance.json: a bar is a thousand units. */
+export const SUPER_BARS = 2
 export const BAR_UNITS = 1000
 
 /** Counter-hit classes, mirroring sim/damage.go. */

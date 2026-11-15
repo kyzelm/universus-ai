@@ -118,7 +118,7 @@ func (p *PlayerState) enterMove(index int32, now uint32) {
 
 	// The meter is spent here, on the frame the move starts, and nowhere else.
 	p.Super -= mv.Meter
-	if mv.Super > 0 {
+	if mv.Super != 0 {
 		p.Events |= EventSuper
 	}
 
@@ -364,7 +364,7 @@ const tiers = 5
 
 func tierOf(m *Move) int32 {
 	switch {
-	case m.Super > 0:
+	case m.Super != 0:
 		return 4
 	case m.Meter > 0:
 		return 3
@@ -389,7 +389,8 @@ func (s *GameState) pairLate(i int, in uint16, pair *Move) bool {
 		return false
 	}
 	mv := p.move()
-	return mv != nil && mv.presses() == 1 && p.StateFrame < mv.Startup &&
+	// A move that was paid for is never taken back.
+	return mv != nil && mv.presses() == 1 && mv.Meter == 0 && p.StateFrame < mv.Startup &&
 		pair.Button&mv.Button != 0
 }
 

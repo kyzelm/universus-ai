@@ -33,7 +33,7 @@ func TestTrainingRefillsResources(t *testing.T) {
 	s.Advance([2]uint16{0, 0})
 
 	p := s.Players[0]
-	if p.Health != char().Health || p.Super != SuperMax {
+	if p.Health != char().Health || p.Super != BalanceOf().SuperMax {
 		t.Errorf("not topped up: health %d super %d", p.Health, p.Super)
 	}
 }

@@ -40,7 +40,7 @@ func (s *GameState) counterClass(defender int) int32 {
 // starterScale is the multiplier the move that *begins* a combo applies to the
 // whole of it.
 func starterScale(m *Move) int32 {
-	if m.Super > 0 || m.Motion != MotionNone {
+	if m.Motion != MotionNone {
 		return balance.StarterHeavy
 	}
 	switch m.Button {

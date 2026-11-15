@@ -2,19 +2,12 @@ package sim
 
 import "testing"
 
-// The supers are three things at once: a motion, a price and a cancel target.
+// The super is three things at once: a motion, a price and a cancel target.
 
-// qcfx2 and qcbx2 input the double motion and press button on the final frame,
-// the way every other motion test in this package does: the last direction and
-// the button land together.
+// qcfx2 inputs the double motion and presses button on the final frame.
 func qcfx2(s *GameState, button uint16) {
 	feed(s, 2, 3, 6, 2, 3)
 	s.Advance([2]uint16{pad[6] | button, 0})
-}
-
-func qcbx2(s *GameState, button uint16) {
-	feed(s, 2, 1, 4, 2, 1)
-	s.Advance([2]uint16{pad[4] | button, 0})
 }
 
 func TestSuperMotionsAreRecognised(t *testing.T) {
@@ -24,7 +17,6 @@ func TestSuperMotionsAreRecognised(t *testing.T) {
 		want Motion
 	}{
 		{"double quarter-circle forward", []uint8{2, 3, 6, 2, 3, 6}, MotionQCFx2},
-		{"double quarter-circle back", []uint8{2, 1, 4, 2, 1, 4}, MotionQCBx2},
 		// One quarter-circle is not two.
 		{"a single quarter-circle is not a super motion", []uint8{2, 3, 6}, MotionQCF},
 	} {
@@ -63,7 +55,6 @@ func TestDoubleMotionSatisfiesTheSingle(t *testing.T) {
 		ok        bool
 	}{
 		{MotionQCFx2, MotionQCF, true},
-		{MotionQCBx2, MotionQCB, true},
 		{MotionQCFx2, MotionQCFx2, true},
 		{MotionQCF, MotionQCFx2, false},
 		{MotionQCFx2, MotionQCB, false},
@@ -85,8 +76,7 @@ func TestCancelCategoryIsDerived(t *testing.T) {
 	}{
 		{0, CancelChain},   // a jab
 		{2, CancelSpecial}, // a motion makes it a special
-		{8, CancelSuper1},
-		{9, CancelSuper3},
+		{8, CancelSuper},
 	} {
 		if got := c.Moves[tc.move].Category(); got != tc.want {
 			t.Errorf("move %d category = %#b, want %#b", tc.move, got, tc.want)
@@ -104,7 +94,7 @@ func TestASuperWithoutTheMeterIsTheSpecial(t *testing.T) {
 		{"no meter at all", 0, 2},
 		{"a fraction short", BarUnits - 1, 2},
 		{"exactly the cost", BarUnits, 8},
-		{"more than enough", 3 * BarUnits, 8},
+		{"more than enough", 2 * BarUnits, 8},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := New()
@@ -118,37 +108,43 @@ func TestASuperWithoutTheMeterIsTheSpecial(t *testing.T) {
 	}
 }
 
-func TestTheLevelThreeCostsThreeBars(t *testing.T) {
-	short := New()
-	short.Players[0].Super = 3*BarUnits - 1
-	qcbx2(&short, InMP)
-	if got := short.Players[0].MoveIndex; got == 9 {
-		t.Error("the level 3 came out a unit short of three bars")
-	}
-
-	paid := New()
-	paid.Players[0].Super = 3 * BarUnits
-	qcbx2(&paid, InMP)
-	if got := paid.Players[0].MoveIndex; got != 9 {
-		t.Errorf("move %d came out with three bars, want the level 3", got)
+// Any punch is the same super, and no kick is.
+func TestTheSuperTakesAnyButtonOfItsKind(t *testing.T) {
+	for _, tc := range []struct {
+		button uint16
+		super  bool
+	}{
+		{InLP, true}, {InMP, true}, {InHP, true},
+		// Two punches with a full gauge is the super, not the EX.
+		{InLP | InMP, true},
+		{InLK, false}, {InHK, false},
+	} {
+		s := New()
+		s.Players[0].Super = 2 * BarUnits
+		qcfx2(&s, tc.button)
+		if got := s.Players[0].MoveIndex == 8; got != tc.super {
+			t.Errorf("buttons %#x: move %d came out, super = %v", tc.button, s.Players[0].MoveIndex, tc.super)
+		}
 	}
 }
 
-func TestPerformingASuperSpendsItsBars(t *testing.T) {
+func TestPerformingASuperSpendsItsBar(t *testing.T) {
 	s := New()
-	s.Players[0].Super = 3 * BarUnits
+	s.Players[0].Super = 2 * BarUnits
 	qcfx2(&s, InLP)
 
 	if s.Players[0].MoveIndex != 8 {
-		t.Fatalf("setup: move %d came out, not the level 1", s.Players[0].MoveIndex)
+		t.Fatalf("setup: move %d came out, not the super", s.Players[0].MoveIndex)
 	}
-	if got, want := s.Players[0].Super, int32(2*BarUnits); got != want {
-		t.Errorf("meter = %d after a one-bar super, want %d", got, want)
+	// A second punch landing late must not turn the paid super into an EX.
+	s.Advance([2]uint16{pad[6] | InLP | InMP, 0})
+	if s.Players[0].MoveIndex != 8 {
+		t.Errorf("move %d: a late second punch took the super back", s.Players[0].MoveIndex)
 	}
 	// And it is spent once, not once per frame the move is on screen.
 	run(&s, 10, [2]uint16{0, 0})
-	if got, want := s.Players[0].Super, int32(2*BarUnits); got != want {
-		t.Errorf("meter = %d ten frames later, want %d", got, want)
+	if got, want := s.Players[0].Super, int32(BarUnits); got != want {
+		t.Errorf("meter = %d after a one-bar super, want %d", got, want)
 	}
 }
 
@@ -167,40 +163,38 @@ func connect(t *testing.T, s *GameState, in uint16) {
 	t.Fatal("the move never connected, so no cancel window opened")
 }
 
-// The tiering is data: a source move names the levels it feeds.
-func TestCancelTiersComeFromTheSource(t *testing.T) {
-	t.Run("a cancelable normal reaches the level 1", func(t *testing.T) {
+// The cancel is data: a source move names the categories it feeds.
+func TestCancelCategoriesComeFromTheSource(t *testing.T) {
+	t.Run("a cancelable normal reaches the super", func(t *testing.T) {
 		s := facing(30)
-		s.Players[0].Super = 3 * BarUnits
+		s.Players[0].Super = 2 * BarUnits
 		connect(t, &s, InLP)
 		qcfx2(&s, InLP)
 
 		if got := s.Players[0].MoveIndex; got != 8 {
-			t.Errorf("move %d came out of the cancel, want the level 1", got)
+			t.Errorf("move %d came out of the cancel, want the super", got)
 		}
 	})
 
-	t.Run("a source that names only the level 3 refuses the level 1", func(t *testing.T) {
+	t.Run("a source that names only the super refuses the special", func(t *testing.T) {
 		s := facing(30)
-		s.Players[0].Super = 3 * BarUnits
+		s.Players[0].Super = 2 * BarUnits
 		connect(t, &s, InDown|InLK)
-		qcfx2(&s, InLP)
+		qcf(&s, InLP)
 
-		// Not the level 1, and not the fireball or the jab either: the mask
-		// names one category and the search takes nothing outside it.
 		if got := s.Players[0].MoveIndex; got != 1 {
 			t.Errorf("move %d came out, want the low still running (1)", got)
 		}
 	})
 
-	t.Run("and accepts the level 3", func(t *testing.T) {
+	t.Run("and accepts the super", func(t *testing.T) {
 		s := facing(30)
-		s.Players[0].Super = 3 * BarUnits
+		s.Players[0].Super = 2 * BarUnits
 		connect(t, &s, InDown|InLK)
-		qcbx2(&s, InMP)
+		qcfx2(&s, InLP)
 
-		if got := s.Players[0].MoveIndex; got != 9 {
-			t.Errorf("move %d came out of the cancel, want the level 3", got)
+		if got := s.Players[0].MoveIndex; got != 8 {
+			t.Errorf("move %d came out of the cancel, want the super", got)
 		}
 	})
 }

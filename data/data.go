@@ -94,6 +94,15 @@ func Install() error {
 	if err != nil {
 		return err
 	}
+	// A move that costs more than the gauge holds would fail silently, by never
+	// being selected.
+	for i := range cs {
+		for m := int32(0); m < cs[i].NumMoves; m++ {
+			if cost := cs[i].Moves[m].Meter; cost > b.SuperMax {
+				return fmt.Errorf("%s move %d costs %d meter, the gauge holds %d", cs[i].Name, m, cost, b.SuperMax)
+			}
+		}
+	}
 	sim.LoadBalance(b)
 	return nil
 }
@@ -234,6 +243,7 @@ type jsonBalance struct {
 	} `json:"damage"`
 
 	Super struct {
+		Max          int `json:"max"`
 		DealtPercent int `json:"dealtPercent"`
 		TakenPercent int `json:"takenPercent"`
 		OnSpecial    int `json:"onSpecial"`
@@ -346,6 +356,7 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 		{"damage.counterHitPercent", jb.Damage.CounterHitPercent, &b.CounterHitPercent},
 		{"damage.counterHitstun", jb.Damage.CounterHitstun, &b.CounterHitstun},
 		{"damage.punishHitstun", jb.Damage.PunishHitstun, &b.PunishHitstun},
+		{"super.max", jb.Super.Max, &b.SuperMax},
 		{"super.dealtPercent", jb.Super.DealtPercent, &b.SuperDealtPercent},
 		{"super.takenPercent", jb.Super.TakenPercent, &b.SuperTakenPercent},
 		{"super.onSpecial", jb.Super.OnSpecial, &b.SuperOnSpecial},
@@ -440,6 +451,9 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 
 	// Chip is a fraction of the move's damage, so a value over 100 makes
 	// blocking a special worse than eating it.
+	if b.SuperMax <= 0 {
+		return b, fmt.Errorf("super.max must be positive, or no super ever comes out")
+	}
 	if b.ChipPercent > 100 {
 		return b, fmt.Errorf("damage.chipPercent is %d, want 0..100", b.ChipPercent)
 	}
@@ -543,8 +557,8 @@ type jsonMove struct {
 	// facing-relative.
 	Dir string `json:"dir"`
 
-	// Super level, 1 to 3.
-	Super int `json:"super"`
+	// Super marks the character's super.
+	Super bool `json:"super"`
 
 	// Super meter units the move costs: an EX special or a super.
 	Meter int `json:"meter"`
@@ -597,17 +611,21 @@ var buttons = map[string]uint16{
 	"LK": sim.InLK, "MK": sim.InMK, "HK": sim.InHK,
 }
 
-// Any two buttons of a kind, the EX press.
-var pairs = map[string]uint16{
-	"PP": sim.InLP | sim.InMP | sim.InHP,
-	"KK": sim.InLK | sim.InMK | sim.InHK,
+// A kind of button, pressed n at a time: the super's any one, the EX's any two.
+var kinds = map[string]struct {
+	mask uint16
+	need int32
+}{
+	"P": {sim.InLP | sim.InMP | sim.InHP, 1}, "PP": {sim.InLP | sim.InMP | sim.InHP, 2},
+	"K": {sim.InLK | sim.InMK | sim.InHK, 1}, "KK": {sim.InLK | sim.InMK | sim.InHK, 2},
 }
 
-// parseButtons reads "LP", a combination like "LP+LK", or "PP"/"KK" for any
-// two of a kind; need is 0 when every named button must be down.
+// parseButtons reads "LP", a combination like "LP+LK", "P"/"K" for any one of
+// a kind or "PP"/"KK" for any two; need is 0 when every named button must be
+// down.
 func parseButtons(spec string) (mask uint16, need int32, err error) {
-	if mask, ok := pairs[spec]; ok {
-		return mask, 2, nil
+	if k, ok := kinds[spec]; ok {
+		return k.mask, k.need, nil
 	}
 	for _, name := range strings.Split(spec, "+") {
 		bit, ok := buttons[strings.TrimSpace(name)]
@@ -631,7 +649,7 @@ var levels = map[string]int32{
 
 var cancelCategories = map[string]uint16{
 	"chain": sim.CancelChain, "special": sim.CancelSpecial,
-	"super1": sim.CancelSuper1, "super2": sim.CancelSuper2, "super3": sim.CancelSuper3,
+	"super": sim.CancelSuper,
 }
 
 var stances = map[string]int32{
@@ -641,7 +659,7 @@ var stances = map[string]int32{
 // Motions a move can require.
 var inputMotions = map[string]sim.Motion{
 	"": sim.MotionNone, "qcf": sim.MotionQCF, "qcb": sim.MotionQCB, "dp": sim.MotionDP,
-	"qcfx2": sim.MotionQCFx2, "qcbx2": sim.MotionQCBx2, "hcf": sim.MotionHCF,
+	"qcfx2": sim.MotionQCFx2, "hcf": sim.MotionHCF,
 }
 
 // ---- conversion and validation --------------------------------------------
@@ -874,25 +892,18 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 		m.InvulnStart, m.InvulnEnd = int32(start), int32(end)
 	}
 
-	if jm.Super < 0 || jm.Super > 3 {
-		return m, fmt.Errorf("super must be 1, 2 or 3, got %d", jm.Super)
-	}
-	m.Super = int32(jm.Super)
-
-	// A super with no motion is a super on a bare button press, which would
-	// beat the normal on that button for the rest of the match.
-	if m.Super > 0 && m.Motion == sim.MotionNone {
-		return m, fmt.Errorf("super %d has no motion", m.Super)
-	}
-
-	// A move that costs more than the gauge holds would fail silently, by never
-	// being selected.
-	if jm.Meter < 0 || jm.Meter > sim.SuperMax {
-		return m, fmt.Errorf("meter must be 0..%d, got %d", sim.SuperMax, jm.Meter)
+	if jm.Meter < 0 {
+		return m, fmt.Errorf("meter must not be negative, got %d", jm.Meter)
 	}
 	m.Meter = int32(jm.Meter)
-	if m.Super > 0 && m.Meter == 0 {
-		return m, fmt.Errorf("super %d costs no meter", m.Super)
+
+	// A super with no motion would beat the normal on its button for the rest
+	// of the match, and a free one makes the gauge decoration.
+	if jm.Super {
+		m.Super = 1
+		if m.Motion == sim.MotionNone || m.Meter == 0 {
+			return m, fmt.Errorf("a super needs a motion and a meter cost")
+		}
 	}
 
 	if jm.Armor < 0 {

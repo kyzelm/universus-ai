@@ -27,34 +27,11 @@
 
   "moves": [
     {
-      "_comment": "Level 1. QCF x2 + LP, one bar.",
-      "id": "236236LP",
-      "input": { "stance": "stand", "button": "LP", "motion": "qcfx2" },
-      "super": 1,
+      "_comment": "The super. QCF x2 + any kick, one bar: the armoured advance, and the reason this character has no invincible reversal.",
+      "id": "236236K",
+      "input": { "stance": "stand", "button": "K", "motion": "qcfx2" },
+      "super": true,
       "meter": 1000,
-      "startup": 7,
-      "active": 4,
-      "recovery": 38,
-      "damage": 1600,
-      "hitstun": 24,
-      "blockstun": 16,
-      "hitstop": 12,
-      "attackLevel": "mid",
-      "knockdown": true,
-      "launch": [2.5, 0],
-      "knockback": [3.5, 0],
-      "boxes": [
-        { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
-        { "frame": 7, "hurt": [[-14, 0, 36, 52]], "hit": [[12, 4, 42, 46]] },
-        { "frame": 11, "hurt": [[-14, 0, 28, 52]] }
-      ]
-    },
-    {
-      "_comment": "Level 2. QCF x2 + LK, two bars: the armoured advance, and the reason this character has no invincible reversal.",
-      "id": "236236LK",
-      "input": { "stance": "stand", "button": "LK", "motion": "qcfx2" },
-      "super": 2,
-      "meter": 2000,
       "armor": 2,
       "startup": 9,
       "active": 4,
@@ -72,28 +49,6 @@
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
         { "frame": 9, "hurt": [[-14, 0, 38, 52]], "hit": [[14, 2, 44, 48]] },
         { "frame": 13, "hurt": [[-14, 0, 28, 52]] }
-      ]
-    },
-    {
-      "_comment": "Level 3. QCB x2 + LP, three bars, and it is a throw — the cinematic command grab the roster plan names.",
-      "id": "214214LP",
-      "input": { "stance": "stand", "button": "LP", "motion": "qcbx2" },
-      "super": 3,
-      "meter": 3000,
-      "throw": true,
-      "knockdown": true,
-      "startup": 5,
-      "active": 3,
-      "recovery": 46,
-      "damage": 3600,
-      "hitstun": 34,
-      "blockstun": 0,
-      "hitstop": 16,
-      "attackLevel": "mid",
-      "boxes": [
-        { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
-        { "frame": 5, "hurt": [[-14, 0, 28, 52]], "hit": [[14, 6, 30, 40]] },
-        { "frame": 8, "hurt": [[-14, 0, 28, 52]] }
       ]
     },
     {
@@ -132,7 +87,7 @@
       "hitstop": 12,
       "attackLevel": "mid",
       "knockdown": true,
-      "cancel": ["super3"],
+      "cancel": ["super"],
       "launch": [5.0, 0],
       "knockback": [3.0, 0],
       "boxes": [
@@ -212,7 +167,7 @@
       "blockstun": 13,
       "hitstop": 9,
       "attackLevel": "mid",
-      "cancel": ["super1", "super2", "super3"],
+      "cancel": ["super"],
       "launch": [3.0, 0],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
@@ -232,7 +187,7 @@
       "blockstun": 14,
       "hitstop": 10,
       "attackLevel": "mid",
-      "cancel": ["super1", "super2", "super3"],
+      "cancel": ["super"],
       "launch": [3.8, 0],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
@@ -254,7 +209,7 @@
       "hitstop": 11,
       "attackLevel": "mid",
       "knockdown": true,
-      "cancel": ["super1", "super2", "super3"],
+      "cancel": ["super"],
       "launch": [4.6, 0],
       "knockback": [3.0, 0],
       "boxes": [
@@ -296,7 +251,7 @@
       "blockstun": 11,
       "hitstop": 6,
       "attackLevel": "mid",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
         { "frame": 5, "hurt": [[-14, 0, 32, 52]], "hit": [[14, 32, 22, 12]] },
@@ -314,7 +269,7 @@
       "blockstun": 13,
       "hitstop": 8,
       "attackLevel": "mid",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
         { "frame": 7, "hurt": [[-14, 0, 34, 52]], "hit": [[14, 26, 28, 16]] },
@@ -333,7 +288,7 @@
       "blockstun": 16,
       "hitstop": 11,
       "attackLevel": "mid",
-      "cancel": ["super3"],
+      "cancel": ["super"],
       "knockback": [3.4, 0],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
@@ -352,7 +307,7 @@
       "blockstun": 10,
       "hitstop": 6,
       "attackLevel": "mid",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
         { "frame": 6, "hurt": [[-14, 0, 32, 52]], "hit": [[14, 16, 24, 14]] },
@@ -370,7 +325,7 @@
       "blockstun": 13,
       "hitstop": 9,
       "attackLevel": "mid",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
         { "frame": 9, "hurt": [[-14, 0, 36, 52]], "hit": [[14, 14, 32, 18]] },
@@ -389,7 +344,7 @@
       "blockstun": 15,
       "hitstop": 10,
       "attackLevel": "high",
-      "cancel": ["super3"],
+      "cancel": ["super"],
       "knockback": [3.4, 0],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },
@@ -409,7 +364,7 @@
       "blockstun": 10,
       "hitstop": 6,
       "attackLevel": "mid",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 36]] },
         { "frame": 5, "hurt": [[-14, 0, 32, 36]], "hit": [[14, 20, 22, 12]] },
@@ -427,7 +382,7 @@
       "blockstun": 9,
       "hitstop": 5,
       "attackLevel": "low",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 36]] },
         { "frame": 6, "hurt": [[-14, 0, 32, 36]], "hit": [[14, 2, 24, 10]] },
@@ -445,7 +400,7 @@
       "blockstun": 13,
       "hitstop": 8,
       "attackLevel": "mid",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 36]] },
         { "frame": 7, "hurt": [[-14, 0, 34, 36]], "hit": [[14, 16, 28, 16]] },
@@ -464,7 +419,7 @@
       "blockstun": 16,
       "hitstop": 11,
       "attackLevel": "mid",
-      "cancel": ["super3"],
+      "cancel": ["super"],
       "knockback": [1.6, 4.5],
       "juggleLimit": 2,
       "boxes": [
@@ -484,7 +439,7 @@
       "blockstun": 13,
       "hitstop": 8,
       "attackLevel": "low",
-      "cancel": ["special", "super1", "super2", "super3"],
+      "cancel": ["special", "super"],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 36]] },
         { "frame": 9, "hurt": [[-14, 0, 36, 36]], "hit": [[14, 2, 32, 14]] },
@@ -504,7 +459,7 @@
       "hitstop": 11,
       "attackLevel": "low",
       "knockdown": true,
-      "cancel": ["super3"],
+      "cancel": ["super"],
       "knockback": [3.6, 0],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 36]] },
@@ -580,7 +535,7 @@
       "blockstun": 16,
       "hitstop": 11,
       "attackLevel": "mid",
-      "cancel": ["super3"],
+      "cancel": ["super"],
       "knockback": [3.4, 0],
       "boxes": [
         { "frame": 0, "hurt": [[-14, 0, 28, 52]] },

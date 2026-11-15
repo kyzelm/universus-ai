@@ -23,20 +23,15 @@ const (
 const (
 	CancelChain   uint16 = 1 << 0 // another normal
 	CancelSpecial uint16 = 1 << 1
-	CancelSuper1  uint16 = 1 << 2
-	CancelSuper2  uint16 = 1 << 3
-	CancelSuper3  uint16 = 1 << 4
+	CancelSuper   uint16 = 1 << 2
 
 	// CancelTarget is a target combo: the one follow-up written for this exact
 	// move (Move.After).
-	CancelTarget uint16 = 1 << 5
+	CancelTarget uint16 = 1 << 3
 )
 
 // After is a bitmask over move indices, so the move list must fit in it.
 const _ = uint32(1) << (MaxMoves - 1)
-
-// superCancel is the category of a super at the given level.
-var superCancel = [4]uint16{0, CancelSuper1, CancelSuper2, CancelSuper3}
 
 // Stances a move can be performed from.
 const (
@@ -166,7 +161,7 @@ type Move struct {
 	// is exposed.
 	Armor int32
 
-	// Super is the move's super level, 1 to 3, or 0 for everything else.
+	// Super is 1 for the character's super.
 	Super int32
 
 	// CancelInto is the set of categories this move may be cancelled into once
@@ -221,8 +216,8 @@ func (m *Move) Category() uint16 {
 	if m.After != 0 {
 		return CancelTarget
 	}
-	if m.Super > 0 && m.Super < int32(len(superCancel)) {
-		return superCancel[m.Super]
+	if m.Super != 0 {
+		return CancelSuper
 	}
 	if m.Motion != MotionNone {
 		return CancelSpecial

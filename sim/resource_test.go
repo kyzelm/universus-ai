@@ -147,9 +147,9 @@ func TestSuperNeverRegenerates(t *testing.T) {
 
 func TestSuperIsCapped(t *testing.T) {
 	var p PlayerState
-	p.gainSuper(SuperMax + BarUnits)
-	if p.Super != SuperMax {
-		t.Errorf("Super = %d, want it capped at %d", p.Super, SuperMax)
+	p.gainSuper(BalanceOf().SuperMax + BarUnits)
+	if p.Super != BalanceOf().SuperMax {
+		t.Errorf("Super = %d, want it capped at %d", p.Super, BalanceOf().SuperMax)
 	}
 }
 

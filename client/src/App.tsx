@@ -54,11 +54,8 @@ function Controls() {
           diagonal
         </dd>
 
-        <dt>supers</dt>
-        <dd>
-          ↓↘→ ×2 + <b>LP</b> (level 1) · ↓↘→ ×2 + <b>LK</b> (level 2) · ↓↙← ×2 + <b>LP</b>{' '}
-          (level 3), once the meter has the bars
-        </dd>
+        <dt>super</dt>
+        <dd>↓↘→ ×2 + any punch (Kai) or any kick (Torv), once the meter has a bar</dd>
 
         <dt>EX special</dt>
         <dd>

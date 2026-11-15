@@ -29,6 +29,8 @@ func TestMain(m *testing.M) {
 // one: a test must not fail because someone tuned a number.
 func testBalance() Balance {
 	return Balance{
+		SuperMax: 2 * BarUnits,
+
 		// The pair window, in frames.
 		PairFrames: 4,
 
@@ -142,7 +144,7 @@ func testCharacter() Character {
 		Startup: 4, Active: 3, Recovery: 6,
 		Damage: 100, Hitstun: 14, Blockstun: 11, Hitstop: 6,
 		Level: LevelMid, Stance: StanceStand, Button: InLP,
-		CancelInto: CancelSpecial | CancelSuper1 | CancelSuper3,
+		CancelInto: CancelSpecial | CancelSuper,
 		NumKeys:    3,
 	}
 	c.Moves[0].Keys[0] = Keyframe{Frame: 0, NumHurt: 1}
@@ -159,7 +161,7 @@ func testCharacter() Character {
 		Startup: 5, Active: 2, Recovery: 9,
 		Damage: 80, Hitstun: 12, Blockstun: 9, Hitstop: 5,
 		Level: LevelLow, Stance: StanceCrouch, Button: InLK,
-		CancelInto: CancelSuper3,
+		CancelInto: CancelSuper,
 		NumKeys:    2,
 	}
 	c.Moves[1].Keys[0] = Keyframe{Frame: 0, NumHurt: 1}
@@ -264,11 +266,11 @@ func testCharacter() Character {
 	c.Moves[7].Keys[2] = Keyframe{Frame: 9, NumHurt: 1}
 	c.Moves[7].Keys[2].Hurt[0] = c.StandHurt
 
-	// The level 1 super, on the jab's button and the fireball's motion doubled.
+	// The super, on any punch and the fireball's motion doubled.
 	c.Moves[8] = Move{
 		Startup: 6, Active: 3, Recovery: 12,
 		Damage: 400, Hitstun: 20, Blockstun: 14, Hitstop: 8,
-		Level: LevelMid, Stance: StanceStand, Button: InLP, Motion: MotionQCFx2,
+		Level: LevelMid, Stance: StanceStand, Button: InLP | InMP | InHP, Need: 1, Motion: MotionQCFx2,
 		Super:   1,
 		Meter:   BarUnits,
 		NumKeys: 3,
@@ -281,24 +283,7 @@ func testCharacter() Character {
 	c.Moves[8].Keys[2] = Keyframe{Frame: 9, NumHurt: 1}
 	c.Moves[8].Keys[2].Hurt[0] = c.StandHurt
 
-	// The level 3, on the other double motion so the two supers cannot be
-	// confused for one another, and on the reversal's button so the pair also
-	// covers "a motion move and a bare-button move sharing a button".
-	c.Moves[9] = Move{
-		Startup: 4, Active: 3, Recovery: 20,
-		Damage: 900, Hitstun: 24, Blockstun: 16, Hitstop: 10,
-		Level: LevelMid, Stance: StanceStand, Button: InMP, Motion: MotionQCBx2,
-		Super:   3,
-		Meter:   3 * BarUnits,
-		NumKeys: 3,
-	}
-	c.Moves[9].Keys[0] = Keyframe{Frame: 0, NumHurt: 1}
-	c.Moves[9].Keys[0].Hurt[0] = c.StandHurt
-	c.Moves[9].Keys[1] = Keyframe{Frame: 4, NumHurt: 1, NumHit: 1}
-	c.Moves[9].Keys[1].Hurt[0] = c.StandHurt
-	c.Moves[9].Keys[1].Hit[0] = Box{X: FromInt(12), Y: FromInt(0), W: FromInt(34), H: FromInt(46)}
-	c.Moves[9].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
-	c.Moves[9].Keys[2].Hurt[0] = c.StandHurt
+	// Slot 9 is empty.
 
 	// A throw, on two buttons.
 	c.Moves[10] = Move{

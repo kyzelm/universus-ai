@@ -55,6 +55,7 @@
   },
 
   "super": {
+    "max": 2000,
     "dealtPercent": 30,
     "takenPercent": 15,
     "onSpecial": 100

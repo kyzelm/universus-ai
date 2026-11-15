@@ -36,14 +36,14 @@ func TestEXTakesAnyTwoPunchesAndCostsMeter(t *testing.T) {
 // One punch and one kick is the throw's press, never an EX.
 func TestLPLKIsNotAnEX(t *testing.T) {
 	s := New()
-	s.Players[0].Super = SuperMax
+	s.Players[0].Super = BalanceOf().SuperMax
 	qcf(&s, InLP|InLK)
 	if got := s.Players[0].MoveIndex; got != 2 {
 		t.Errorf("move = %d, want the plain special (2)", got)
 	}
 
 	s = New()
-	s.Players[0].Super = SuperMax
+	s.Players[0].Super = BalanceOf().SuperMax
 	s.Advance([2]uint16{InLP | InLK, 0})
 	if got := s.Players[0].MoveIndex; got != 10 {
 		t.Errorf("move = %d, want the throw (10)", got)
