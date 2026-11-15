@@ -30,7 +30,7 @@ func inputs(n int) [][2]uint16 {
 func TestRoundTrip(t *testing.T) {
 	// Not the zero setup: a header that survives only because every field
 	// happens to be zero proves nothing.
-	setup := sim.Setup{Training: true, AI: sim.AINormal, Chars: [2]int32{1, 0}}
+	setup := sim.Setup{Training: true, AI: true, Chars: [2]int32{1, 0}}
 	want := inputs(97)
 
 	b := Encode(setup, 0xdeadbeef, want)
@@ -57,13 +57,13 @@ func TestRoundTrip(t *testing.T) {
 
 // The offsets, asserted literally.
 func TestTheByteLayoutIsTheDocumentedOne(t *testing.T) {
-	b := Encode(sim.Setup{Training: true, AI: 2, Chars: [2]int32{1, 0}}, 0x01020304,
+	b := Encode(sim.Setup{Training: true, AI: true, Chars: [2]int32{1, 0}}, 0x01020304,
 		[][2]uint16{{0x0201, 0x0010}})
 
 	if string(b[:4]) != "UNIV" {
 		t.Errorf("magic is %q", b[:4])
 	}
-	for i, want := range map[int]byte{4: Version, 5: 1, 6: 2, 7: 1, 8: 0, 9: 0, 10: 0, 11: 0} {
+	for i, want := range map[int]byte{4: Version, 5: 1, 6: 1, 7: 1, 8: 0, 9: 0, 10: 0, 11: 0} {
 		if b[i] != want {
 			t.Errorf("byte %d is %d, want %d", i, b[i], want)
 		}
@@ -88,7 +88,6 @@ func TestDecodeRefusesWhatItCannotReplay(t *testing.T) {
 		{"future version", func() []byte { b := good(); b[4] = Version + 1; return b }()},
 		{"partial frame", good()[:HeaderSize+3]},
 		{"header only", good()[:HeaderSize]},
-		{"unknown tier", func() []byte { b := good(); b[6] = byte(sim.AIHard + 1); return b }()},
 		{"character off the roster", func() []byte { b := good(); b[7] = 250; return b }()},
 	} {
 		if _, err := Decode(c.name, c.log); err == nil {

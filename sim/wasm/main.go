@@ -49,14 +49,14 @@ func main() {
 		}
 		session = sim.NewSessionOf(sim.Setup{
 			Training: len(args) > 0 && args[0].Truthy(),
-			AI:       int32(arg(1)),
+			AI:       len(args) > 1 && args[1].Truthy(),
 			Chars:    [2]int32{int32(arg(2)), int32(arg(3))},
 		})
 		session.State().WriteSnapshot(snap[:])
 		return nil
 	}))
 
-	// aiPress(seat, tier, seed) is the scripted opponent played as a *device*:
+	// aiPress(seat, seed) is the scripted opponent played as a *device*:
 	// it reads the state and returns a bitfield, and the caller feeds that in
 	// wherever a keyboard's would go.
 	api.Set("aiPress", js.FuncOf(func(_ js.Value, args []js.Value) any {
@@ -65,7 +65,7 @@ func main() {
 			return 0
 		}
 		if devices[seat] == nil {
-			devices[seat] = sim.NewAIDevice(int32(args[1].Int()), uint32(args[2].Int()))
+			devices[seat] = sim.NewAIDevice(uint32(args[1].Int()))
 		}
 		return int(devices[seat].Press(session.State(), seat))
 	}))

@@ -151,7 +151,7 @@ export async function startGame(
   parent: HTMLElement,
   bot?: Bot,
   training = false,
-  ai = 0,
+  ai = false,
   chars: [number, number] = [0, 0],
   showBoxes = false,
 ): Promise<Game> {
@@ -282,7 +282,7 @@ export async function startGame(
   /** The session so far in the replay log format. */
   const logBytes = (): ArrayBuffer => {
     const src = net ? net.log : recorded
-    const setup: Setup = net ? {training: false, ai: 0, chars} : {training, ai, chars}
+    const setup: Setup = net ? {training: false, ai: false, chars} : {training, ai, chars}
     return encodeLog(setup, dataVersion(), src)
   }
 
@@ -491,7 +491,7 @@ export async function startGame(
       mySeat = seat
       reported = false
       opponentLeft = false
-      reset(false, 0, chars)
+      reset(false, false, chars)
       // The match restarts at frame 0, so what has been fired restarts with it.
       pump.reset()
       sparks.length = 0

@@ -258,12 +258,9 @@ type jsonBalance struct {
 		ThrowPercent      int `json:"throwPercent"`
 		ProjectilePercent int `json:"projectilePercent"`
 		ReversalPercent   int `json:"reversalPercent"`
-		Tiers             []struct {
-			Name          string `json:"name"`
-			Reaction      int    `json:"reaction"`
-			BlockPercent  int    `json:"blockPercent"`
-			RandomPercent int    `json:"randomPercent"`
-		} `json:"tiers"`
+		Reaction          int `json:"reaction"`
+		BlockPercent      int `json:"blockPercent"`
+		RandomPercent     int `json:"randomPercent"`
 	} `json:"ai"`
 }
 
@@ -290,37 +287,13 @@ func (jb *jsonBalance) convertAI(b *sim.Balance) error {
 	b.AIMidRange = sim.FromInt(jb.AI.MidRange)
 	b.AIAntiAirRange = sim.FromInt(jb.AI.AntiAirRange)
 
-	if len(jb.AI.Tiers) != len(b.AITiers) {
-		return fmt.Errorf("ai.tiers has %d entries, want %d", len(jb.AI.Tiers), len(b.AITiers))
+	// Zero reaction is an opponent that blocks everything on the frame it
+	// starts, which is the AI nobody enjoys.
+	if jb.AI.Reaction < 1 || jb.AI.Reaction > 30 {
+		return fmt.Errorf("ai.reaction is %d, want 1..30", jb.AI.Reaction)
 	}
-	for i, t := range jb.AI.Tiers {
-		// Zero reaction is an opponent that blocks everything on the frame it
-		// starts, which is the AI nobody enjoys and the one this field exists
-		// to prevent.
-		if t.Reaction < 1 || t.Reaction > 30 {
-			return fmt.Errorf("ai.tiers[%d].reaction is %d, want 1..30", i, t.Reaction)
-		}
-		if t.BlockPercent < 0 || t.BlockPercent > 100 {
-			return fmt.Errorf("ai.tiers[%d].blockPercent is %d, want 0..100", i, t.BlockPercent)
-		}
-		if t.RandomPercent < 0 || t.RandomPercent > 100 {
-			return fmt.Errorf("ai.tiers[%d].randomPercent is %d, want 0..100", i, t.RandomPercent)
-		}
-		// The tiers are an ordering and not three independent rows: harder
-		// means noticing sooner, blocking more and improvising less.
-		if i > 0 {
-			prev := jb.AI.Tiers[i-1]
-			if t.Reaction > prev.Reaction || t.BlockPercent < prev.BlockPercent ||
-				t.RandomPercent > prev.RandomPercent {
-				return fmt.Errorf("ai.tiers[%d] (%s) is not harder than ai.tiers[%d] (%s)",
-					i, t.Name, i-1, prev.Name)
-			}
-		}
-		b.AITiers[i] = sim.AITier{
-			Reaction:      int32(t.Reaction),
-			BlockPercent:  int32(t.BlockPercent),
-			RandomPercent: int32(t.RandomPercent),
-		}
+	if jb.AI.BlockPercent > 100 || jb.AI.RandomPercent > 100 {
+		return fmt.Errorf("ai.blockPercent and ai.randomPercent want 0..100")
 	}
 	return nil
 }
@@ -364,6 +337,9 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 		{"ai.throwPercent", jb.AI.ThrowPercent, &b.AIThrowPercent},
 		{"ai.projectilePercent", jb.AI.ProjectilePercent, &b.AIProjectilePercent},
 		{"ai.reversalPercent", jb.AI.ReversalPercent, &b.AIReversalPercent},
+		{"ai.reaction", jb.AI.Reaction, &b.AIReaction},
+		{"ai.blockPercent", jb.AI.BlockPercent, &b.AIBlockPercent},
+		{"ai.randomPercent", jb.AI.RandomPercent, &b.AIRandomPercent},
 	} {
 		if f.n < 0 {
 			return b, fmt.Errorf("%s must not be negative, got %d", f.name, f.n)

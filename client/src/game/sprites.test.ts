@@ -79,7 +79,7 @@ test('a move index the sim uses for no move resolves to nothing, not a crash', (
 
 test('the real sim, throwing a real heavy punch, lands on the heavy punch tag', () => {
   const meta = sheet('kai')
-  reset(false, 0, [0, 0])
+  reset(false, false, [0, 0])
 
   // Held rather than tapped: the press has to survive into an actionable
   // frame, and an attack is six frames against a screenshot's hundreds.
@@ -99,7 +99,7 @@ test('the real sim, throwing a real heavy punch, lands on the heavy punch tag', 
 
 test('every state the sim reaches in a scripted sequence has a texture', () => {
   const meta = sheet('kai')
-  reset(false, 0, [0, 0])
+  reset(false, false, [0, 0])
 
   // Walk, jump, crouch, punch — enough to visit the states a match spends
   // most of its frames in, driven by the sim rather than asserted about it.

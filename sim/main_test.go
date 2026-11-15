@@ -107,11 +107,9 @@ func testBalance() Balance {
 		AIThrowPercent:      25,
 		AIProjectilePercent: 50,
 		AIReversalPercent:   30,
-		AITiers: [aiTierCount]AITier{
-			{Reaction: 25, BlockPercent: 40, RandomPercent: 40},
-			{Reaction: 16, BlockPercent: 70, RandomPercent: 20},
-			{Reaction: 10, BlockPercent: 90, RandomPercent: 8},
-		},
+		AIReaction:          10,
+		AIBlockPercent:      90,
+		AIRandomPercent:     8,
 	}
 }
 

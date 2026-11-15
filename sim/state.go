@@ -91,8 +91,8 @@ type PlayerState struct {
 	// JumpHeld is 1 while the up that produced a jump is *still* being held.
 	JumpHeld int32
 
-	// AI is the difficulty tier driving this seat, AIOff for a human, and
-	// AIPlan the action the last decision picked — see ai.go.
+	// AI is 1 when the scripted opponent drives this seat, and AIPlan the
+	// action its last decision picked — see ai.go.
 	AI     int32
 	AIPlan int32
 
@@ -157,11 +157,11 @@ func NewTraining() GameState {
 	return s
 }
 
-// NewAIMatch is New with seat 2 played by the scripted opponent at the given
-// difficulty (03 Game Design/AI Opponent.md).
-func NewAIMatch(tier int32) GameState {
+// NewAIMatch is New with seat 2 played by the scripted opponent (03 Game
+// Design/AI Opponent.md).
+func NewAIMatch() GameState {
 	s := New()
-	s.Players[1].AI = tier
+	s.Players[1].AI = 1
 	return s
 }
 
@@ -170,7 +170,7 @@ func NewAIMatch(tier int32) GameState {
 // 2 is the scripted opponent.
 type Setup struct {
 	Training bool
-	AI       int32
+	AI       bool
 	Chars    [2]int32
 }
 
@@ -180,7 +180,9 @@ func NewStateOf(u Setup) GameState {
 	if u.Training {
 		s.Training = 1
 	}
-	s.Players[1].AI = u.AI
+	if u.AI {
+		s.Players[1].AI = 1
+	}
 	return s
 }
 
@@ -216,7 +218,7 @@ func (s *GameState) Advance(in [2]uint16) {
 	// everything else so its presses are recorded, buffered and read as motions
 	// exactly like a human's — the AI has no other way into the sim (ai.go).
 	for i := range s.Players {
-		if s.Players[i].AI != AIOff {
+		if s.Players[i].AI != 0 {
 			in[i] = s.aiInput(i)
 		}
 	}

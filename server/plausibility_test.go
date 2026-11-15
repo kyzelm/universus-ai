@@ -281,7 +281,7 @@ func TestWhatTheScriptedOpponentLooksLike(t *testing.T) {
 
 	setup := sim.Setup{Chars: [2]int32{0, 1}}
 	s := sim.NewSessionOf(setup)
-	device := sim.NewAIDevice(sim.AIHard, 7)
+	device := sim.NewAIDevice(7)
 
 	inputs := make([][2]uint16, 0, 6000)
 	for range 6000 {
@@ -296,7 +296,7 @@ func TestWhatTheScriptedOpponentLooksLike(t *testing.T) {
 	}
 
 	found := kinds(plausibility(parsed), 2)
-	t.Logf("the scripted opponent at Hard: %+v", found)
+	t.Logf("the scripted opponent: %+v", found)
 
 	// A real bot is caught, and it is the macro check that catches it — the one
 	// needing no simulation and no threshold judgement.

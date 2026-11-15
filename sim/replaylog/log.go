@@ -3,7 +3,7 @@
 //	0  [4] magic "UNIV"
 //	4  u8  format version
 //	5  u8  training mode
-//	6  u8  AI tier in seat 2
+//	6  u8  scripted AI in seat 2
 //	7  u8  character, player 1
 //	8  u8  character, player 2
 //	9  [3] reserved, zero
@@ -60,7 +60,9 @@ func Encode(setup sim.Setup, dataVersion uint32, inputs [][2]uint16) []byte {
 	if setup.Training {
 		b[5] = 1
 	}
-	b[6] = byte(setup.AI)
+	if setup.AI {
+		b[6] = 1
+	}
 	b[7] = byte(setup.Chars[0])
 	b[8] = byte(setup.Chars[1])
 	// b[9:12] stay zero: reserved, and a reader checks the size that covers them.
@@ -93,13 +95,10 @@ func Decode(name string, b []byte) (Log, error) {
 	log := Log{
 		Setup: sim.Setup{
 			Training: b[5] != 0,
-			AI:       int32(b[6]),
+			AI:       b[6] != 0,
 			Chars:    [2]int32{int32(b[7]), int32(b[8])},
 		},
 		DataVersion: u32(b[12:]),
-	}
-	if log.Setup.AI > sim.AIHard {
-		return fail("AI tier %d is not a difficulty this build knows", log.Setup.AI)
 	}
 	for _, c := range log.Setup.Chars {
 		if c < 0 || c >= sim.NumCharacters() {

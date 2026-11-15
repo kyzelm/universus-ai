@@ -2,15 +2,6 @@ package sim
 
 // The scripted opponent (03 Game Design/AI Opponent.md).
 
-// Difficulty tiers.
-const (
-	AIOff int32 = iota
-	AIEasy
-	AINormal
-	AIHard
-	aiTierCount = 3
-)
-
 // The plans. A decision picks one and it runs until the next decision, which is
 // what keeps the AI from re-deciding sixty times a second — a human cannot, and
 // an opponent that does reads as a machine.
@@ -41,17 +32,16 @@ type aiRandom interface {
 // AIDevice plays a seat from outside the simulation: the same rule list, its
 // own generator and its own plan, and nothing written to GameState.
 type AIDevice struct {
-	tier int32
 	plan int32
 	rng  uint32
 }
 
-// NewAIDevice returns a device at the given tier.
-func NewAIDevice(tier int32, seed uint32) *AIDevice {
+// NewAIDevice returns a device with its own seed.
+func NewAIDevice(seed uint32) *AIDevice {
 	if seed == 0 {
 		seed = 1
 	}
-	return &AIDevice{tier: tier, rng: seed}
+	return &AIDevice{rng: seed}
 }
 
 // RandN is the device's own generator — the same xorshift the sim uses, kept
@@ -76,7 +66,7 @@ func (d *AIDevice) Press(s *GameState, seat int) uint16 {
 	}
 	elapsed := int32(s.Frame % uint32(every))
 	if elapsed == 0 {
-		d.plan = aiDecide(s, seat, d.tier, d)
+		d.plan = aiDecide(s, seat, d)
 	}
 	return aiPress(d.plan, elapsed, s.Players[seat].Facing)
 }
@@ -84,7 +74,7 @@ func (d *AIDevice) Press(s *GameState, seat int) uint16 {
 // aiInput is the bitfield this seat presses this frame.
 func (s *GameState) aiInput(i int) uint16 {
 	p := &s.Players[i]
-	if p.AI == AIOff {
+	if p.AI == 0 {
 		return 0
 	}
 
@@ -97,7 +87,7 @@ func (s *GameState) aiInput(i int) uint16 {
 	}
 	elapsed := int32(s.Frame % uint32(every))
 	if elapsed == 0 {
-		p.AIPlan = aiDecide(s, i, p.AI, s)
+		p.AIPlan = aiDecide(s, i, s)
 	}
 	return aiPress(p.AIPlan, elapsed, p.Facing)
 }
@@ -165,13 +155,13 @@ func press(age int32, bits uint16) uint16 {
 }
 
 // aiDecide is the rule list, in priority order, first match wins.
-func aiDecide(s *GameState, i int, tier int32, r aiRandom) int32 {
+func aiDecide(s *GameState, i int, r aiRandom) int32 {
 	p, o := &s.Players[i], &s.Players[1-i]
-	t := &balance.AITiers[aiTier(tier)]
 	dist := s.aiDistance(i)
+	react := balance.AIReaction
 
 	// Deliberate imperfection, first and on purpose.
-	if aiRoll(r, t.RandomPercent) {
+	if aiRoll(r, balance.AIRandomPercent) {
 		return int32(r.RandN(uint32(aiPlanCount)))
 	}
 
@@ -179,7 +169,7 @@ func aiDecide(s *GameState, i int, tier int32, r aiRandom) int32 {
 	// Anti-air. The window is generous on purpose: a dragon punch that comes
 	// out late loses to the jump-in it was meant to beat, and that is the
 	// mistake a human makes too.
-	case o.Airborne() && dist <= balance.AIAntiAirRange && aiSeen(o, t.Reaction):
+	case o.Airborne() && dist <= balance.AIAntiAirRange && aiSeen(o, react):
 		if aiHasMotion(p.Char, MotionDP) {
 			return aiDP
 		}
@@ -188,12 +178,12 @@ func aiDecide(s *GameState, i int, tier int32, r aiRandom) int32 {
 	// Punish. A move in its recovery cannot block, and the AI's heaviest button
 	// is the answer.
 	// ponytail: one button, not a combo.
-	case aiRecovering(o) && dist <= balance.AICloseRange && aiSeen(o, t.Reaction):
+	case aiRecovering(o) && dist <= balance.AICloseRange && aiSeen(o, react):
 		return aiPunish
 
-	// Block what is coming, as often as the tier says.
+	// Block what is coming, most of the time.
 	case aiIncoming(o) && dist <= balance.AIMidRange &&
-		aiSeen(o, t.Reaction) && aiRoll(r, t.BlockPercent):
+		aiSeen(o, react) && aiRoll(r, balance.AIBlockPercent):
 		return aiBlock
 
 	// Reversal out of pressure.
@@ -251,15 +241,6 @@ func aiHasProjectile(char int32) bool {
 	return false
 }
 
-// aiTier clamps a difficulty to a tier index, so a hand-built state with a
-// nonsense value plays like Normal rather than reading past the array.
-func aiTier(ai int32) int32 {
-	if ai < AIEasy || ai > AIHard {
-		return AINormal - 1
-	}
-	return ai - 1
-}
-
 // aiRoll is a percentage chance.
 func aiRoll(r aiRandom, percent int32) bool {
 	if percent <= 0 {
@@ -268,8 +249,8 @@ func aiRoll(r aiRandom, percent int32) bool {
 	return int32(r.RandN(100)) < percent
 }
 
-// aiSeen models perception latency, which is the honest difficulty lever: the
-// AI may not react to something until it has been true for `reaction` frames.
+// aiSeen models perception latency: the AI may not react to something until it
+// has been true for `reaction` frames.
 func aiSeen(o *PlayerState, reaction int32) bool { return o.StateFrame >= reaction }
 
 // aiIncoming is an attack that has not yet connected — something still worth

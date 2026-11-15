@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 func TestLogRoundTripThroughAFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.inputs")
 	want := gen(97)
-	setup := sim.Setup{Training: true, AI: sim.AINormal}
+	setup := sim.Setup{Training: true, AI: true}
 
 	if err := writeLog(path, setup, want); err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestSetupChangesWhatTheSameInputsReplayAs(t *testing.T) {
 	}{
 		{&normal, sim.Setup{}},
 		{&lab, sim.Setup{Training: true}},
-		{&ai, sim.Setup{AI: sim.AIHard}},
+		{&ai, sim.Setup{AI: true}},
 	} {
 		if err := run(c.setup, in, c.out); err != nil {
 			t.Fatal(err)

@@ -239,7 +239,7 @@ test('actionability crosses the boundary', () => {
  * here could tell the difference between a quiet opponent and a missing one.
  */
 test('an AI seat plays without anybody pressing anything', () => {
-  reset(false, 3) // hard
+  reset(false, true)
 
   let attacked = false
   let moved = false
@@ -270,7 +270,7 @@ test('an AI seat plays without anybody pressing anything', () => {
  */
 test('a run plays the characters it was reset with', () => {
   const health = (chars: [number, number]) => {
-    reset(false, 0, chars)
+    reset(false, false, chars)
     const {players} = readSnapshot()
     return [players[0].health, players[1].health]
   }

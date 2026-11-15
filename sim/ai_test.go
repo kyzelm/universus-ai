@@ -8,10 +8,7 @@ import "testing"
 func certain(t *testing.T) {
 	t.Helper()
 	b := testBalance()
-	for i := range b.AITiers {
-		b.AITiers[i].RandomPercent = 0
-		b.AITiers[i].BlockPercent = 100
-	}
+	b.AIRandomPercent, b.AIBlockPercent = 0, 100
 	LoadBalance(b)
 	t.Cleanup(func() { LoadBalance(testBalance()) })
 }
@@ -35,8 +32,8 @@ func TestAHumanSeatIsUntouched(t *testing.T) {
 // identically every time, and an AI match is a replayable one.
 func TestAnAIMatchIsReproducible(t *testing.T) {
 	play := func() uint32 {
-		s := NewAIMatch(AIHard)
-		s.Players[0].AI = AINormal
+		s := NewAIMatch()
+		s.Players[0].AI = 1
 		for f := 0; f < 2000; f++ {
 			s.Advance([2]uint16{0, 0})
 		}
@@ -51,8 +48,8 @@ func TestAnAIMatchIsReproducible(t *testing.T) {
 // and the generator it drew from are both in the state, so rewinding takes them
 // back together.
 func TestAIDecisionsRollBack(t *testing.T) {
-	s := NewAIMatch(AIHard)
-	s.Players[0].AI = AIEasy
+	s := NewAIMatch()
+	s.Players[0].AI = 1
 
 	for f := 0; f < 300; f++ {
 		s.Advance([2]uint16{0, 0})
@@ -76,8 +73,8 @@ func TestAIDecisionsRollBack(t *testing.T) {
 // frames without deadlocking, without stalling in a corner, and without failing
 // to end a round.
 func TestAIvsAIDoesNotDegenerate(t *testing.T) {
-	s := NewAIMatch(AINormal)
-	s.Players[0].AI = AINormal
+	s := NewAIMatch()
+	s.Players[0].AI = 1
 
 	hits := false
 	start := [2]int32{s.Players[0].Health, s.Players[1].Health}
@@ -120,14 +117,14 @@ func TestAIvsAIDoesNotDegenerate(t *testing.T) {
 func TestAIAntiAirsAJumpIn(t *testing.T) {
 	certain(t)
 
-	s := NewAIMatch(AIHard)
+	s := NewAIMatch()
 	s.Players[0].X = FromInt(-20)
 	s.Players[1].X = FromInt(20)
 	s.Players[0].State = StateAir
 	s.Players[0].Y = FromInt(30)
-	s.Players[0].StateFrame = 20 // long enough for a hard AI to have noticed
+	s.Players[0].StateFrame = 20 // long enough for the AI to have noticed
 
-	if got := aiDecide(&s, 1, s.Players[1].AI, &s); got != aiDP {
+	if got := aiDecide(&s, 1, &s); got != aiDP {
 		t.Errorf("decided plan %d against a jump-in, want the dragon punch (%d)", got, aiDP)
 	}
 }
@@ -139,16 +136,16 @@ func TestAIDoesNotReactBeforeItCouldHaveSeen(t *testing.T) {
 	certain(t)
 
 	attacked := func(age int32) int32 {
-		s := NewAIMatch(AIHard)
+		s := NewAIMatch()
 		s.Players[0].X = FromInt(-20)
 		s.Players[1].X = FromInt(20)
 		s.Players[0].State = StateAttack
 		s.Players[0].MoveIndex = 3 // the fixture's heavy: slow enough to react to
 		s.Players[0].StateFrame = age
-		return aiDecide(&s, 1, s.Players[1].AI, &s)
+		return aiDecide(&s, 1, &s)
 	}
 
-	reaction := testBalance().AITiers[aiTier(AIHard)].Reaction
+	reaction := testBalance().AIReaction
 	if got := attacked(reaction - 1); got == aiBlock {
 		t.Errorf("blocked an attack %d frames old, inside its %d-frame reaction",
 			reaction-1, reaction)
@@ -162,15 +159,13 @@ func TestAIDoesNotReactBeforeItCouldHaveSeen(t *testing.T) {
 // machine: some fraction of decisions throw the rule list away.
 func TestTheImperfectionRollIgnoresTheRules(t *testing.T) {
 	b := testBalance()
-	for i := range b.AITiers {
-		b.AITiers[i].RandomPercent = 100
-	}
+	b.AIRandomPercent = 100
 	LoadBalance(b)
 	t.Cleanup(func() { LoadBalance(testBalance()) })
 
 	// A jump-in overhead: the rule list has exactly one answer to this, so
 	// anything else came from the roll.
-	s := NewAIMatch(AIHard)
+	s := NewAIMatch()
 	s.Players[0].X = FromInt(-20)
 	s.Players[1].X = FromInt(20)
 	s.Players[0].State = StateAir
@@ -179,41 +174,12 @@ func TestTheImperfectionRollIgnoresTheRules(t *testing.T) {
 
 	other := 0
 	for i := 0; i < 40; i++ {
-		if aiDecide(&s, 1, s.Players[1].AI, &s) != aiDP {
+		if aiDecide(&s, 1, &s) != aiDP {
 			other++
 		}
 	}
 	if other == 0 {
 		t.Error("every decision took the rule, with the imperfection roll at 100%")
-	}
-}
-
-// Difficulty is the two levers and nothing else, so a harder tier must show up
-// as behaviour: it blocks more of what it sees.
-func TestHarderTiersBlockMoreOften(t *testing.T) {
-	blocks := func(tier int32) int {
-		s := NewAIMatch(tier)
-		// Beyond close range on purpose: inside it, a recovering attack is a
-		// punish and the block rule is never reached.
-		s.Players[0].X = FromInt(-40)
-		s.Players[1].X = FromInt(40)
-		s.Players[0].State = StateAttack
-		s.Players[0].MoveIndex = 3
-		s.Players[0].StateFrame = 30 // seen by every tier
-
-		n := 0
-		for i := 0; i < 400; i++ {
-			if aiDecide(&s, 1, s.Players[1].AI, &s) == aiBlock {
-				n++
-			}
-		}
-		return n
-	}
-
-	easy, normal, hard := blocks(AIEasy), blocks(AINormal), blocks(AIHard)
-	if !(easy < normal && normal < hard) {
-		t.Errorf("blocks per 400 decisions: easy %d, normal %d, hard %d — not ordered",
-			easy, normal, hard)
 	}
 }
 
@@ -269,7 +235,7 @@ func TestTheAIDeviceDecidesWithoutTouchingTheMatch(t *testing.T) {
 	}
 
 	before := s.Checksum()
-	d := NewAIDevice(AIHard, 7)
+	d := NewAIDevice(7)
 	var pressed []uint16
 	for f := 0; f < 40; f++ {
 		pressed = append(pressed, d.Press(&s, 1))
@@ -282,7 +248,7 @@ func TestTheAIDeviceDecidesWithoutTouchingTheMatch(t *testing.T) {
 	}
 
 	// Same tier, same seed, same state: the same opponent.
-	again := NewAIDevice(AIHard, 7)
+	again := NewAIDevice(7)
 	for f, want := range pressed {
 		if got := again.Press(&s, 1); got != want {
 			t.Fatalf("frame %d: pressed %#b, want %#b", f, got, want)
@@ -291,7 +257,7 @@ func TestTheAIDeviceDecidesWithoutTouchingTheMatch(t *testing.T) {
 
 	// A different seed is a different opponent, or two bots in a harness play
 	// the same match twice and half the fuzz is wasted.
-	other := NewAIDevice(AIHard, 99)
+	other := NewAIDevice(99)
 	same := true
 	for _, want := range pressed {
 		if other.Press(&s, 1) != want {
@@ -315,7 +281,7 @@ func pressedSomething(in []uint16) bool {
 
 // A round reset is not a new match.
 func TestTheAISurvivesARoundReset(t *testing.T) {
-	s := NewAIMatch(AIHard)
+	s := NewAIMatch()
 
 	// Time the first round out rather than fighting it out: the round flow is
 	// the same either way and this takes a hundred frames instead of thousands.
@@ -326,8 +292,8 @@ func TestTheAISurvivesARoundReset(t *testing.T) {
 	if s.Round < 2 {
 		t.Fatalf("still on round %d, phase %d", s.Round, s.Phase)
 	}
-	if got := s.Players[1].AI; got != AIHard {
-		t.Fatalf("the tier is %d after the round reset, want %d", got, AIHard)
+	if s.Players[1].AI == 0 {
+		t.Fatal("the AI seat is gone after the round reset")
 	}
 
 	// And it is pressing buttons, not merely configured to.
@@ -347,7 +313,7 @@ func TestTheAISurvivesARoundReset(t *testing.T) {
 func TestAICharacterWithoutADPAntiAirsWithANormal(t *testing.T) {
 	certain(t)
 
-	s := NewAIMatch(AIHard)
+	s := NewAIMatch()
 	s.Players[1].Char = 1
 	s.Players[0].X = FromInt(-20)
 	s.Players[1].X = FromInt(20)
@@ -355,7 +321,7 @@ func TestAICharacterWithoutADPAntiAirsWithANormal(t *testing.T) {
 	s.Players[0].Y = FromInt(30)
 	s.Players[0].StateFrame = 20
 
-	if got := aiDecide(&s, 1, s.Players[1].AI, &s); got != aiAntiAir {
+	if got := aiDecide(&s, 1, &s); got != aiAntiAir {
 		t.Errorf("decided plan %d against a jump-in, want the anti-air normal (%d)", got, aiAntiAir)
 	}
 }
@@ -368,17 +334,15 @@ func TestAICharacterWithoutADPDoesNotReverse(t *testing.T) {
 	// certain silences the two per-tier rolls; the reversal has a roll of its
 	// own, and the rule cannot be reached without it.
 	b := testBalance()
-	for i := range b.AITiers {
-		b.AITiers[i].RandomPercent = 0
-	}
+	b.AIRandomPercent = 0
 	b.AIReversalPercent = 100
 	LoadBalance(b)
 
 	reversal := func(char int32) int32 {
-		s := NewAIMatch(AIHard)
+		s := NewAIMatch()
 		s.Players[1].Char = char
 		s.Players[1].State = StateBlockstun
-		return aiDecide(&s, 1, s.Players[1].AI, &s)
+		return aiDecide(&s, 1, &s)
 	}
 
 	if got := reversal(0); got != aiDP {
@@ -394,18 +358,16 @@ func TestAICharacterWithoutAProjectileWalksIn(t *testing.T) {
 	certain(t)
 
 	b := testBalance()
-	for i := range b.AITiers {
-		b.AITiers[i].RandomPercent = 0
-	}
+	b.AIRandomPercent = 0
 	b.AIProjectilePercent = 100
 	LoadBalance(b)
 
 	atRange := func(char int32) int32 {
-		s := NewAIMatch(AIHard)
+		s := NewAIMatch()
 		s.Players[1].Char = char
 		s.Players[0].X = FromInt(-150)
 		s.Players[1].X = FromInt(150)
-		return aiDecide(&s, 1, s.Players[1].AI, &s)
+		return aiDecide(&s, 1, &s)
 	}
 
 	if got := atRange(0); got != aiFireball {

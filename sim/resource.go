@@ -71,7 +71,12 @@ type Balance struct {
 	CameraMargin    Fix
 
 	// The scripted opponent (ai.go).
-	AITiers             [aiTierCount]AITier
+	// AIReaction is how long the AI takes to notice something, AIBlockPercent
+	// how often it blocks what it noticed, and AIRandomPercent how often it
+	// throws the rule list away.
+	AIReaction          int32
+	AIBlockPercent      int32
+	AIRandomPercent     int32
 	AIDecisionFrames    int32
 	AICloseRange        Fix
 	AIMidRange          Fix
@@ -86,15 +91,6 @@ type Balance struct {
 	SuperDealtPercent int32
 	SuperTakenPercent int32
 	SuperOnSpecial    int32
-}
-
-// AITier is one difficulty: how long the AI takes to notice something, how
-// often it blocks what it noticed, and how often it throws the rule list away
-// and does something else.
-type AITier struct {
-	Reaction      int32
-	BlockPercent  int32
-	RandomPercent int32
 }
 
 // The loaded balance.

@@ -9,7 +9,7 @@ declare global {
     advance(p1: number, p2: number): void
     rewind(frame: number): boolean
     eventsAt(frame: number): number
-    reset(training?: boolean, ai?: number, c0?: number, c1?: number): void
+    reset(training?: boolean, ai?: boolean, c0?: number, c1?: number): void
     checksum(): number
     dataVersion(): number
     numCharacters(): number
@@ -192,11 +192,6 @@ export function eventsAt(frame: number): [number, number] {
   return [packed & 0xffff, (packed >>> 16) & 0xffff]
 }
 
-/** Difficulty tiers for the scripted opponent, mirroring sim/ai.go. */
-export const AI_TIERS = ['off', 'easy', 'normal', 'hard'] as const
-
-export type AITier = (typeof AI_TIERS)[number]
-
 /**
  * Everything about a match that is chosen before frame 0 and cannot be read
  * back out of its input log: which characters, which mode, whether seat 2 is
@@ -204,12 +199,12 @@ export type AITier = (typeof AI_TIERS)[number]
  */
 export interface Setup {
   training: boolean
-  ai: number
+  ai: boolean
   chars: [number, number]
 }
 
 /** Starts a fresh match. */
-export function reset(training = false, ai = 0, chars: [number, number] = [0, 0]): void {
+export function reset(training = false, ai = false, chars: [number, number] = [0, 0]): void {
   sim.reset(training, ai, chars[0], chars[1])
 }
 

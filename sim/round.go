@@ -154,7 +154,7 @@ func (s *GameState) startRound() {
 	fresh := NewMatch(s.Players[0].Char, s.Players[1].Char)
 	for i := range s.Players {
 		super := s.Players[i].Super
-		// The AI tier is match setup, like the character it is playing — not
+		// The AI seat is match setup, like the character it is playing — not
 		// round state.
 		ai := s.Players[i].AI
 		s.Players[i] = fresh.Players[i]

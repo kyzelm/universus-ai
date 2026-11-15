@@ -20,7 +20,7 @@ export function encodeLog(
   for (let i = 0; i < MAGIC.length; i++) v.setUint8(i, MAGIC.charCodeAt(i))
   v.setUint8(4, VERSION)
   v.setUint8(5, setup.training ? 1 : 0)
-  v.setUint8(6, setup.ai)
+  v.setUint8(6, setup.ai ? 1 : 0)
   v.setUint8(7, setup.chars[0])
   v.setUint8(8, setup.chars[1])
   // Bytes 9-11 stay zero: reserved, and the reader checks the header's size.

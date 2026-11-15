@@ -23,22 +23,19 @@ test('picks a mode and a pair and hands over a setup', async () => {
   const grapplers = screen.getAllByRole('button', {name: 'Grappler'})
   expect(grapplers).toHaveLength(2)
   await user.click(grapplers[1]) // the opponent
-  await user.click(screen.getByText('hard'))
   await user.click(screen.getByText('fight'))
 
-  expect(got).toEqual({mode: 'ai', ai: 3, chars: [0, 1]})
+  expect(got).toEqual({mode: 'ai', ai: true, chars: [0, 1]})
 })
 
-// The difficulty row belongs to one mode, and a tier carried out of a local
-// match would be an AI nobody asked for in seat 2.
-test('the difficulty is only offered, and only sent, for an AI match', async () => {
+// An AI carried out of a local match would be one nobody asked for in seat 2.
+test('the AI is only sent for an AI match', async () => {
   const user = userEvent.setup()
   let got: RunSetup | null = null
   render(<Menu roster={ROSTER} onStart={(s) => (got = s)} />)
 
   await user.click(screen.getByText('local versus'))
-  expect(screen.queryByText('hard')).toBeNull()
   await user.click(screen.getByText('fight'))
 
-  expect(got).toEqual({mode: 'local', ai: 0, chars: [0, 0]})
+  expect(got).toEqual({mode: 'local', ai: false, chars: [0, 0]})
 })

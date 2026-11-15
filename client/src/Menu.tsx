@@ -1,5 +1,4 @@
 import {useState} from 'react'
-import {AI_TIERS} from './sim/wasm'
 import {MODES, type Mode, type RunSetup} from './setup'
 
 const MODE_LABELS: Record<Mode, string> = {
@@ -24,7 +23,6 @@ export interface MenuProps {
 /** Title, then a character select. */
 export default function Menu({roster, onStart}: MenuProps) {
   const [mode, setMode] = useState<Mode | null>(null)
-  const [ai, setAI] = useState(AI_TIERS.indexOf('normal'))
   const [chars, setChars] = useState<[number, number]>([0, 0])
 
   if (mode === null) {
@@ -77,26 +75,11 @@ export default function Menu({roster, onStart}: MenuProps) {
         ))}
       </div>
 
-      {mode === 'ai' && (
-        <div className="row">
-          {AI_TIERS.slice(1).map((name, i) => (
-            <button
-              key={name}
-              type="button"
-              className={ai === i + 1 ? 'on' : ''}
-              onClick={() => setAI(i + 1)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="row">
         <button type="button" onClick={() => setMode(null)}>
           back
         </button>
-        <button type="button" onClick={() => onStart({mode, ai: mode === 'ai' ? ai : 0, chars})}>
+        <button type="button" onClick={() => onStart({mode, ai: mode === 'ai', chars})}>
           fight
         </button>
       </div>

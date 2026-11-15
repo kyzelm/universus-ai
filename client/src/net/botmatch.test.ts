@@ -64,7 +64,7 @@ async function client(seed: number, corruptAt = -1): Promise<End> {
     rewind: (f) => Boolean(api.rewind(f)),
     checksum: () => api.checksum(),
     dataVersion: () => api.dataVersion(),
-    press: (seat) => api.aiPress(seat, 3, seed),
+    press: (seat) => api.aiPress(seat, seed),
     frame: () => api.frame(),
     dump: () => api.dump() as unknown as string,
   }

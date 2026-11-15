@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'react'
 import {createBot} from './game/bot'
 import {DUMMY_MODES} from './game/dummy'
-import {AI_TIERS, loadSim, roster as loadRoster} from './sim/wasm'
+import {loadSim, roster as loadRoster} from './sim/wasm'
 import {startGame, type Game} from './game/game'
 import Menu from './Menu'
 import {setupFromURL, type RunSetup} from './setup'
@@ -92,7 +92,7 @@ export default function App() {
     }
   }, [])
 
-  const ai = setup?.ai ?? 0
+  const ai = setup?.ai ?? false
 
   // The panel under the game: Esc shows and hides it over the canvas.
   const [panel, setPanel] = useState(false)
@@ -181,7 +181,7 @@ export default function App() {
         <main>
           <div className="bar">
             <span className="keys">
-              P1 <b>WASD</b> · P2 <b>{ai ? AI_TIERS[ai] : 'arrows'}</b>
+              P1 <b>WASD</b> · P2 <b>{ai ? 'AI' : 'arrows'}</b>
               {game?.training && ' · training: R resets · 0-7 dummy (6 record, 7 play)'}
             </span>
             {/* Back to the title. */}

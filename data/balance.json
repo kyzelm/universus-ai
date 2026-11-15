@@ -70,10 +70,8 @@
     "throwPercent": 25,
     "projectilePercent": 55,
     "reversalPercent": 30,
-    "tiers": [
-      {"name": "easy", "reaction": 25, "blockPercent": 40, "randomPercent": 40},
-      {"name": "normal", "reaction": 16, "blockPercent": 70, "randomPercent": 20},
-      {"name": "hard", "reaction": 10, "blockPercent": 90, "randomPercent": 8}
-    ]
+    "reaction": 16,
+    "blockPercent": 70,
+    "randomPercent": 20
   }
 }
