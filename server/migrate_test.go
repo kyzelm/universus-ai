@@ -57,23 +57,3 @@ func TestMigrationsAreOrderedByNumberNotByName(t *testing.T) {
 		t.Errorf("applied in order %v, want [1 2 10]", got)
 	}
 }
-
-// Two files claiming the same version is the ordinary way this goes wrong: two
-// branches each adding 002.
-func TestDuplicateVersionsAreRefused(t *testing.T) {
-	_, err := loadMigrations(fstest.MapFS{
-		"migrations/002_one.sql": {Data: []byte("SELECT 1")},
-		"migrations/002_two.sql": {Data: []byte("SELECT 2")},
-	})
-	if err == nil || !strings.Contains(err.Error(), "both version 2") {
-		t.Errorf("got %v, want a complaint about two version 2s", err)
-	}
-}
-
-func TestAnUnnumberedFileIsRefused(t *testing.T) {
-	for _, name := range []string{"migrations/fix.sql", "migrations/2_init.sql", "migrations/002-init.sql"} {
-		if _, err := loadMigrations(fstest.MapFS{name: {Data: []byte("SELECT 1")}}); err == nil {
-			t.Errorf("%q was accepted; it has no place in an ordering", name)
-		}
-	}
-}

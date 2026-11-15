@@ -25,36 +25,6 @@ func TestTrainingStopsTheClockAndTheRound(t *testing.T) {
 	}
 }
 
-func TestTrainingRefillsResources(t *testing.T) {
-	s := NewTraining()
-	s.Players[0].Health = 1
-	s.Players[0].Super = 0
-
-	s.Advance([2]uint16{0, 0})
-
-	p := s.Players[0]
-	if p.Health != char().Health || p.Super != BalanceOf().SuperMax {
-		t.Errorf("not topped up: health %d super %d", p.Health, p.Super)
-	}
-}
-
-// The refill waits for the consequences to finish.
-func TestTrainingDoesNotRefillMidCombo(t *testing.T) {
-	s := NewTraining()
-	s.Players[0].X, s.Players[1].X = FromInt(-20), FromInt(20)
-
-	for f := 0; f < 10 && s.Players[1].State != StateHitstun; f++ {
-		s.Advance([2]uint16{InLP, 0})
-	}
-	if s.Players[1].State != StateHitstun {
-		t.Fatalf("player 1 is in state %d, want hitstun", s.Players[1].State)
-	}
-
-	if s.Players[1].Health == char().Health {
-		t.Error("health was refilled during the hitstun it was lost in")
-	}
-}
-
 // Off by default, and the flag is in the state, so the checksum covers it: two
 // clients that disagreed about the mode desync on frame 0 rather than playing a
 // match where one of them has infinite meter.

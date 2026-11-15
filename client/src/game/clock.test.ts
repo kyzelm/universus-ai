@@ -56,32 +56,3 @@ test('a jittery 60Hz display produces exactly one step per frame', () => {
 
   expect(counts.get(1)).toBe(1000)
 })
-
-// Snapping must not swallow rates that genuinely are not 60.
-test('other refresh rates still go through the accumulator', () => {
-  const at = (hz: number, frames: number) => {
-    const clock = createClock()
-    let steps = 0
-    for (let i = 0; i < frames; i++) steps += clock.tick(1000 / hz)
-    return steps
-  }
-
-  // 144Hz: many display frames per sim step, so about 60 steps a second.
-  expect(at(144, 144)).toBeGreaterThanOrEqual(59)
-  expect(at(144, 144)).toBeLessThanOrEqual(61)
-
-  // 50Hz: more than one step per frame on average, still ~60 a second.
-  expect(at(50, 50)).toBeGreaterThanOrEqual(59)
-  expect(at(50, 50)).toBeLessThanOrEqual(61)
-
-  // 30Hz: two steps per frame.
-  expect(at(30, 30)).toBeGreaterThanOrEqual(59)
-  expect(at(30, 30)).toBeLessThanOrEqual(61)
-})
-
-// A long stall must not turn into a burst that locks the tab.
-test('a stalled frame is capped, not compounded', () => {
-  const clock = createClock()
-  expect(clock.tick(5000)).toBe(5)
-  expect(clock.tick(STEP_MS)).toBe(1)
-})

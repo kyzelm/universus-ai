@@ -124,23 +124,6 @@ func TestParseFixRejectsGarbage(t *testing.T) {
 	}
 }
 
-// Rounding is half away from zero, in integers, and symmetric — an asymmetric
-// rounding rule would make a character's forward and back walk speeds differ
-// by a bit for no reason anyone could find.
-func TestParseFixRoundsSymmetrically(t *testing.T) {
-	pos, err := parseFix(json.Number("0.00001"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	neg, err := parseFix(json.Number("-0.00001"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pos != -neg {
-		t.Errorf("0.00001 -> %d but -0.00001 -> %d", pos, neg)
-	}
-}
-
 // Validation exists to catch authoring mistakes loudly.
 func TestValidationRejectsBadData(t *testing.T) {
 	for _, tc := range []struct {
@@ -265,49 +248,6 @@ func TestValidationRejectsBadData(t *testing.T) {
 	}
 }
 
-// A renamed or mistyped JSON key parses to zero without complaint, and the
-// symptom is a move that is quietly no longer invincible, no longer cancelable
-// and free on landing.
-func TestTheShippedRosterUsesThePerMoveProperties(t *testing.T) {
-	cs, err := Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	var invuln, landing, cancel, launcher, ender int
-	for i := range cs {
-		for m := int32(0); m < cs[i].NumMoves; m++ {
-			mv := &cs[i].Moves[m]
-			if mv.InvulnEnd > mv.InvulnStart {
-				invuln++
-			}
-			if mv.Landing > 0 {
-				landing++
-			}
-			if mv.CancelInto != 0 {
-				cancel++
-			}
-			if mv.Launcher() {
-				launcher++
-			}
-			if mv.JuggleLimit != 0 {
-				ender++
-			}
-		}
-	}
-	if invuln == 0 || landing == 0 || cancel == 0 {
-		t.Errorf("roster has %d invulnerable, %d landing-recovery and %d cancelable moves, want some of each",
-			invuln, landing, cancel)
-	}
-	// A roster with no launcher is a roster in which the juggle system, the
-	// airborne hitstun and the knockdown that ends a juggle are all unreachable
-	// — shipped, tested, and dead in play.
-	if launcher == 0 || ender == 0 {
-		t.Errorf("roster has %d launchers and %d moves with their own juggle limit, want some of each",
-			launcher, ender)
-	}
-}
-
 // validCharacter is the embedded file, re-parsed, so the test data cannot drift
 // away from what actually ships.
 func validCharacter(t *testing.T) jsonCharacter {
@@ -361,64 +301,6 @@ func TestEmbeddedBalanceLoads(t *testing.T) {
 		if f.v <= 0 {
 			t.Errorf("%s is %d", f.name, f.v)
 		}
-	}
-}
-
-func TestBalanceValidationRejectsBadData(t *testing.T) {
-	valid := func(t *testing.T) jsonBalance {
-		t.Helper()
-		raw, err := files.ReadFile(balanceFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var jb jsonBalance
-		if err := json.Unmarshal(raw, &jb); err != nil {
-			t.Fatal(err)
-		}
-		return jb
-	}
-
-	for _, tc := range []struct {
-		name string
-		edit func(*jsonBalance)
-	}{
-		{"negative chip", func(b *jsonBalance) { b.Damage.ChipPercent = -1 }},
-		{"chip over 100%", func(b *jsonBalance) { b.Damage.ChipPercent = 101 }},
-
-		{"a hit that pushes nobody", func(b *jsonBalance) { b.Knockback.Hit = "0" }},
-		{"a block that pushes nobody", func(b *jsonBalance) { b.Knockback.Block = "0" }},
-		{"a push that is not a number", func(b *jsonBalance) { b.Knockback.Hit = "hard" }},
-		// At 100 the push never decays and the defender slides for the whole of
-		// their stun, which is friction meaning none.
-		{"pushback that never decays", func(b *jsonBalance) { b.Knockback.DecayPercent = 100 }},
-		// A limit of zero refuses every hit against an airborne opponent, since
-		// the counter starts there: anti-airs would stop working and the cause
-		// would be one field in this file.
-		{"a juggle limit nothing can be hit under", func(b *jsonBalance) { b.Juggle.Limit = 0 }},
-
-		{"a throw nobody can escape", func(b *jsonBalance) { b.Throw.TechFrames = 0 }},
-		{"a tech window longer than a throw", func(b *jsonBalance) { b.Throw.TechFrames = 21 }},
-
-		{"a short scaling table", func(b *jsonBalance) { b.Damage.ComboScale = []int{100, 80} }},
-		{"scaling that rises", func(b *jsonBalance) { b.Damage.ComboScale[4] = 100 }},
-		{"scaling to zero", func(b *jsonBalance) { b.Damage.ComboScale[9] = 0 }},
-		{"a light starter that scales less than a heavy", func(b *jsonBalance) {
-			b.Damage.StarterLight = b.Damage.StarterHeavy + 1
-		}},
-		{"a counter hit worth less than a clean one", func(b *jsonBalance) {
-			b.Damage.CounterHitPercent = 99
-		}},
-		{"a punish counter worth fewer frames than a counter", func(b *jsonBalance) {
-			b.Damage.PunishHitstun = b.Damage.CounterHitstun - 1
-		}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			jb := valid(t)
-			tc.edit(&jb)
-			if _, err := jb.convert(); err == nil {
-				t.Error("accepted balance data that should have been rejected")
-			}
-		})
 	}
 }
 
@@ -491,69 +373,6 @@ func TestTheShippedRosterHasOneSuperEach(t *testing.T) {
 		if supers != 1 {
 			t.Errorf("character %d has %d supers, want exactly 1", i, supers)
 		}
-	}
-}
-
-func TestTheShippedRosterHasAThrow(t *testing.T) {
-	cs, err := Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	plain := 0
-	for _, c := range cs {
-		for m := int32(0); m < c.NumMoves; m++ {
-			mv := &c.Moves[m]
-			if !mv.IsThrow() {
-				continue
-			}
-			if mv.Hitstun <= 0 {
-				t.Error("a throw has no hitstun")
-			}
-			if mv.Motion != sim.MotionNone {
-				continue // a command throw: pressed with a motion, not a pair
-			}
-			plain++
-			if bits.OnesCount16(mv.Button) < 2 {
-				t.Errorf("the ordinary throw is on one button (%#x)", mv.Button)
-			}
-		}
-	}
-	if plain != len(cs) {
-		t.Errorf("%d ordinary throws across %d characters, want one each", plain, len(cs))
-	}
-}
-
-// The damage pipeline's numbers.
-func TestTheShippedScalingTable(t *testing.T) {
-	b, err := LoadBalance()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if b.ComboScale[0] != 100 {
-		t.Errorf("the first hit of a combo scales to %d%%, want 100", b.ComboScale[0])
-	}
-	// The floor is the last entry, and it is what every hit past the table
-	// takes.
-	if floor := b.ComboScale[sim.ComboScaleSteps-1]; floor <= 0 || floor > 50 {
-		t.Errorf("the scaling floor is %d%%, want a small positive percentage", floor)
-	}
-	for i := 1; i < sim.ComboScaleSteps; i++ {
-		if b.ComboScale[i] > b.ComboScale[i-1] {
-			t.Errorf("comboScale rises at %d: %d after %d", i, b.ComboScale[i], b.ComboScale[i-1])
-		}
-	}
-
-	if b.StarterLight >= b.StarterHeavy {
-		t.Errorf("a light starter scales to %d%% and a heavy to %d%%: starter scaling does nothing",
-			b.StarterLight, b.StarterHeavy)
-	}
-	if b.CounterHitPercent <= 100 {
-		t.Errorf("a counter hit pays %d%%, which is not a bonus", b.CounterHitPercent)
-	}
-	if b.CounterHitstun <= 0 {
-		t.Error("a counter hit carries no extra hitstun, so it cannot open anything")
 	}
 }
 

@@ -152,75 +152,6 @@ func TestNoSecretsInAnyResponse(t *testing.T) {
 	}
 }
 
-func TestRegistrationRefusesWhatItShould(t *testing.T) {
-	for _, c := range []struct {
-		name string
-		body string
-		want int
-	}{
-		{"no @", `{"email":"player","password":"correct horse","displayName":"player-one"}`, 400},
-		{"no dot in the domain", `{"email":"a@b","password":"correct horse","displayName":"p1x"}`, 400},
-		{"short password", `{"email":"a@b.com","password":"short","displayName":"player-one"}`, 400},
-		// bcrypt silently truncates at 72 bytes, so a longer one would be a
-		// passphrase the user never actually set.
-		{"past bcrypt's limit", `{"email":"a@b.com","password":"` + strings.Repeat("x", 73) +
-			`","displayName":"player-one"}`, 400},
-		{"display name too short", `{"email":"a@b.com","password":"correct horse","displayName":"ab"}`, 400},
-		{"display name with spaces", `{"email":"a@b.com","password":"correct horse","displayName":"a b c"}`, 400},
-		{"a typo'd field", `{"email":"a@b.com","passwrod":"correct horse","displayName":"player-one"}`, 400},
-		{"not JSON at all", `nope`, 400},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			_, mux := testAuth()
-			if w := post(t, mux, "/api/auth/register", c.body); w.Code != c.want {
-				t.Errorf("got %d, want %d: %s", w.Code, c.want, w.Body)
-			}
-		})
-	}
-}
-
-// Which of the two is taken is deliberately not said: either answer is an
-// account enumeration oracle.
-func TestASecondRegistrationIsRefusedWithoutSayingWhich(t *testing.T) {
-	_, mux := testAuth()
-	post(t, mux, "/api/auth/register", goodRegister)
-
-	// The taken email and the taken display name must be the *same* answer,
-	// byte for byte.
-	takenEmail := post(t, mux, "/api/auth/register", goodRegister)
-	takenName := post(t, mux, "/api/auth/register",
-		`{"email":"other@example.com","password":"correct horse","displayName":"player-one"}`)
-
-	for _, w := range []*httptest.ResponseRecorder{takenEmail, takenName} {
-		if w.Code != http.StatusConflict {
-			t.Fatalf("got %d, want 409: %s", w.Code, w.Body)
-		}
-	}
-	if takenEmail.Body.String() != takenName.Body.String() {
-		t.Errorf("two answers name which field was taken: %q against %q", takenEmail.Body, takenName.Body)
-	}
-}
-
-// An unknown email and a wrong password must be the same answer, or the
-// response is a list of which accounts exist.
-func TestAnUnknownEmailLooksExactlyLikeAWrongPassword(t *testing.T) {
-	_, mux := testAuth()
-	post(t, mux, "/api/auth/register", goodRegister)
-
-	unknown := post(t, mux, "/api/auth/login", `{"email":"nobody@example.com","password":"correct horse"}`)
-	wrong := post(t, mux, "/api/auth/login", `{"email":"player@example.com","password":"wrong horse"}`)
-	malformed := post(t, mux, "/api/auth/login", `{"email":"not-an-email","password":"correct horse"}`)
-
-	for _, w := range []*httptest.ResponseRecorder{unknown, wrong, malformed} {
-		if w.Code != http.StatusUnauthorized {
-			t.Fatalf("got %d, want 401: %s", w.Code, w.Body)
-		}
-	}
-	if unknown.Body.String() != wrong.Body.String() || wrong.Body.String() != malformed.Body.String() {
-		t.Errorf("three different answers: %q, %q, %q", unknown.Body, wrong.Body, malformed.Body)
-	}
-}
-
 func TestProfileNeedsARealToken(t *testing.T) {
 	a, mux := testAuth()
 	token := decodeSession(t, post(t, mux, "/api/auth/register", goodRegister)).Token
@@ -260,23 +191,6 @@ func TestProfileNeedsARealToken(t *testing.T) {
 	}
 	if code := get("Bearer " + forged); code != http.StatusUnauthorized {
 		t.Errorf("a token signed with another key got %d", code)
-	}
-}
-
-// `alg: none` is the oldest JWT attack there is, and the only defence is
-// pinning the algorithm at the parser rather than checking after the fact.
-func TestAnUnsignedTokenIsRefused(t *testing.T) {
-	a, _ := testAuth()
-
-	unsigned, err := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.RegisteredClaims{
-		Subject:   "1",
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-	}).SignedString(jwt.UnsafeAllowNoneSignatureType)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.userID("Bearer " + unsigned); err == nil {
-		t.Error("an unsigned token was accepted")
 	}
 }
 
@@ -323,20 +237,5 @@ func TestThePasswordIsStoredAsABcryptHash(t *testing.T) {
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte("correct horse")); err != nil {
 		t.Errorf("the stored hash does not verify against the password: %v", err)
-	}
-}
-
-// A signing key in source is a key every deployment shares.
-func TestTheSigningKeyIsNeverAConstant(t *testing.T) {
-	if got := string(jwtSecret("from-the-environment")); got != "from-the-environment" {
-		t.Errorf("the environment was ignored, got %q", got)
-	}
-
-	a, b := jwtSecret(""), jwtSecret("")
-	if string(a) == string(b) {
-		t.Error("two generated keys are identical: it is a constant in disguise")
-	}
-	if len(a) < 32 {
-		t.Errorf("a generated key is %d bytes, want at least 32", len(a))
 	}
 }

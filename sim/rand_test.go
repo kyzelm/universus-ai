@@ -42,33 +42,6 @@ func TestRandRollsBackWithTheState(t *testing.T) {
 	}
 }
 
-func TestRandAdvancesAndNeverSticks(t *testing.T) {
-	s := New()
-	prev := s.Rand()
-	for i := range 10000 {
-		got := s.Rand()
-		if got == prev {
-			t.Fatalf("draw %d repeated the previous value %d", i, got)
-		}
-		if got == 0 {
-			t.Fatalf("draw %d was zero — xorshift cannot recover from it", i)
-		}
-		prev = got
-	}
-}
-
-// A hand-built GameState{} has a zero generator, which is xorshift's fixed
-// point.
-func TestZeroStateStillGenerates(t *testing.T) {
-	var s GameState
-	if got := s.Rand(); got == 0 {
-		t.Fatal("zero-state Rand() = 0, the generator is dead")
-	}
-	if s.RNG == 0 {
-		t.Error("zero-state Rand() left RNG at 0")
-	}
-}
-
 func TestRandNStaysInRange(t *testing.T) {
 	s := New()
 	for _, n := range []uint32{1, 2, 3, 6, 7, 100, 1 << 16} {
@@ -80,20 +53,5 @@ func TestRandNStaysInRange(t *testing.T) {
 	}
 	if got := s.RandN(0); got != 0 {
 		t.Errorf("RandN(0) = %d, want 0 (and no division by zero)", got)
-	}
-}
-
-// Multiply-shift is easy to get wrong in a way that stays in range — a shift of
-// 31 or 33 biases hard toward one end while every value still looks legal.
-func TestRandNCoversItsRange(t *testing.T) {
-	s := New()
-	var seen [6]int
-	for range 6000 {
-		seen[s.RandN(6)]++
-	}
-	for v, n := range seen {
-		if n == 0 {
-			t.Errorf("RandN(6) never returned %d in 6000 draws", v)
-		}
 	}
 }

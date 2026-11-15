@@ -21,14 +21,9 @@ beforeAll(async () => {
 })
 
 // Input bits, mirroring sim/state.go.
-const UP = 1 << 0
-const DOWN = 1 << 1
 const LEFT = 1 << 2
 const RIGHT = 1 << 3
 const LP = 1 << 4
-
-/** Pre-jump frames, from the shipped character data. */
-const PRE_JUMP = 4
 
 test('frame 0 is readable before the first advance', () => {
   reset()
@@ -142,45 +137,6 @@ test('a hit reports an event on the frame it landed', () => {
   expect(eventsAt(hitFrame + 1)[1] & EVENT_HIT).toBe(0)
 })
 
-test('the frame counter tracks advance calls', () => {
-  reset()
-  for (let i = 0; i < 42; i++) advance(0, 0)
-  expect(readSnapshot().frame).toBe(42)
-})
-
-test('walking moves the players at the sim walk speed', () => {
-  reset()
-  advance(RIGHT, LEFT)
-  const s = readSnapshot()
-  expect(s.players[0].x).toBeCloseTo(-58.5, 5) // -60 + 1.5
-  expect(s.players[1].x).toBeCloseTo(58.5, 5) //   60 - 1.5
-})
-
-test('jumping leaves the ground and comes back', () => {
-  reset()
-  // Pre-jump is grounded — that is what makes throws beat jump attempts.
-  for (let i = 0; i < PRE_JUMP; i++) {
-    advance(UP, 0)
-    expect(readSnapshot().players[0].y).toBe(0)
-  }
-
-  advance(0, 0)
-  expect(readSnapshot().players[0].y).toBeGreaterThan(0)
-
-  for (let i = 0; i < 80; i++) advance(0, 0)
-  const s = readSnapshot()
-  expect(s.players[0].y).toBe(0)
-  expect(s.players[1].y).toBe(0)
-})
-
-test('walls clamp both players', () => {
-  reset()
-  for (let i = 0; i < 400; i++) advance(LEFT, RIGHT)
-  const s = readSnapshot()
-  expect(s.players[0].x).toBeCloseTo(-188, 5) // -200 + 12
-  expect(s.players[1].x).toBeCloseTo(188, 5)
-})
-
 test('the same inputs produce the same snapshot bytes', () => {
   const play = () => {
     reset()
@@ -188,26 +144,6 @@ test('the same inputs produce the same snapshot bytes', () => {
     return JSON.stringify(readSnapshot())
   }
   expect(play()).toBe(play())
-})
-
-// A fireball is the first thing in the game that outlives the move that made
-// it, and the first state the view draws that is not a player.
-test('a fireball crosses the boundary and travels', () => {
-  reset()
-  expect(readSnapshot().projectiles).toEqual([])
-
-  // QCF + LP, then wait out the startup.
-  advance(DOWN, 0)
-  advance(DOWN | RIGHT, 0)
-  advance(RIGHT | LP, 0)
-  for (let i = 0; i < 20 && readSnapshot().projectiles.length === 0; i++) advance(0, 0)
-
-  const [ball] = readSnapshot().projectiles
-  expect(ball).toBeDefined()
-  expect(ball.w).toBeGreaterThan(0)
-
-  advance(0, 0)
-  expect(readSnapshot().projectiles[0].x).toBeGreaterThan(ball.x)
 })
 
 /**

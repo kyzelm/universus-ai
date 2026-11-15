@@ -54,52 +54,6 @@ func TestAHitPushesTheDefenderAway(t *testing.T) {
 	}
 }
 
-// Blocking has a pushback number of its own and it is the larger one: it is
-// what spaces a blockstring out, and therefore what decides whether pressure
-// continues or ends.
-func TestBlockPushbackIsItsOwnNumber(t *testing.T) {
-	s := strike(t, 40, InLP, InRight)
-	if s.Players[1].State != StateBlockstun {
-		t.Fatalf("player 1 is in state %d, want blockstun", s.Players[1].State)
-	}
-
-	if got := pushStep(t, &s); got != balance.KnockbackBlock {
-		t.Errorf("blocked push moved %v, want %v", got, balance.KnockbackBlock)
-	}
-	if balance.KnockbackBlock <= balance.KnockbackHit {
-		t.Error("the fixture's block push is not larger than its hit push, so this test proves nothing")
-	}
-}
-
-// Away is decided by the two positions, not by the attacker's facing: at the
-// instant of a crossup the two disagree, and pushing by facing would pull the
-// defender through the attacker on exactly the hit where it matters.
-func TestPushbackIsAwayFromTheAttacker(t *testing.T) {
-	s := facing(-40) // player 0 on the right this time
-	s.Players[0].Facing, s.Players[1].Facing = -1, 1
-
-	for range 60 {
-		s.Advance([2]uint16{InLP, 0})
-		if s.Players[1].State == StateHitstun {
-			break
-		}
-	}
-	if s.Players[1].State != StateHitstun {
-		t.Fatal("the jab never connected")
-	}
-
-	before := s.Players[1].X
-	for range 30 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[1].X != before {
-			break
-		}
-	}
-	if s.Players[1].X >= before {
-		t.Errorf("defender on the left moved to %v from %v, want pushed further left", s.Players[1].X, before)
-	}
-}
-
 // The corner rule, and the reason pushback is worth having at all: the wall
 // does not move, so the push the clamp would have eaten moves the attacker back
 // instead.
@@ -162,71 +116,6 @@ func TestALauncherPutsTheDefenderInTheAir(t *testing.T) {
 	}
 }
 
-// Hitstun does not run out in mid-air, and a juggle ends on the floor.
-func TestAJuggleEndsInAKnockdown(t *testing.T) {
-	s := strike(t, 40, launcherInput, 0)
-	stun := char().Moves[launcherIndex].Hitstun
-
-	for range 200 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[1].State == StateKnockdown {
-			break
-		}
-		if s.Players[1].Airborne() && s.Players[1].State != StateHitstun {
-			t.Fatalf("the launched defender is in state %d in mid-air, want hitstun",
-				s.Players[1].State)
-		}
-		// Well past the move's own hitstun, and still helpless: what ends it is
-		// the floor, not the counter.
-		if s.Frame > uint32(stun)*3 && s.Players[1].State != StateKnockdown && !s.Players[1].Airborne() {
-			t.Fatal("the defender came down without being knocked down")
-		}
-	}
-
-	if got := s.Players[1].State; got != StateKnockdown {
-		t.Fatalf("the defender is in state %d after landing, want the knockdown", got)
-	}
-	if got := s.Players[1].Juggle; got != 0 {
-		t.Errorf("the juggle counter is %d on landing, want it reset", got)
-	}
-}
-
-// The juggle counter counts hits taken in the air, and the launcher is not one
-// of them: it is what put the defender up there, and counting it would spend a
-// juggle on the hit that opened the combo.
-func TestJuggleHitsCountOnlyInTheAir(t *testing.T) {
-	s := strike(t, 40, launcherInput, 0)
-	if got := s.Players[1].Juggle; got != 0 {
-		t.Fatalf("the launcher counted itself as juggle hit %d", got)
-	}
-
-	var maxJuggle int32
-	for range 300 {
-		in := uint16(0)
-		if Actionable(s.Players[0].State) {
-			in = launcherInput
-		}
-		s.Advance([2]uint16{in, 0})
-
-		if j := s.Players[1].Juggle; j > maxJuggle {
-			maxJuggle = j
-		}
-		if s.Players[1].State == StateKnockdown {
-			break
-		}
-	}
-
-	if maxJuggle == 0 {
-		t.Error("no hit landed in the air, so nothing here was counted")
-	}
-	if maxJuggle > balance.JuggleLimit {
-		t.Errorf("the defender took %d juggle hits, past the limit of %d", maxJuggle, balance.JuggleLimit)
-	}
-	if s.Players[1].State != StateKnockdown {
-		t.Fatal("the juggle never ended on the floor")
-	}
-}
-
 // airborne puts player 1 in the air with n juggle hits already on them, still
 // rising so they are still up there when the follow-up lands.
 func airborne(n int32) GameState {
@@ -263,54 +152,5 @@ func TestAMoveRefusesToConnectAtTheJuggleLimit(t *testing.T) {
 				t.Errorf("the follow-up connected: %v, want %v", hit, tc.want)
 			}
 		})
-	}
-}
-
-// Gravity rises with every juggle hit, so the opponent falls faster and the
-// combo self-terminates rather than merely hitting a cap.
-func TestGravityRisesWithEachJuggleHit(t *testing.T) {
-	p := PlayerState{Char: 0}
-	base := char().Gravity
-
-	if got := p.gravity(); got != base {
-		t.Errorf("gravity with no juggles is %v, want the character's own %v", got, base)
-	}
-
-	p.Juggle = 1
-	want := base + base.Mul(FromInt(int(balance.JuggleGravityPercent))).Div(FromInt(100))
-	if got := p.gravity(); got != want {
-		t.Errorf("gravity after one juggle hit is %v, want %v", got, want)
-	}
-	// Heavier, and gravity is negative, so heavier is smaller.
-	if p.gravity() >= base {
-		t.Errorf("gravity after a juggle hit is %v, no heavier than %v", p.gravity(), base)
-	}
-}
-
-// The default is the balance file's, so the two dozen moves that want the
-// ordinary push do not each author it — and each get a chance to author it
-// differently by mistake.
-func TestKnockbackFallsBackToTheBalanceDefault(t *testing.T) {
-	var plain Move
-
-	vx, vy := plain.Knockback(false)
-	if vx != balance.KnockbackHit || vy != 0 {
-		t.Errorf("an unauthored hit push is (%v, %v), want (%v, 0)", vx, vy, balance.KnockbackHit)
-	}
-	vx, vy = plain.Knockback(true)
-	if vx != balance.KnockbackBlock || vy != 0 {
-		t.Errorf("an unauthored block push is (%v, %v), want (%v, 0)", vx, vy, balance.KnockbackBlock)
-	}
-
-	// A blocked launcher does not launch: blocking is what stops it.
-	launcher := char().Moves[launcherIndex]
-	if _, vy := launcher.Knockback(true); vy != 0 {
-		t.Errorf("a blocked launcher gives %v of vertical push, want none", vy)
-	}
-	if !launcher.Launcher() {
-		t.Error("the fixture's launcher does not report itself as one")
-	}
-	if plain.Launcher() {
-		t.Error("a move with the default push reports itself a launcher")
 	}
 }

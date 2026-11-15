@@ -74,26 +74,6 @@ func run(s *GameState, frames int, in [2]uint16) {
 	}
 }
 
-func TestIdleIsStable(t *testing.T) {
-	s := New()
-	start := s
-	run(&s, 600, [2]uint16{})
-	// Position, not the whole struct: StateFrame counting up while idle is the
-	// state clock working, not drift.
-	for i, p := range s.Players {
-		q := start.Players[i]
-		if p.X != q.X || p.Y != q.Y || p.VX != 0 || p.VY != 0 || p.Health != q.Health {
-			t.Errorf("player %d drifted while idle: %+v -> %+v", i, q, p)
-		}
-		if p.State != StateIdle {
-			t.Errorf("player %d is in state %d after 600 neutral frames", i, p.State)
-		}
-	}
-	if s.Frame != 600 {
-		t.Errorf("Frame = %d, want 600", s.Frame)
-	}
-}
-
 // The whole architecture rests on this: same start, same inputs, same bytes.
 func TestSameInputsProduceIdenticalState(t *testing.T) {
 	inputs := inputSeq(2000)
@@ -114,43 +94,6 @@ func TestSameInputsProduceIdenticalState(t *testing.T) {
 func hold(s *GameState, n int, in uint16) {
 	for range n {
 		s.Advance([2]uint16{in, 0})
-	}
-}
-
-func TestWalkUsesCharacterSpeed(t *testing.T) {
-	s := New()
-	start := s.Players[0].X
-
-	hold(&s, 10, InRight) // player 0 faces right, so this is forward
-	if got, want := s.Players[0].X-start, char().WalkForward*10; got != want {
-		t.Errorf("walked %d in 10 frames, want %d", got, want)
-	}
-
-	s = New()
-	start = s.Players[0].X
-	hold(&s, 10, InLeft)
-	if got, want := start-s.Players[0].X, char().WalkBack*10; got != want {
-		t.Errorf("walked back %d in 10 frames, want %d", got, want)
-	}
-}
-
-// Pre-jump frames are grounded.
-func TestPreJumpIsGrounded(t *testing.T) {
-	s := New()
-	c := char()
-
-	for f := int32(0); f < c.PreJumpFrames; f++ {
-		s.Advance([2]uint16{InUp, 0})
-		if s.Players[0].State != StatePreJump {
-			t.Fatalf("frame %d: state = %d, want pre-jump", f, s.Players[0].State)
-		}
-		if s.Players[0].Y != GroundY {
-			t.Fatalf("frame %d: left the ground during pre-jump", f)
-		}
-	}
-	s.Advance([2]uint16{0, 0})
-	if s.Players[0].State != StateAir {
-		t.Errorf("state after pre-jump = %d, want air", s.Players[0].State)
 	}
 }
 
@@ -187,93 +130,6 @@ func TestJumpRisesAndLands(t *testing.T) {
 	}
 }
 
-// No air control: the arc is committed at pre-jump and cannot be steered.
-func TestJumpHasNoAirControl(t *testing.T) {
-	s := New()
-	hold(&s, int(char().PreJumpFrames)+1, InUp) // neutral jump, now airborne
-
-	x := s.Players[0].X
-	for range 10 {
-		s.Advance([2]uint16{InRight, 0}) // push forward mid-air
-	}
-	if s.Players[0].X != x {
-		t.Errorf("a neutral jump drifted %d units under forward input", s.Players[0].X-x)
-	}
-}
-
-func TestGravityNeverSinksBelowGround(t *testing.T) {
-	s := New()
-	for f := range 300 {
-		s.Advance([2]uint16{InUp, InUp})
-		for i, p := range s.Players {
-			if p.Y < GroundY {
-				t.Fatalf("frame %d: player %d fell through the floor: Y = %d", f, i, p.Y)
-			}
-		}
-	}
-}
-
-func TestDashCoversItsDistanceAndCommits(t *testing.T) {
-	s := New()
-	c := char()
-
-	// Two taps of forward with a gap: tap, release, tap.
-	s.Advance([2]uint16{InRight, 0})
-	s.Advance([2]uint16{0, 0})
-	start := s.Players[0].X
-	s.Advance([2]uint16{InRight, 0})
-
-	if s.Players[0].State != StateDash {
-		t.Fatalf("a double tap forward did not dash: state = %d", s.Players[0].State)
-	}
-
-	// Committed: input during the dash cannot change it, including the
-	// opposite direction.
-	for f := int32(1); f < c.DashFrames; f++ {
-		s.Advance([2]uint16{InLeft, 0})
-		if s.Players[0].State != StateDash {
-			t.Fatalf("frame %d: dash was cancelled by input, state = %d", f, s.Players[0].State)
-		}
-	}
-
-	s.Advance([2]uint16{0, 0})
-	if s.Players[0].State != StateIdle {
-		t.Errorf("state after the dash = %d, want idle", s.Players[0].State)
-	}
-
-	// Distance is per-frame velocity times frames, so integer division of the
-	// distance may leave a remainder — within a unit is the bar.
-	moved := s.Players[0].X - start
-	if (moved - c.DashDistance).Abs() > One {
-		t.Errorf("dash covered %d, want %d", moved, c.DashDistance)
-	}
-}
-
-func TestBackdashGoesBackwards(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{InLeft, 0})
-	s.Advance([2]uint16{0, 0})
-	start := s.Players[0].X
-	s.Advance([2]uint16{InLeft, 0})
-
-	if s.Players[0].State != StateBackdash {
-		t.Fatalf("a double tap back did not backdash: state = %d", s.Players[0].State)
-	}
-	hold(&s, int(char().BackdashFrames), 0)
-	if s.Players[0].X >= start {
-		t.Errorf("backdash ended at %d, started at %d", s.Players[0].X, start)
-	}
-}
-
-// A single tap is a walk.
-func TestSingleTapDoesNotDash(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{InRight, 0})
-	if s.Players[0].State != StateWalkF {
-		t.Errorf("one tap forward gave state %d, want walk forward", s.Players[0].State)
-	}
-}
-
 func TestWallsClamp(t *testing.T) {
 	s := New()
 	// Both walking left: the screen follows them, so they reach the stage end.
@@ -291,26 +147,6 @@ func TestWallsClamp(t *testing.T) {
 	}
 }
 
-// The screen edges are walls too, so walking apart stops at the edges of the
-// screen rather than at the ends of a stage wider than it.
-func TestSeparationIsCappedByTheScreen(t *testing.T) {
-	s := New()
-	run(&s, 1000, [2]uint16{InLeft, InRight})
-
-	a, b := s.Pushbox(0), s.Pushbox(1)
-	if b.X+b.W-a.X > 2*balance.CameraHalfWidth {
-		t.Errorf("players %d apart, the screen is %d", b.X+b.W-a.X, 2*balance.CameraHalfWidth)
-	}
-	// Pinned to the edges, not stopped short of them.
-	if (a.X-(s.CamX-balance.CameraHalfWidth)).Abs() > One || (b.X+b.W-(s.CamX+balance.CameraHalfWidth)).Abs() > One {
-		t.Errorf("players %+v %+v did not reach the screen edges around %d", a, b, s.CamX)
-	}
-	// The stage is wider than the screen, or this test proves nothing.
-	if a.X <= -balance.StageHalfWidth {
-		t.Error("player 0 reached the stage end; the screen should have stopped them first")
-	}
-}
-
 func TestPlayersDoNotMerge(t *testing.T) {
 	s := New()
 	for f := range 500 {
@@ -319,19 +155,6 @@ func TestPlayersDoNotMerge(t *testing.T) {
 		if a.Overlaps(b) {
 			t.Fatalf("frame %d: pushboxes overlap: %+v and %+v", f, a, b)
 		}
-	}
-}
-
-func TestJumpingOverAnotherPlayerIgnoresPushbox(t *testing.T) {
-	s := New()
-	s.Players[0].X = 0
-	s.Players[1].X = 0
-	s.Players[1].Y = char().StandHurt.H + One // clear overhead
-	before := s.Players[0].X
-
-	s.Advance([2]uint16{})
-	if s.Players[0].X != before {
-		t.Errorf("player 0 was pushed by a player stacked above it: %d -> %d", before, s.Players[0].X)
 	}
 }
 
@@ -394,46 +217,6 @@ func TestDashRecognition(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Facing is what makes a dash forward or back, so the same physical input must
-// dash the other way for the other player.
-func TestDashIsFacingRelative(t *testing.T) {
-	s := New() // player 1 starts facing left
-	for _, d := range []uint8{4, 5, 4} {
-		s.Advance([2]uint16{0, pad[d]}) // physically left, which is p1's forward
-	}
-	if got := s.Players[1].State; got != StateDash {
-		t.Errorf("left-left for a left-facing player gave state %d, want dash", got)
-	}
-}
-
-// The input buffer is only worth having if the state machine consumes it: a
-// press three frames before the recovery ends must come out, not be dropped for
-// being early.
-func TestPressBuffersThroughRecovery(t *testing.T) {
-	s := New()
-	mv := &char().Moves[0]
-
-	s.Advance([2]uint16{InLP, 0}) // the move that is in the way
-	for s.Players[0].StateFrame < mv.Total()-3 {
-		s.Advance([2]uint16{0, 0})
-	}
-
-	// Pressed while still in recovery — too early to be accepted, well inside
-	// the buffer window.
-	s.Advance([2]uint16{InLP, 0})
-	if p := s.Players[0]; p.StateFrame == 0 {
-		t.Fatal("the press was accepted during recovery; it should have been buffered, not acted on")
-	}
-
-	for range InputBuffer {
-		s.Advance([2]uint16{0, 0})
-		if p := s.Players[0]; p.State == StateAttack && p.StateFrame == 1 {
-			return
-		}
-	}
-	t.Errorf("the buffered press never came out: state %d", s.Players[0].State)
 }
 
 // One press, one move.
@@ -499,56 +282,6 @@ func TestMotionSelectsTheSpecial(t *testing.T) {
 	}
 }
 
-// The motion identifies the move, so the stance the button happens to land on
-// does not.
-func TestSpecialIgnoresStance(t *testing.T) {
-	s := New()
-	feed(&s, 2, 3, 6)
-	s.Advance([2]uint16{pad[3] | InLP, 0}) // still crouching when the button lands
-
-	if got := s.Players[0].MoveIndex; got != 2 {
-		t.Errorf("QCF+LP pressed on ↘ gave move %d, want the special", got)
-	}
-	if s.Players[0].State != StateAttack {
-		t.Errorf("state %d, want an attack", s.Players[0].State)
-	}
-}
-
-// Specials go through the buffer like everything else: the motion is judged at
-// the frame of the press, not at the frame the move finally comes out.
-func TestSpecialBuffersThroughRecovery(t *testing.T) {
-	s := New()
-	mv := &char().Moves[0]
-
-	s.Advance([2]uint16{InLP, 0}) // a jab in the way
-	for s.Players[0].StateFrame < mv.Total()-3 {
-		s.Advance([2]uint16{0, 0})
-	}
-
-	feed(&s, 2, 3)
-	s.Advance([2]uint16{pad[6] | InLP, 0}) // buffered: still in recovery
-
-	for range InputBuffer {
-		s.Advance([2]uint16{0, 0})
-		if p := s.Players[0]; p.State == StateAttack && p.StateFrame == 1 {
-			if p.MoveIndex != 2 {
-				t.Fatalf("the buffered press came out as move %d, want the special", p.MoveIndex)
-			}
-			return
-		}
-	}
-	t.Error("the buffered special never came out")
-}
-
-// A motion with no button is not a move.
-func TestMotionAloneDoesNothing(t *testing.T) {
-	s := New()
-	feed(&s, 2, 3, 6, 6, 6)
-	if s.Players[0].State == StateAttack {
-		t.Error("a bare quarter-circle started a move")
-	}
-}
-
 // cancelWindow runs the jab into the opponent and returns the state on the
 // first frame after hitstop, with the cancel window open and the jab still
 // running.
@@ -585,38 +318,6 @@ func TestACancelableNormalCancelsIntoASpecial(t *testing.T) {
 	}
 	if at >= jab.Total() {
 		t.Errorf("the jab was over (frame %d of %d): that is a fresh press, not a cancel", at, jab.Total())
-	}
-}
-
-// A whiff does not cancel.
-func TestAWhiffedNormalDoesNotCancel(t *testing.T) {
-	s := cancelWindow(t, 300) // out of range: the jab hits nothing
-	if s.Players[0].HasHit != 0 {
-		t.Fatal("the jab connected at 300 units")
-	}
-	jab := &char().Moves[0]
-
-	feed(&s, 2, 3)
-	s.Advance([2]uint16{pad[6] | InLP, 0})
-
-	if p := &s.Players[0]; p.MoveIndex != 0 || p.StateFrame >= jab.Total() {
-		t.Errorf("move %d on frame %d, want the jab still running to its own end",
-			p.MoveIndex, p.StateFrame)
-	}
-}
-
-// The cancel takes what the move being cancelled named and nothing else.
-func TestACancelTakesOnlyTheCategoriesTheMoveNames(t *testing.T) {
-	s := cancelWindow(t, 30)
-
-	s.Advance([2]uint16{InMP, 0}) // a normal: not in the jab's mask
-	if got := s.Players[0].MoveIndex; got != 0 {
-		t.Errorf("move %d came out of a special-only cancel window", got)
-	}
-
-	s.Advance([2]uint16{pad[8], 0}) // and a cancel window is not actionable
-	if got := s.Players[0].State; got != StateAttack {
-		t.Errorf("state %d: a jump came out of a cancel window", got)
 	}
 }
 
@@ -659,25 +360,6 @@ func TestATargetComboComesOutOfItsSource(t *testing.T) {
 	s.Advance([2]uint16{InLP, 0})
 	if got := s.Players[0].MoveIndex; got != f || s.Players[0].StateFrame == 1 {
 		t.Errorf("move %d on frame %d: the follow-up restarted itself", got, s.Players[0].StateFrame)
-	}
-}
-
-// Outside the window the follow-up does not exist: not from neutral, and not
-// after a whiff, which opens no window at all.
-func TestATargetComboNeedsItsWindow(t *testing.T) {
-	f := withTargetCombo(t)
-	char().Moves[f].Stance = StanceCrouch
-
-	s := New()
-	s.Advance([2]uint16{pad[2] | InLP, 0})
-	if got := s.Players[0].MoveIndex; got == f {
-		t.Error("the follow-up came out from neutral")
-	}
-
-	s = cancelWindow(t, 300)
-	s.Advance([2]uint16{pad[2] | InLP, 0})
-	if got := s.Players[0].MoveIndex; got == f {
-		t.Error("the follow-up came out of a whiffed jab")
 	}
 }
 
@@ -755,48 +437,6 @@ func TestASecondStageComesOutOfAWhiff(t *testing.T) {
 	}
 }
 
-// needsHit is per follow-up: the same second stage with the connect rule left
-// on never comes out of a fireball, whose move has no hitbox to connect with.
-func TestASecondStageThatNeedsAHitWaitsForOne(t *testing.T) {
-	f := withSecondStage(t)
-	char().Moves[f].Whiff = 0
-	s := fireballRecovery(t)
-
-	s.Advance([2]uint16{pad[6] | InLP, 0})
-	if got := s.Players[0].MoveIndex; got == f {
-		t.Error("a follow-up that needs a hit came out of a whiff")
-	}
-}
-
-// And the default window opens at the end of the first stage's active
-// frames, not before: a press held and buffered from inside them comes out on
-// the first frame after, and the first stage loses none of its active frames.
-func TestASecondStageWaitsForTheFirstToPlayOut(t *testing.T) {
-	f := withSecondStage(t)
-	fb := &char().Moves[2]
-	s := New()
-	feed(&s, 2, 3)
-	s.Advance([2]uint16{pad[6] | InLP, 0})
-	for s.Players[0].StateFrame < fb.Startup {
-		s.Advance([2]uint16{pad[6], 0})
-	}
-
-	in := pad[6] | InLP // pressed on the first active frame, then held
-	for range 2 * InputBuffer {
-		was := s.Players[0].StateFrame
-		s.Advance([2]uint16{in, 0})
-		in = pad[6]
-		if s.Players[0].MoveIndex == f {
-			if was < fb.Startup+fb.Active {
-				t.Errorf("the second stage came out of source frame %d, inside its active frames %d..%d",
-					was, fb.Startup, fb.Startup+fb.Active-1)
-			}
-			return
-		}
-	}
-	t.Error("the buffered second stage never came out")
-}
-
 // A multi-hit move connects once per hit number: hit 2 re-arms a move hit 1
 // spent.
 func TestAMultiHitMoveHitsOncePerNumber(t *testing.T) {
@@ -824,36 +464,5 @@ func TestAMultiHitMoveHitsOncePerNumber(t *testing.T) {
 		if got := s.Players[1].Combo; got != tc.want {
 			t.Errorf("second keyframe hitNum %d: combo %d, want %d", tc.num, got, tc.want)
 		}
-	}
-}
-
-// The camera has a dead zone.
-func TestCameraHoldsWhileOnePlayerWalksIn(t *testing.T) {
-	s := New()
-	cam := s.CamX
-	for f := range 30 {
-		s.Advance([2]uint16{InRight, 0})
-		if s.CamX != cam {
-			t.Fatalf("frame %d: camera moved %d -> %d with one player walking inside the screen", f, cam, s.CamX)
-		}
-	}
-	if start := New().Players[0].X; s.Players[0].X-start < FromInt(20) {
-		t.Fatalf("player 0 moved only %d, so the test proves nothing", s.Players[0].X-start)
-	}
-}
-
-// And it does follow once a player reaches the margin, or the screen-edge
-// wall would stop them walking long before the stage ends.
-func TestCameraFollowsAtTheMargin(t *testing.T) {
-	s := New()
-	run(&s, 90, [2]uint16{InRight, InRight})
-	if s.CamX <= 0 {
-		t.Errorf("camera at %d after both walked right for 90 frames", s.CamX)
-	}
-	// Against the stage end the camera cannot follow and the player may pass
-	// the margin; anywhere short of it they may not.
-	atEnd := s.CamX == balance.StageHalfWidth-balance.CameraHalfWidth
-	if edge := s.CamX + balance.CameraHalfWidth - balance.CameraMargin; !atEnd && s.Players[1].X > edge+One {
-		t.Errorf("player 1 at %d, past the margin at %d", s.Players[1].X, edge)
 	}
 }

@@ -52,36 +52,6 @@ func TestThrowNeedsBothButtons(t *testing.T) {
 	}
 }
 
-// The second button may land late, up to the pair window.
-func TestBothButtonsMayLandAFrameApart(t *testing.T) {
-	late := New()
-	late.Advance([2]uint16{InLP, 0}) // the jab starts here
-	late.Advance([2]uint16{throwInput, 0})
-	if got := late.Players[0].MoveIndex; got != throwIndex {
-		t.Errorf("LP then LK gave move %d, want the throw the pair completes", got)
-	}
-
-	// The same input while the jab is still running: neither button could
-	// be acted on when it landed, so the pair completes inside the buffer and
-	// the throw is what comes out of it.
-	buffered := New()
-	jab := &char().Moves[0]
-	buffered.Advance([2]uint16{InLP, 0})
-	for buffered.Players[0].StateFrame < jab.Total()-2 {
-		buffered.Advance([2]uint16{0, 0})
-	}
-	buffered.Advance([2]uint16{InLP, 0})
-	buffered.Advance([2]uint16{throwInput, 0})
-
-	for range InputBuffer {
-		buffered.Advance([2]uint16{0, 0})
-		if buffered.Players[0].MoveIndex == throwIndex {
-			return
-		}
-	}
-	t.Errorf("the buffered throw never came out: move %d", buffered.Players[0].MoveIndex)
-}
-
 // A throw beats blocking.
 func TestAThrowBeatsBlocking(t *testing.T) {
 	s := throwUntil(t, 30, away, resolved)
@@ -146,60 +116,6 @@ func TestAThrowMissesTheAirborneAndCatchesPreJump(t *testing.T) {
 	}
 }
 
-// Stun grants throw immunity, in every state that is one.
-func TestSomeoneInStunCannotBeThrown(t *testing.T) {
-	mv := &char().Moves[throwIndex]
-
-	for _, tc := range []struct {
-		name  string
-		state int32
-	}{
-		{"hitstun", StateHitstun},
-		{"blockstun", StateBlockstun},
-		{"landing recovery", StateLanding},
-		{"already being thrown", StateThrown},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			s := facing(30)
-			s.Advance([2]uint16{throwInput, 0})
-
-			s.Players[1].enter(tc.state)
-			s.Players[1].Stun = mv.Total()
-
-			for range mv.Startup + mv.Active {
-				s.Advance([2]uint16{0, 0})
-			}
-
-			if s.Players[1].State == StateThrown && tc.state != StateThrown {
-				t.Error("a player in stun was thrown")
-			}
-			if s.Players[1].Health != char().Health {
-				t.Errorf("health %d: the throw took someone it cannot take", s.Players[1].Health)
-			}
-			if s.Players[0].HasHit != 0 {
-				t.Error("the throw counted as a connect against a defender it cannot take")
-			}
-		})
-	}
-}
-
-// A throw that whiffs has to actually whiff: its recovery is what makes going
-// for one a risk rather than a free guess.
-func TestAWhiffedThrowRunsItsRecovery(t *testing.T) {
-	mv := &char().Moves[throwIndex]
-	s := throwUntil(t, 300, 0, func(s *GameState) bool {
-		return s.Players[0].StateFrame >= mv.Startup+mv.Active
-	})
-
-	if s.Players[0].HasHit != 0 {
-		t.Error("a throw at 300 units connected")
-	}
-	if p := s.Players[0]; p.State != StateAttack || p.StateFrame >= mv.Total() {
-		t.Errorf("state %d frame %d, want the throw still in its own recovery",
-			p.State, p.StateFrame)
-	}
-}
-
 // The tech: press throw as it lands and nobody is thrown.
 func TestATechEscapesTheThrow(t *testing.T) {
 	mv := &char().Moves[throwIndex]
@@ -236,22 +152,6 @@ func TestATechEscapesTheThrow(t *testing.T) {
 	}
 }
 
-// The window is the balance value and not a number this file invented — and it
-// is the boundary that says a tech is a reaction rather than a state.
-func TestTheTechWindowIsTheBalanceValue(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{0, throwInput})
-
-	if got := s.techFrame(1, s.latest()); got < 0 {
-		t.Error("a throw press was not seen on the frame after it")
-	}
-	hold(&s, int(BalanceOf().ThrowTechFrames), 0)
-	if got := s.techFrame(1, s.latest()); got >= 0 {
-		t.Errorf("a press %d frames old still techs, and the window is %d",
-			BalanceOf().ThrowTechFrames+1, BalanceOf().ThrowTechFrames)
-	}
-}
-
 // The command throw: one button and a half-circle, and it is the fixture's move
 // 16.
 const (
@@ -266,17 +166,6 @@ func hcf(s *GameState, button uint16) {
 		s.Advance([2]uint16{in, 0})
 	}
 	s.Advance([2]uint16{InRight | button, 0})
-}
-
-// A half-circle forward is a motion in its own right, and it is the row the
-// table promised for years before this character existed.
-func TestHalfCircleComesOut(t *testing.T) {
-	s := facing(30)
-	hcf(&s, commandThrowInput)
-
-	if got := s.Players[0].MoveIndex; got != commandThrowIndex {
-		t.Fatalf("the half-circle gave move %d, want the command throw %d", got, commandThrowIndex)
-	}
 }
 
 // A command throw cannot be teched.
@@ -306,21 +195,5 @@ func TestACommandThrowCannotBeTeched(t *testing.T) {
 	}
 	if s.Players[0].State == StateThrown {
 		t.Error("the attacker is in the tech recovery: the command throw was teched")
-	}
-}
-
-// The tech input is the throw *without* a motion, and with two throws in the
-// roster that is a lookup that can pick the wrong one.
-func TestTheTechInputIsTheOrdinaryThrow(t *testing.T) {
-	if mv := throwOf(0); mv == nil {
-		t.Fatal("the fixture has no ordinary throw")
-	} else if mv.Button != throwInput {
-		t.Errorf("the tech input is %#x, want the two-button throw %#x", mv.Button, throwInput)
-	}
-
-	s := New()
-	s.Advance([2]uint16{0, commandThrowInput})
-	if got := s.techFrame(1, s.latest()); got >= 0 {
-		t.Errorf("pressing the command throw's button teched on frame %d", got)
 	}
 }

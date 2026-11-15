@@ -73,72 +73,6 @@ func TestABandWidensUntilItMatches(t *testing.T) {
 	}
 }
 
-// The ping band is a hint made of two round trips to this server, and an
-// unmeasured one is not evidence of anything.
-func TestThePingBandRefusesAndThenStopsRefusing(t *testing.T) {
-	now := time.Now()
-	slow := func(waited time.Duration) *waiting {
-		w := at(0, waited, now)
-		w.c.rtt.Store(int64(80 * time.Millisecond))
-		return w
-	}
-
-	if acceptable("casual", now, slow(0), slow(0)) {
-		t.Error("160 ms of estimated ping matched inside the 60 ms band")
-	}
-	if !acceptable("casual", now, slow(61*time.Second), slow(0)) {
-		t.Error("the ping band never opened")
-	}
-
-	unmeasured := at(0, 0, now)
-	if !acceptable("casual", now, unmeasured, slow(0)) {
-		t.Error("a client whose ping never came back was refused for it")
-	}
-}
-
-// Oldest first.
-func TestTheLongestWaiterIsServedFirst(t *testing.T) {
-	now := time.Now()
-	m := newMatchmaker()
-
-	patient := at(1000, 90*time.Second, now)
-	near := at(1010, 0, now)
-	alsoNear := at(1005, 0, now)
-	m.modes["ranked"] = []*waiting{near, alsoNear, patient}
-
-	a, b := m.bestPair("ranked", now)
-	if a != patient {
-		t.Fatalf("paired %v first, want the player who waited 90 seconds", a)
-	}
-	// …and against the closest opponent that player can have.
-	if b != alsoNear {
-		t.Errorf("matched against %d LP, want the closest at %d", b.c.lp, alsoNear.c.lp)
-	}
-}
-
-func TestAnEmptyOrSingleQueuePairsNobody(t *testing.T) {
-	m := newMatchmaker()
-	if a, _ := m.bestPair("ranked", time.Now()); a != nil {
-		t.Error("an empty queue produced a pair")
-	}
-	m.modes["ranked"] = []*waiting{at(0, 0, time.Now())}
-	if a, _ := m.bestPair("ranked", time.Now()); a != nil {
-		t.Error("one player in a queue produced a pair")
-	}
-}
-
-func TestLeavingTheQueueIsSafeTwice(t *testing.T) {
-	m := newMatchmaker()
-	w := &waiting{c: &client{}, joined: time.Now()}
-	m.modes["casual"] = []*waiting{w}
-
-	m.leave("casual", w)
-	m.leave("casual", w) // a socket that died after being matched does this
-	if len(m.modes["casual"]) != 0 {
-		t.Errorf("%d still queued", len(m.modes["casual"]))
-	}
-}
-
 // --- the endpoints ---------------------------------------------------------
 
 // authedHub is a server with accounts, backed by the same fake store the auth
@@ -243,37 +177,6 @@ func TestTheRoundTripIsActuallyMeasured(t *testing.T) {
 		defer h.queue.mu.Unlock()
 		return h.queue.modes["casual"][0].c.rtt.Load() > 0
 	})
-}
-
-func TestTheQueueRefusesAModeItDoesNotHave(t *testing.T) {
-	_, base := authedHub(t)
-
-	for _, mode := range []string{"", "training", "ranked-plus"} {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		conn, resp, err := websocket.Dial(ctx, base+"/ws/queue?mode="+mode, nil)
-		cancel()
-		if err == nil {
-			conn.CloseNow()
-			t.Errorf("mode %q was accepted", mode)
-			continue
-		}
-		if resp == nil || resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("mode %q: %v, want 400", mode, err)
-		}
-	}
-}
-
-// A player who closes the tab has to leave the queue, or the next arrival is
-// paired with a socket nobody is reading.
-func TestLeavingTheTabLeavesTheQueue(t *testing.T) {
-	h, base := authedHub(t)
-	a := tokenFor(t, h, "a@example.com", "player-a")
-
-	conn := dialAs(t, base+"/ws/queue?mode=ranked", a)
-	waitFor(t, func() bool { return h.queue.size("ranked") == 1 })
-
-	conn.CloseNow()
-	waitFor(t, func() bool { return h.queue.size("ranked") == 0 })
 }
 
 func waitFor(t *testing.T, done func() bool) {

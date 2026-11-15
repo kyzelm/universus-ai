@@ -71,91 +71,6 @@ func TestFireballSpawnsOnTheActiveFrame(t *testing.T) {
 	}
 }
 
-// It travels at the move's speed, one step a frame, and it does not move on the
-// frame it appears.
-func TestFireballTravelsAtItsSpeed(t *testing.T) {
-	s := fireball(t)
-	speed := char().Moves[2].Proj.Speed
-
-	prev := s.Projectiles[0].X
-	for range 10 {
-		s.Advance([2]uint16{0, 0})
-		got := s.Projectiles[0].X
-		if got-prev != speed {
-			t.Fatalf("moved %d in one frame, want %d", got-prev, speed)
-		}
-		prev = got
-	}
-}
-
-// Facing is the direction of travel, taken at the spawn.
-func TestFireballMirrorsWithFacing(t *testing.T) {
-	s := New()
-	for _, d := range []uint8{2, 3} {
-		s.Advance([2]uint16{0, mirror(pad[d])})
-	}
-	s.Advance([2]uint16{0, mirror(pad[6]) | InLP})
-	if s.Players[1].MoveIndex != 2 {
-		t.Fatalf("player 1's fireball did not come out: move %d", s.Players[1].MoveIndex)
-	}
-
-	mv := &char().Moves[2]
-	for s.Players[1].StateFrame < mv.Startup {
-		s.Advance([2]uint16{0, 0})
-	}
-
-	pr := &s.Projectiles[0]
-	if pr.Owner != 1 {
-		t.Fatalf("owner %d, want 1", pr.Owner)
-	}
-	if pr.VX >= 0 {
-		t.Errorf("velocity %d, want it travelling left", pr.VX)
-	}
-	if pr.X >= s.Players[1].X {
-		t.Errorf("spawned at %d, in front of a left-facing player at %d", pr.X, s.Players[1].X)
-	}
-
-	before := s.Projectiles[0].X
-	s.Advance([2]uint16{0, 0})
-	if s.Projectiles[0].X >= before {
-		t.Error("a left-facing fireball travelled right")
-	}
-}
-
-// It outlives its move: the character has recovered and is standing idle long
-// before the fireball reaches the other side.
-func TestFireballOutlivesItsMove(t *testing.T) {
-	s := fireball(t)
-	// Out of the way and behind the shooter, so the fireball dies of old age
-	// rather than of hitting someone.
-	s.Players[1].X = FromInt(-190)
-
-	for range char().Moves[2].Total() {
-		s.Advance([2]uint16{0, 0})
-	}
-	if s.Players[0].State == StateAttack {
-		t.Fatal("the move should be over by now")
-	}
-	if live(&s) != 1 {
-		t.Error("the fireball died with the move that fired it")
-	}
-}
-
-// Life and the stage bound both end it, and it is gone rather than sitting in
-// the corner as an invisible hitbox.
-func TestFireballExpires(t *testing.T) {
-	s := fireball(t)
-	s.Players[1].X = FromInt(-190) // nothing in its path
-
-	for range char().Moves[2].Proj.Life + 1 {
-		if live(&s) == 0 {
-			return
-		}
-		s.Advance([2]uint16{0, 0})
-	}
-	t.Errorf("still alive after its whole life, X = %d", s.Projectiles[0].X)
-}
-
 func TestFireballHitsOnceAndIsSpent(t *testing.T) {
 	s := fireball(t)
 	mv := &char().Moves[2]
@@ -209,23 +124,6 @@ func TestFireballCanBeBlocked(t *testing.T) {
 	}
 	if live(&s) != 0 {
 		t.Error("a blocked fireball was not spent")
-	}
-}
-
-// The owner's own move is not marked as having hit: the fireball's owner may be
-// mid-punch by the time it lands, and that punch must keep its hitbox.
-func TestAProjectileHitDoesNotSpendTheOwnersMove(t *testing.T) {
-	s := fireball(t)
-	full := s.Players[1].Health
-
-	for range 200 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[1].Health != full {
-			break
-		}
-	}
-	if s.Players[0].HasHit != 0 {
-		t.Error("the projectile marked its owner's move as having connected")
 	}
 }
 

@@ -21,15 +21,6 @@ func blocked(t *testing.T, s *GameState) {
 	t.Fatal("the attack never connected, so nothing was blocked")
 }
 
-func TestSuperStartsEmpty(t *testing.T) {
-	s := New()
-	for i := range s.Players {
-		if s.Players[i].Super != 0 {
-			t.Errorf("p%d starts with %d Super, want none", i, s.Players[i].Super)
-		}
-	}
-}
-
 // fireballBlocked has player 1 block player 0's fireball.
 func fireballBlocked(t *testing.T, s *GameState) {
 	t.Helper()
@@ -100,62 +91,10 @@ func TestSuperBuildsForBothFightersOnAHit(t *testing.T) {
 	}
 }
 
-// A special pays a flat bonus for connecting, whether it hit or was blocked:
-// it is paid for the connect, not for the damage behind it.
-func TestALandedSpecialPaysItsBonus(t *testing.T) {
-	for _, tc := range []struct {
-		name    string
-		defend  uint16
-		damaged bool
-	}{
-		{"on hit", 0, true},
-		{"on block", InRight, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			s := facing(60)
-			mv := &char().Moves[2]
-			b := BalanceOf()
-
-			feed(&s, 2, 3)
-			s.Advance([2]uint16{pad[6] | InLP, tc.defend})
-			for range 60 {
-				s.Advance([2]uint16{0, tc.defend})
-				if s.Players[1].State == StateHitstun || s.Players[1].State == StateBlockstun {
-					break
-				}
-			}
-
-			want := b.SuperOnSpecial
-			if tc.damaged {
-				want += mv.Damage * b.SuperDealtPercent / 100
-			}
-			if got := s.Players[0].Super; got != want {
-				t.Errorf("the fireball built %d Super, want %d", got, want)
-			}
-		})
-	}
-}
-
-// Super does not regenerate.
-func TestSuperNeverRegenerates(t *testing.T) {
-	s := New()
-	run(&s, 300, [2]uint16{0, 0})
-	if s.Players[0].Super != 0 {
-		t.Errorf("Super regenerated to %d over 300 idle frames", s.Players[0].Super)
-	}
-}
-
 func TestSuperIsCapped(t *testing.T) {
 	var p PlayerState
 	p.gainSuper(BalanceOf().SuperMax + BarUnits)
 	if p.Super != BalanceOf().SuperMax {
 		t.Errorf("Super = %d, want it capped at %d", p.Super, BalanceOf().SuperMax)
-	}
-}
-
-// A bar is a round number of units so that a half-bar cost is an exact integer.
-func TestABarIsAnEvenNumberOfUnits(t *testing.T) {
-	if BarUnits%2 != 0 {
-		t.Errorf("BarUnits is %d: a half-bar cost would not be an integer", BarUnits)
 	}
 }

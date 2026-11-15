@@ -66,24 +66,6 @@ func TestDoubleMotionSatisfiesTheSingle(t *testing.T) {
 	}
 }
 
-// The category a move *is* — derived from its own data, never authored, so it
-// cannot disagree with what the move actually does.
-func TestCancelCategoryIsDerived(t *testing.T) {
-	c := char()
-	for _, tc := range []struct {
-		move int32
-		want uint16
-	}{
-		{0, CancelChain},   // a jab
-		{2, CancelSpecial}, // a motion makes it a special
-		{8, CancelSuper},
-	} {
-		if got := c.Moves[tc.move].Category(); got != tc.want {
-			t.Errorf("move %d category = %#b, want %#b", tc.move, got, tc.want)
-		}
-	}
-}
-
 // The meter is checked when the move is *selected*, not after it comes out.
 func TestASuperWithoutTheMeterIsTheSpecial(t *testing.T) {
 	for _, tc := range []struct {

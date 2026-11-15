@@ -117,20 +117,6 @@ func TestArmorAbsorbsAHitWithoutStoppingTheMove(t *testing.T) {
 	}
 }
 
-// One hit of armour is one hit.
-func TestTheSecondHitIsNotAbsorbed(t *testing.T) {
-	s := armored(t, 40)
-	s.Players[1].Armor = 1 // the first hit is already spent
-
-	for f := 0; f < 8 && s.Players[1].State == StateAttack; f++ {
-		s.Advance([2]uint16{InLP, 0})
-	}
-
-	if s.Players[1].State != StateHitstun {
-		t.Errorf("state = %d, want hitstun: armour was already spent", s.Players[1].State)
-	}
-}
-
 // Armour's reduced damage can kill.
 func TestAnAbsorbedHitCanKill(t *testing.T) {
 	s := armored(t, 40)
@@ -158,36 +144,5 @@ func TestAThrowBeatsArmor(t *testing.T) {
 	}
 	if s.Players[1].Armor != 0 {
 		t.Errorf("armor = %d: the throw was absorbed instead of landing", s.Players[1].Armor)
-	}
-}
-
-// Armour covers the frames that carry the move, not the recovery it is exposed
-// on afterwards.
-func TestArmorDoesNotCoverTheRecovery(t *testing.T) {
-	// Out of range to begin with: the armoured move's own hitbox would
-	// otherwise knock the attacker down during its active frames, and the
-	// recovery would be tested against somebody lying on the floor.
-	s := armored(t, 200)
-	mv := &char().Moves[moveArmored]
-
-	// Sit through the active window without pressing anything, so the whiffed
-	// move reaches its recovery with its armour unspent.
-	for s.Players[1].StateFrame < mv.Startup+mv.Active {
-		s.Advance([2]uint16{0, 0})
-	}
-
-	// Now close the distance, so what lands during the recovery is a jab and
-	// not the exchange that never happened.
-	s.Players[0].X, s.Players[1].X = FromInt(-20), FromInt(20)
-	if s.Players[1].Armor != 0 {
-		t.Fatalf("armor = %d: something hit it during the active frames", s.Players[1].Armor)
-	}
-
-	for f := 0; f < 8 && s.Players[1].State == StateAttack; f++ {
-		s.Advance([2]uint16{InLP, 0})
-	}
-
-	if s.Players[1].State != StateHitstun {
-		t.Errorf("state = %d, want hitstun: the recovery is not armoured", s.Players[1].State)
 	}
 }

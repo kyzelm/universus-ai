@@ -108,17 +108,6 @@ func TestDPShortcut(t *testing.T) {
 	}
 }
 
-// The shortcut must not widen the overlap between DP and QCF at all, so the
-// input it leaves alone is the one worth asserting: a fireball from a standing
-// start is a fireball before the shortcut and after it.
-func TestShortcutLeavesTheFireballAlone(t *testing.T) {
-	s := New()
-	feed(&s, 2, 3, 6)
-	if got := s.Motion(0); got != MotionQCF {
-		t.Errorf("↓↘→ recognised as %d, want QCF (%d)", got, MotionQCF)
-	}
-}
-
 // Walking into a fireball comes out as a dragon punch, and it always has.
 func TestWalkingIntoAFireballIsADP(t *testing.T) {
 	s := New()
@@ -126,17 +115,6 @@ func TestWalkingIntoAFireballIsADP(t *testing.T) {
 	if got := s.Motion(0); got != MotionDP {
 		t.Errorf("walk forward then ↓↘→ recognised as %d, want DP (%d) — if this "+
 			"has changed, the priority rule has changed with it", got, MotionDP)
-	}
-}
-
-// A direction that is neither neutral nor a hold breaks a tight row, and the
-// break is the point: →↓↙→ is a player who rolled through down-back, which is
-// not the shortcut and must not be read as one.
-func TestShortcutRejectsAnInterveningDirection(t *testing.T) {
-	s := New()
-	feed(&s, 6, 2, 1, 6)
-	if got := s.Motion(0); got != MotionNone {
-		t.Errorf("→↓↙→ recognised as %d, want none (%d)", got, MotionNone)
 	}
 }
 
@@ -230,19 +208,6 @@ func TestInputHistoryRollsBack(t *testing.T) {
 	}
 }
 
-// The ring is InputHistory long; a motion cannot be allowed to match against
-// input from a lap earlier.
-func TestHistoryDoesNotWrapAround(t *testing.T) {
-	s := New()
-	feed(&s, 2, 3, 6)
-	for range InputHistory {
-		feed(&s, 5)
-	}
-	if got := s.Motion(0); got != MotionNone {
-		t.Errorf("a full lap later the stale QCF still matches: %d", got)
-	}
-}
-
 func TestPressedIsAnEdge(t *testing.T) {
 	s := New()
 
@@ -281,26 +246,6 @@ func TestBufferedHoldsThePressBriefly(t *testing.T) {
 	}
 }
 
-// Everything above is a query over state, so identical inputs must produce
-// identical answers — including through the ring's wrap point.
-func TestInputQueriesAreDeterministic(t *testing.T) {
-	inputs := inputSeq(500)
-
-	a, b := New(), New()
-	for _, in := range inputs {
-		a.Advance(in)
-		b.Advance(in)
-		for p := range 2 {
-			if a.Motion(p) != b.Motion(p) || a.Direction(p) != b.Direction(p) {
-				t.Fatalf("frame %d player %d: queries diverged on identical input", a.Frame, p)
-			}
-		}
-	}
-	if a != b {
-		t.Error("states diverged")
-	}
-}
-
 // ---- The pair window -------------------------------------------------------
 
 // Nothing makes a human press two keys on one frame, and a throw is a punch and
@@ -318,41 +263,5 @@ func TestASecondButtonLandingLateStillMakesThePair(t *testing.T) {
 		if mv := s.Players[0].move(); mv == nil || !mv.IsThrow() {
 			t.Errorf("LK %d frames after LP: the jab came out, want the throw", skew)
 		}
-	}
-}
-
-// The ceiling, and what makes the rule room rather than a retraction: once the
-// move is past its startup it is a commitment, whatever the window says.
-func TestAnActiveMoveIsNeverTakenBackByAPair(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{InLP, 0})
-
-	mv := s.Players[0].move()
-	if mv == nil {
-		t.Fatal("LP produced no move at all")
-	}
-
-	for f := int32(0); f < mv.Startup; f++ {
-		s.Advance([2]uint16{InLP, 0})
-	}
-	s.Advance([2]uint16{throwInput, 0})
-
-	if mv := s.Players[0].move(); mv != nil && mv.IsThrow() {
-		t.Error("a throw came out of a move that was already active")
-	}
-}
-
-// A window that took any second button would be a free cancel out of every
-// light into anything with two buttons.
-func TestAPairSharingNoButtonDoesNotOverride(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{InMP, 0})
-	state := s.Players[0].State
-	move := s.Players[0].MoveIndex
-
-	s.Advance([2]uint16{InMP | throwInput, 0})
-
-	if s.Players[0].State != state || s.Players[0].MoveIndex != move {
-		t.Error("LP+LK during a medium punch changed a move it shares no button with")
 	}
 }

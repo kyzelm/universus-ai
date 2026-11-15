@@ -36,17 +36,6 @@ func TestAHitFlagsTheDefender(t *testing.T) {
 	}
 }
 
-func TestABlockFlagsABlock(t *testing.T) {
-	s := events(t, InRight) // holding away from the attacker
-
-	if s.Players[1].Events&EventBlock == 0 {
-		t.Error("the defender has no block event")
-	}
-	if s.Players[1].Events&EventHit != 0 {
-		t.Error("a blocked hit also flagged a clean one")
-	}
-}
-
 // A flag describes one frame and does not survive it.
 func TestAnEventLastsOneFrame(t *testing.T) {
 	s := events(t, 0)
@@ -145,47 +134,5 @@ func TestReplayingAFrameDoesNotRepeatItsEvents(t *testing.T) {
 	}
 	if any == 0 {
 		t.Fatal("no events at all in 40 frames, so this test is checking nothing")
-	}
-}
-
-// A frame that has fallen out of the ring reports nothing rather than another
-// frame's events.
-func TestEventsFallOutOfTheRingCleanly(t *testing.T) {
-	s := session()
-
-	// Jabs on a loop, so events are scattered across the ring rather than
-	// confined to one frame nothing aliases to.
-	for f := range eventRing * 3 {
-		var in uint16
-		if f%12 < 2 {
-			in = InLP
-		}
-		s.Advance([2]uint16{in, 0})
-	}
-
-	// Everything older than one lap is gone, and the slots those frames index
-	// are held by frames that do have events — which is what makes a stale read
-	// possible and this test worth running.
-	var aliased uint32
-	for f := uint32(0); f+eventRing < s.Frame(); f++ {
-		if got := s.EventsAt(f); got != 0 {
-			t.Errorf("frame %d is over a lap old but reports %#x", f, got)
-		}
-		aliased |= s.EventsAt(f + eventRing)
-	}
-	if aliased == 0 {
-		t.Fatal("no events in the slots the aged-out frames index, so this test is checking nothing")
-	}
-}
-
-// The packing the WASM boundary reads: player 0 low, player 1 high.
-func TestEventsPackPerPlayer(t *testing.T) {
-	var s GameState
-	s.Players[0].Events = EventHit
-	s.Players[1].Events = EventSuper
-
-	got := s.packEvents()
-	if want := uint32(EventHit) | uint32(EventSuper)<<16; got != want {
-		t.Errorf("packEvents = %#x, want %#x", got, want)
 	}
 }

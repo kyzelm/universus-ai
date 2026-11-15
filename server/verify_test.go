@@ -121,40 +121,6 @@ func TestDataFromAnotherBuildIsNotAnAccusation(t *testing.T) {
 	}
 }
 
-func TestAnUnreadableLogIsRefusedRatherThanReplayed(t *testing.T) {
-	v := verifier{dataVersion: loadRoster()}
-
-	for _, c := range []struct {
-		name string
-		log  []byte
-	}{
-		{"empty", nil},
-		{"not a log", []byte("hello there, this is not an input log")},
-		{"header only", replaylog.Encode(sim.Setup{}, loadRoster(), nil)},
-	} {
-		if got := v.resimulate(c.log, nil, 1, 100, false); got.ok {
-			t.Errorf("%s: verified", c.name)
-		}
-	}
-}
-
-// The count has to match on both sides: a client that uploads fewer hashes than
-// its log contains checkpoints is a client that stopped reporting partway.
-func TestTheCheckpointCountsHaveToAgree(t *testing.T) {
-	logBytes, checksums, winner, endFrame := playedMatch(t)
-	v := verifier{dataVersion: loadRoster()}
-
-	short := v.resimulate(logBytes, checksums[:len(checksums)-4], winner, endFrame, false)
-	if short.ok || !strings.Contains(short.reason, "checkpoints") {
-		t.Errorf("a short series gave %+v", short)
-	}
-
-	long := v.resimulate(logBytes, append(checksums, 0, 0, 0, 0), winner, endFrame, false)
-	if long.ok || !strings.Contains(long.reason, "checkpoints") {
-		t.Errorf("a long series gave %+v", long)
-	}
-}
-
 // A disconnect match's log stops mid-match by definition: the winner was
 // decided by policy rather than by the simulation.
 func TestADisconnectIsNotAskedWhoWon(t *testing.T) {

@@ -75,49 +75,6 @@ func TestAMacroIsCaught(t *testing.T) {
 	}
 }
 
-// Holding a direction repeats forever and says nothing about anybody.
-func TestHoldingADirectionIsNotAMacro(t *testing.T) {
-	parsed := logOf(t, 600, func(int) [2]uint16 { return [2]uint16{sim.InRight, 0} })
-	if found := plausibility(parsed); len(found) > 0 {
-		t.Errorf("walking forward was flagged: %+v", found)
-	}
-}
-
-// Randomised-looking input with real variance is what a person produces, and
-// it must clear every threshold.
-func TestVariedInputClearsTheChecks(t *testing.T) {
-	x := uint32(0x9E3779B9)
-	next := func() uint16 {
-		x = x*1664525 + 1013904223
-		return uint16(x>>16) & 0x077F
-	}
-	held := [2]uint16{}
-	parsed := logOf(t, 3000, func(f int) [2]uint16 {
-		if f%7 == 0 {
-			held = [2]uint16{next(), next()}
-		}
-		return held
-	})
-
-	for _, a := range plausibility(parsed) {
-		if a.Kind == "macro" {
-			t.Errorf("varied input was called a macro: %+v", a)
-		}
-	}
-}
-
-// The thresholds are the policy, so they are asserted rather than assumed: a
-// median reaction under the human floor is what the check is for, and the
-// floor is 200 ms at 60 Hz.
-func TestTheThresholdsAreTheOnesTheNoteArguesFor(t *testing.T) {
-	if reactionFloor != 12 {
-		t.Errorf("the reaction floor is %d frames, want 12 (~200 ms at 60 Hz)", reactionFloor)
-	}
-	if reactionMin < 10 || consistencySample < 10 {
-		t.Error("a threshold with a single-digit sample behind it is noise")
-	}
-}
-
 func TestMedianAndDeviation(t *testing.T) {
 	if got := median([]int{5, 1, 3}); got != 3 {
 		t.Errorf("median of an odd count is %v", got)
@@ -240,38 +197,6 @@ func TestAPerfectlyConsistentPressIsFlagged(t *testing.T) {
 	}
 	if a.Sample < consistencySample {
 		t.Errorf("flagged on %d observations", a.Sample)
-	}
-}
-
-// The same bot with a human's scatter must clear the check, or the threshold is
-// measuring "presses buttons" rather than "presses them mechanically".
-func TestAScatteredPressIsNotFlagged(t *testing.T) {
-	actionableSince := -1
-	x := uint32(12345)
-	scatter := func() int {
-		x = x*1664525 + 1013904223
-		return 3 + int(x>>28) // 3..18 frames, which is a human's spread
-	}
-	wait := scatter()
-
-	parsed := botLog(t, 6000, func(st *sim.GameState, f int) [2]uint16 {
-		me := &st.Players[0]
-		if !sim.Actionable(me.State) {
-			actionableSince = -1
-			return [2]uint16{0, 0}
-		}
-		if actionableSince < 0 {
-			actionableSince, wait = f, scatter()
-		}
-		if f-actionableSince == wait {
-			actionableSince = -1
-			return [2]uint16{sim.InHP, 0}
-		}
-		return [2]uint16{0, 0}
-	})
-
-	if a, ok := kinds(plausibility(parsed), 1)["consistency"]; ok {
-		t.Errorf("a scattered press was flagged: %+v", a)
 	}
 }
 

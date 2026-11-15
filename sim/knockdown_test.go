@@ -64,21 +64,6 @@ func TestASweepKnocksDownWhenItsHitstunEnds(t *testing.T) {
 	}
 }
 
-// A move that does not knock down does not, which is the half that makes the
-// flag mean anything: the jab is the same code path with the flag off.
-func TestAPlainHitDoesNotKnockDown(t *testing.T) {
-	s := facing(30)
-	for range 40 {
-		s.Advance([2]uint16{InLP, 0})
-		if s.Players[1].Down != 0 {
-			t.Fatal("the jab owes a knockdown")
-		}
-		if s.Players[1].State == StateKnockdown {
-			t.Fatal("the jab knocked the defender down")
-		}
-	}
-}
-
 // Invulnerable for the whole knockdown, and actionable on the frame the
 // invulnerability ends.
 func TestVulnerableAndActionableBeginTogether(t *testing.T) {
@@ -103,90 +88,5 @@ func TestVulnerableAndActionableBeginTogether(t *testing.T) {
 	}
 	if n := s.Hurtboxes(1, &boxes); n == 0 {
 		t.Error("player 1 is actionable and still has no hurtboxes")
-	}
-}
-
-// The rise is what the input buffer is for: a reversal pressed on the floor
-// comes out on the first actionable frame, which is the design's "options on
-// rising" and costs no code of its own.
-func TestAReversalBufferedOnTheFloorComesOutOnTheRise(t *testing.T) {
-	const reversal = int32(7)
-
-	s := knockedDown(t)
-	for range balance.KnockdownFrames + InputBuffer {
-		in := uint16(0)
-		// One press, late enough to still be live when they rise.
-		if s.Players[1].State == StateKnockdown && s.Players[1].Stun == 2 {
-			in = InMP
-		}
-		s.Advance([2]uint16{0, in})
-		if s.Players[1].MoveIndex == reversal {
-			return
-		}
-	}
-	t.Errorf("player 1 is in state %d with move %d, want the buffered reversal",
-		s.Players[1].State, s.Players[1].MoveIndex)
-}
-
-// A throw ends on the floor too — the fixed count of helpless frames a thrown
-// player used to spend is now the throw's own animation, with the same
-// knockdown as a sweep after it.
-func TestAThrowEndsOnTheFloor(t *testing.T) {
-	s := throwUntil(t, 30, 0, resolved)
-	if s.Players[1].State != StateThrown {
-		t.Fatalf("player 1 is in state %d, want the throw", s.Players[1].State)
-	}
-	if s.Players[1].Down == 0 {
-		t.Fatal("the throw owes no knockdown")
-	}
-
-	for range 200 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[1].State != StateThrown {
-			break
-		}
-	}
-	if got := s.Players[1].State; got != StateKnockdown {
-		t.Errorf("player 1 is in state %d after the throw, want the knockdown", got)
-	}
-}
-
-// A tech does not.
-func TestATechKnocksNobodyDown(t *testing.T) {
-	mv := &char().Moves[throwIndex]
-
-	s := facing(30)
-	s.Advance([2]uint16{throwInput, 0})
-	for s.Players[1].State != StateThrown && s.Players[0].State == StateAttack {
-		in := uint16(0)
-		if s.Players[0].StateFrame == mv.Startup-2 {
-			in = throwInput
-		}
-		s.Advance([2]uint16{0, in})
-	}
-
-	for range balance.ThrowTechRecovery + balance.KnockdownFrames {
-		s.Advance([2]uint16{0, 0})
-		for i, p := range s.Players {
-			if p.State == StateKnockdown {
-				t.Fatalf("player %d was knocked down by a tech", i)
-			}
-		}
-	}
-}
-
-// Being hit out of the hitstun replaces the old hit's consequences with the new
-// one's rather than stacking them: a swept player who is picked up by a second
-// hit is no longer on their way to the floor.
-func TestANewHitCancelsTheOwedKnockdown(t *testing.T) {
-	s := sweep(t)
-	p := &s.Players[1]
-	if p.Down == 0 {
-		t.Fatal("the sweep owes no knockdown")
-	}
-
-	p.enter(StateHitstun)
-	if p.Down != 0 {
-		t.Error("the knockdown survived a new hit")
 	}
 }

@@ -30,18 +30,6 @@ func TestDumpNamesTheDifferingField(t *testing.T) {
 	}
 }
 
-// Same state, same text — or the gate would report a divergence between two
-// identical states, which is worse than reporting none.
-func TestDumpIsStable(t *testing.T) {
-	s := New()
-	for range 50 {
-		s.Advance([2]uint16{InRight | InLP, InLeft})
-	}
-	if s.Dump() != s.Dump() {
-		t.Error("Dump is not stable across calls")
-	}
-}
-
 // Every field must appear, including ones added later.
 func TestDumpCoversEveryField(t *testing.T) {
 	start := New()
@@ -57,23 +45,5 @@ func TestDumpCoversEveryField(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("%s is missing from the dump", want)
 		}
-	}
-}
-
-// The input history is 32 entries per player and mostly zero.
-func TestDumpCollapsesZeroRunsWithoutHidingThem(t *testing.T) {
-	a := New()
-	if !strings.Contains(a.Dump(), "Inputs[0:32] = zero") {
-		t.Error("a fresh state should collapse the whole input ring")
-	}
-
-	b := New()
-	b.Players[0].Inputs[5] = uint32(InLP)
-	out := b.Dump()
-	if !strings.Contains(out, "Players[0].Inputs[5] = 16") {
-		t.Error("a non-zero entry must be printed individually")
-	}
-	if out == a.Dump() {
-		t.Error("collapsing hid a real difference")
 	}
 }

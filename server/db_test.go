@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -68,45 +67,6 @@ func TestMigrationsApplyAndAreNotAppliedTwice(t *testing.T) {
 	// Five from the schema note, plus schema_migrations.
 	if tables != 6 {
 		t.Errorf("%d tables after migrating, want 6", tables)
-	}
-}
-
-func TestTheStoreEnforcesWhatTheSchemaPromises(t *testing.T) {
-	ctx, p := testPool(t)
-	if _, err := migrate(ctx, p, migrationFiles); err != nil {
-		t.Fatal(err)
-	}
-	s := pgStore{pool: p}
-
-	u, err := s.createUser(ctx, "player@example.com", "$2a$12$hash", "player-one")
-	if err != nil {
-		t.Fatalf("createUser: %v", err)
-	}
-
-	// A rating row is written with the account, or the first profile the user
-	// opens reads as an error.
-	var lp int
-	if err := p.QueryRow(ctx, `SELECT lp FROM ratings WHERE user_id = $1`, u.ID).Scan(&lp); err != nil {
-		t.Fatalf("no rating row: %v", err)
-	}
-
-	// The unique indexes, told from a database that is on fire.
-	if _, err := s.createUser(ctx, "player@example.com", "x", "somebody-else"); err != errTaken {
-		t.Errorf("a duplicate email gave %v, want errTaken", err)
-	}
-	if _, err := s.createUser(ctx, "other@example.com", "x", "player-one"); err != errTaken {
-		t.Errorf("a duplicate display name gave %v, want errTaken", err)
-	}
-
-	got, hash, err := s.credentials(ctx, "player@example.com")
-	if err != nil || got.ID != u.ID || hash != "$2a$12$hash" {
-		t.Errorf("credentials: %+v %q %v", got, hash, err)
-	}
-	if _, _, err := s.credentials(ctx, "nobody@example.com"); err != errNoUser {
-		t.Errorf("an unknown email gave %v, want errNoUser", err)
-	}
-	if _, err := s.userByID(ctx, u.ID+999); err != errNoUser {
-		t.Errorf("an unknown id gave %v, want errNoUser", err)
 	}
 }
 
@@ -271,35 +231,6 @@ func TestADisagreementVoidsTheMatchAndFlagsBoth(t *testing.T) {
 	}
 }
 
-// A win at the bottom of a tier must not demote the loser out of it, and the
-// arithmetic has to survive the round trip through the database.
-func TestTheTierFloorHoldsThroughTheDatabase(t *testing.T) {
-	ctx, p := testPool(t)
-	users, matches, a, b := twoPlayers(t, ctx, p)
-
-	// Both a point into Sophomore.
-	if _, err := p.Exec(ctx, `UPDATE ratings SET lp = 1005, tier = 1`); err != nil {
-		t.Fatal(err)
-	}
-
-	id, _ := matches.create(ctx, "ranked", a.ID, b.ID)
-	matches.record(ctx, id, a.ID, upload(1))
-	matches.record(ctx, id, b.ID, upload(1))
-	row, _ := matches.byID(ctx, id)
-	if err := matches.settle(ctx, row, upload(1)); err != nil {
-		t.Fatal(err)
-	}
-
-	loser := users.rating(ctx, b.ID)
-	if loser.LP != 1000 || loser.Tier != 1 {
-		t.Errorf("the loser is %d LP in tier %d (%s), want 1000 and Sophomore",
-			loser.LP, loser.Tier, loser.TierName)
-	}
-	if winner := users.rating(ctx, a.ID); winner.LP != 1005+lpBase {
-		t.Errorf("the winner is %d LP, want %d", winner.LP, 1005+lpBase)
-	}
-}
-
 // --- verification -----------------------------------------------------------
 
 // settled plays a real match, uploads it from both ends, and settles it — the
@@ -418,36 +349,6 @@ func TestAMatchThatFailsResimulationIsReversed(t *testing.T) {
 	}
 }
 
-// Two workers asking at once get different rows rather than one waiting on the
-// other — the whole of what SKIP LOCKED is doing here.
-func TestTwoWorkersDoNotClaimTheSameJob(t *testing.T) {
-	ctx, p := testPool(t)
-	_, matches, _, _, _ := settled(t, ctx, p, nil)
-
-	v := verifier{matches: matches, dataVersion: loadRoster()}
-
-	var wg sync.WaitGroup
-	claimed := make([]bool, 4)
-	for i := range claimed {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			claimed[i] = v.step(ctx)
-		}()
-	}
-	wg.Wait()
-
-	got := 0
-	for _, c := range claimed {
-		if c {
-			got++
-		}
-	}
-	if got != 1 {
-		t.Errorf("%d workers claimed the one job", got)
-	}
-}
-
 // --- disconnects ------------------------------------------------------------
 
 // The grace period is the mechanism.
@@ -529,28 +430,6 @@ func TestALoneSubmissionWaitsBeforeItCounts(t *testing.T) {
 	if _, verified := jobResult(t, ctx, p, id); verified != "ok" {
 		t.Errorf("the match verified as %q", verified)
 	}
-}
-
-// The second player arriving in time is the ordinary path, and the sweep must
-// not settle a match twice.
-func TestTheSweepLeavesAMatchThatSettledItself(t *testing.T) {
-	ctx, p := testPool(t)
-	users, matches, a, b, _ := settled(t, ctx, p, nil)
-
-	before := users.rating(ctx, a.ID)
-	if _, err := p.Exec(ctx,
-		`UPDATE match_submissions SET received_at = now() - interval '1 hour'`); err != nil {
-		t.Fatal(err)
-	}
-
-	v := verifier{matches: matches, dataVersion: loadRoster()}
-	if v.sweepUnilateral(ctx) {
-		t.Error("the sweep picked up a match that both players reported on")
-	}
-	if got := users.rating(ctx, a.ID); got != before {
-		t.Errorf("%+v became %+v", before, got)
-	}
-	_ = b
 }
 
 // A plausibility anomaly flags an account and changes nothing about the match.

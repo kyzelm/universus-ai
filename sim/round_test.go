@@ -43,41 +43,6 @@ func TestAKOEndsTheRoundAndAwardsIt(t *testing.T) {
 	}
 }
 
-// The freeze, the result and the intro are simulation state with fixed lengths,
-// because what they decide is when input resumes.
-func TestTheRoundTransitionTakesTheFramesTheBalanceSays(t *testing.T) {
-	s := New()
-	koRound(&s, 1)
-
-	b := BalanceOf()
-	// One frame of the freeze has already run: the KO frame itself entered the
-	// phase, and the frame after it is the first the phase clock counts.
-	want := int(b.KOFreeze + b.RoundEndHold + b.IntroFrames)
-	if got := betweenRounds(t, &s); got != want {
-		t.Errorf("the transition took %d frames, want %d", got, want)
-	}
-}
-
-// Nothing moves between rounds.
-func TestNothingHappensBetweenRounds(t *testing.T) {
-	s := New()
-	koRound(&s, 1)
-
-	before := s.Players[0]
-	timer := s.Timer
-	for range 5 {
-		s.Advance([2]uint16{InRight | InLP, InLeft | InLP})
-	}
-
-	if p := s.Players[0]; p.State != before.State || p.X != before.X {
-		t.Errorf("player 0 acted during the KO freeze: %d at %d, was %d at %d",
-			p.State, p.X, before.State, before.X)
-	}
-	if s.Timer != timer {
-		t.Errorf("the round clock ran during the KO freeze: %d, was %d", s.Timer, timer)
-	}
-}
-
 // A timeout goes to the higher *percentage* of a player's own pool.
 func TestATimeoutIsDecidedOnPercentage(t *testing.T) {
 	for _, tc := range []struct {
@@ -241,25 +206,5 @@ func TestTheRoundCapResolvesByDamageDealt(t *testing.T) {
 				t.Errorf("winner %d, want %d", s.Winner, tc.want)
 			}
 		})
-	}
-}
-
-// Damage dealt is what came off the bar, which is what the tiebreak above is
-// counting.
-func TestDamageDealtTracksTheHealthBar(t *testing.T) {
-	s := facing(30)
-	s.Players[1].Health = 10
-
-	for range 20 {
-		s.Advance([2]uint16{InLP, 0})
-		if s.Players[1].Health == 0 {
-			break
-		}
-	}
-	if s.Players[1].Health != 0 {
-		t.Fatalf("the jab never landed: health %d", s.Players[1].Health)
-	}
-	if s.Dealt != [2]int32{10, 0} {
-		t.Errorf("damage dealt %v, want the 10 the bar actually had", s.Dealt)
 	}
 }

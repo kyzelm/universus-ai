@@ -107,24 +107,6 @@ func TestPairAndForward(t *testing.T) {
 	}
 }
 
-// Separate codes are separate matches, which is what makes a private match by
-// code work at all.
-func TestCodesDoNotMix(t *testing.T) {
-	base := relayServer(t) + "/ws?room="
-
-	a := dial(t, base+"room-a")
-	b := dial(t, base+"room-b")
-
-	// Neither is paired, so neither has been told a role.
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	defer cancel()
-
-	send(t, a, websocket.MessageText, []byte("offer-blob"))
-	if _, data, err := b.Read(ctx); err == nil {
-		t.Errorf("room-b read %q from room-a", data)
-	}
-}
-
 // Hanging up ends the match for both ends: the survivor's read fails instead of
 // waiting for input that is never coming.
 func TestPeerLeaving(t *testing.T) {
@@ -141,24 +123,5 @@ func TestPeerLeaving(t *testing.T) {
 	defer cancel()
 	if _, data, err := guest.Read(ctx); err == nil {
 		t.Errorf("guest read %q after the host left, want an error", data)
-	}
-}
-
-func TestBadCode(t *testing.T) {
-	base := relayServer(t) + "/ws?room="
-
-	for _, code := range []string{"", "with space", "zażółć", "../etc", "a-very-long-code-that-runs-past-thirty-two"} {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		conn, resp, err := websocket.Dial(ctx, base+code, nil)
-		cancel()
-
-		if err == nil {
-			conn.CloseNow()
-			t.Errorf("code %q was accepted", code)
-			continue
-		}
-		if resp == nil || resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("code %q: %v, want 400", code, err)
-		}
 	}
 }

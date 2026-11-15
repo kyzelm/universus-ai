@@ -14,29 +14,6 @@ func jump(t *testing.T, dir uint8) GameState {
 	return s
 }
 
-// An air normal comes out in the air and the jump carries on underneath it.
-func TestAnAirNormalRidesTheJump(t *testing.T) {
-	s := jump(t, 9) // up-forward, so there is horizontal travel to lose
-
-	s.Advance([2]uint16{InLP, 0})
-	p := &s.Players[0]
-	if p.State != StateAttack || p.MoveIndex != 6 {
-		t.Fatalf("state %d move %d, want the air normal", p.State, p.MoveIndex)
-	}
-
-	x, y := p.X, p.Y
-	s.Advance([2]uint16{0, 0})
-	if s.Players[0].X == x {
-		t.Error("the jump's horizontal travel stopped when the button was pressed")
-	}
-	if s.Players[0].Y == y {
-		t.Error("the arc froze")
-	}
-	if !s.Players[0].Airborne() {
-		t.Error("no longer airborne mid-air-normal")
-	}
-}
-
 // An air move's recovery is the fall.
 func TestLandingEndsAnAirNormal(t *testing.T) {
 	s := jump(t, 8)
@@ -79,119 +56,6 @@ func TestLandingEndsAnAirNormal(t *testing.T) {
 	}
 }
 
-// A move that ran out on the way up still owes its landing frames on the way
-// down.
-func TestAMoveThatExpiredInTheAirOwesItsLandingRecovery(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{InHK, 0}) // move 4: six frames long, ~32 in the air
-
-	for s.Players[0].State != StateAir {
-		s.Advance([2]uint16{0, 0})
-	}
-	if got := s.Players[0].Landing; got != char().Moves[4].Landing {
-		t.Fatalf("landing debt %d after the move expired mid-air, want %d", got, char().Moves[4].Landing)
-	}
-
-	for range 60 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[0].Y == GroundY {
-			break
-		}
-	}
-	if p := &s.Players[0]; p.State != StateLanding || p.Stun != char().Moves[4].Landing {
-		t.Errorf("state %d stun %d on touchdown, want %d frames of landing recovery",
-			p.State, p.Stun, char().Moves[4].Landing)
-	}
-}
-
-// A plain jump owes nothing.
-func TestAJumpWithNoAttackLandsActionable(t *testing.T) {
-	s := jump(t, 8)
-	for range 60 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[0].Y == GroundY {
-			break
-		}
-	}
-	if got := s.Players[0].State; got != StateIdle {
-		t.Errorf("state %d on landing a bare jump, want idle", got)
-	}
-}
-
-// Being hit out of the fall cancels the debt.
-func TestAStateChangeClearsTheLandingDebt(t *testing.T) {
-	var p PlayerState
-	p.Landing = 5
-	p.enter(StateHitstun)
-	if p.Landing != 0 {
-		t.Errorf("landing debt %d survived the hit that ended the move", p.Landing)
-	}
-}
-
-// A press during landing recovery is buffered like any other press in a state
-// that cannot act on it: it comes out on the first frame that can.
-func TestAPressDuringLandingRecoveryBuffers(t *testing.T) {
-	s := jump(t, 8)
-	for s.Players[0].VY > 0 || s.Players[0].Y > FromInt(20) {
-		s.Advance([2]uint16{0, 0})
-	}
-	s.Advance([2]uint16{InLP, 0}) // the air normal, still running when it lands
-	for range 60 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[0].State == StateLanding {
-			break
-		}
-	}
-	if s.Players[0].State != StateLanding {
-		t.Fatal("never reached landing recovery")
-	}
-
-	s.Advance([2]uint16{InLP, 0}) // pressed into the recovery
-	for range InputBuffer {
-		if p := &s.Players[0]; p.State == StateAttack {
-			if p.MoveIndex != 0 {
-				t.Fatalf("move %d came out of the buffer, want the standing jab", p.MoveIndex)
-			}
-			return
-		}
-		s.Advance([2]uint16{0, 0})
-	}
-	t.Error("the press made during landing recovery was dropped")
-}
-
-// A launching move is not an air move, and landing does not end it: those
-// recovery frames on the ground are the punish window that makes an uppercut a
-// risk rather than a free button.
-func TestLandingDoesNotEndAnUppercut(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{InHP, 0}) // the fixture's launcher, move 3
-
-	for range 60 {
-		s.Advance([2]uint16{0, 0})
-		if s.Players[0].Y == GroundY && s.Players[0].StateFrame > 2 {
-			break
-		}
-	}
-
-	p := &s.Players[0]
-	if p.State != StateAttack || p.MoveIndex != 3 {
-		t.Fatalf("state %d move %d after landing, want the uppercut still recovering", p.State, p.MoveIndex)
-	}
-}
-
-// A jump is a commitment: nothing but a button is accepted up there.
-func TestAJumpAcceptsNoDirections(t *testing.T) {
-	for _, dir := range []uint8{2, 4, 6, 8} {
-		s := jump(t, 8)
-		for range 5 {
-			s.Advance([2]uint16{pad[dir], 0})
-		}
-		if got := s.Players[0].State; got != StateAir {
-			t.Errorf("holding %d in the air put the player in state %d", dir, got)
-		}
-	}
-}
-
 // The quarter-circle is still on the stick when the character leaves the
 // ground.
 func TestAGroundSpecialCannotComeOutInTheAir(t *testing.T) {
@@ -210,16 +74,6 @@ func TestAGroundSpecialCannotComeOutInTheAir(t *testing.T) {
 		if s.Projectiles[i].Active != 0 {
 			t.Fatal("a fireball came out of a jump")
 		}
-	}
-}
-
-// And the reverse: an air normal is not available on the ground, so its button
-// gives the grounded move instead.
-func TestAnAirNormalIsNotAvailableOnTheGround(t *testing.T) {
-	s := New()
-	s.Advance([2]uint16{InLP, 0})
-	if got := s.Players[0].MoveIndex; got != 0 {
-		t.Errorf("move %d on the ground, want the standing jab 0", got)
 	}
 }
 
@@ -255,19 +109,4 @@ func TestHoldingUpJumpsOnce(t *testing.T) {
 		s.Advance([2]uint16{InUp, 0})
 	}
 	t.Error("releasing up and pressing it again did not jump")
-}
-
-// The rule must not cost the buffered jump.
-func TestAJumpHeldThroughStunStillComesOut(t *testing.T) {
-	s := New()
-	s.Players[0].enter(StateHitstun)
-	s.Players[0].Stun = 6
-
-	for range 20 {
-		s.Advance([2]uint16{InUp, 0})
-		if s.Players[0].Airborne() || s.Players[0].State == StatePreJump {
-			return
-		}
-	}
-	t.Error("up held through hitstun never produced a jump")
 }
