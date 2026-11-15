@@ -216,26 +216,3 @@ func TestTheSecondHitOfACombo(t *testing.T) {
 		t.Errorf("the second hit dealt %d, want %d — the starter is the jab's, not the super's", got, want)
 	}
 }
-
-// Chip cannot kill.
-func TestChipCannotKill(t *testing.T) {
-	s := facing(60)
-	burnt(t, &s)
-	s.Players[1].Health = 1
-
-	feed(&s, 2, 3)
-	s.Advance([2]uint16{pad[6] | InLP, InRight})
-	for range 60 {
-		s.Advance([2]uint16{0, InRight})
-		if s.Players[1].State == StateBlockstun {
-			break
-		}
-	}
-	if s.Players[1].State != StateBlockstun {
-		t.Fatal("the fireball was never blocked")
-	}
-
-	if got := s.Players[1].Health; got != 1 {
-		t.Errorf("health = %d after chip on one point of health", got)
-	}
-}

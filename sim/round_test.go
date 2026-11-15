@@ -137,8 +137,6 @@ func TestADoubleKOIsADraw(t *testing.T) {
 func TestANewRoundResetsHealthButCarriesSuper(t *testing.T) {
 	s := New()
 	s.Players[0].Super = 2 * BarUnits
-	s.Players[0].Drive = 0
-	s.Players[0].Burnout = 1
 	s.Players[0].X = FromInt(100)
 	s.Players[1].Health = 1
 	s.Dealt = [2]int32{700, 0}
@@ -154,8 +152,6 @@ func TestANewRoundResetsHealthButCarriesSuper(t *testing.T) {
 		t.Errorf("super %d after the round reset, want it carried over", p.Super)
 	case p.Health != char().Health:
 		t.Errorf("health %d, want the full pool %d", p.Health, char().Health)
-	case p.Drive != DriveMax || p.Burnout != 0:
-		t.Errorf("drive %d burnout %d, want a full gauge and no burnout", p.Drive, p.Burnout)
 	case p.X != start.Players[0].X:
 		t.Errorf("player 0 starts the round at %d, want %d", p.X, start.Players[0].X)
 	}

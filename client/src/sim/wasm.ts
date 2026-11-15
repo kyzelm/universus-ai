@@ -33,8 +33,8 @@ const ONE = 65536
 const MAX_BOXES = 4
 const MAX_PROJECTILES = 4
 const BOX = 4 * 4
-const HIT_OFF = 72 + MAX_BOXES * BOX
-const PLAYER_SIZE = 13 * 4 + BOX + 2 * (4 + MAX_BOXES * BOX)
+const HIT_OFF = 64 + MAX_BOXES * BOX
+const PLAYER_SIZE = 11 * 4 + BOX + 2 * (4 + MAX_BOXES * BOX)
 const HEADER = 9 * 4
 const PROJ_OFF = HEADER + 2 * PLAYER_SIZE
 
@@ -66,11 +66,7 @@ export const PHASE_MATCH_END = 4
 /** No winner: a draw round, or a match that is still being played. */
 export const NOBODY = -1
 
-/**
- * Resource maxima, mirroring sim/resource.go: a bar is a thousand units, and
- * the gauges are 6 and 3 bars.
- */
-export const DRIVE_BARS = 6
+/** The super meter, mirroring sim/resource.go: a bar is a thousand units. */
 export const SUPER_BARS = 3
 export const BAR_UNITS = 1000
 
@@ -102,10 +98,7 @@ export interface PlayerSnapshot {
   state: number
   stateFrame: number
   health: number
-  drive: number
   super: number
-  /** 1 while the Drive gauge is refilling from empty. */
-  burnout: number
   /** Hits taken without recovering; 0 when not in a combo. */
   combo: number
   /** Class of the most recent hit taken — index into COUNTER_NAMES. */
@@ -291,14 +284,12 @@ export function readSnapshot(): Snapshot {
         state: v.getInt32(o + 16, true),
         stateFrame: v.getInt32(o + 20, true),
         health: v.getInt32(o + 24, true),
-        drive: v.getInt32(o + 28, true),
-        super: v.getInt32(o + 32, true),
-        burnout: v.getInt32(o + 36, true),
-        combo: v.getInt32(o + 40, true),
-        counter: v.getInt32(o + 44, true),
-        actionable: v.getInt32(o + 48, true),
-        pushbox: readBox(v, o + 52),
-        hurtboxes: readBoxList(v, o + 68),
+        super: v.getInt32(o + 28, true),
+        combo: v.getInt32(o + 32, true),
+        counter: v.getInt32(o + 36, true),
+        actionable: v.getInt32(o + 40, true),
+        pushbox: readBox(v, o + 44),
+        hurtboxes: readBoxList(v, o + 60),
         hitboxes: readBoxList(v, o + HIT_OFF),
       }
     }),

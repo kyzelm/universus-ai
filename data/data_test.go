@@ -60,7 +60,7 @@ func TestEmbeddedRosterLoads(t *testing.T) {
 	// that differ only in numbers, sharing one motion and one code path.
 	strengths := map[uint16]bool{}
 	for m := int32(0); m < cs[0].NumMoves; m++ {
-		if mv := &cs[0].Moves[m]; mv.Motion == sim.MotionQCF && mv.Drive == 0 {
+		if mv := &cs[0].Moves[m]; mv.Motion == sim.MotionQCF && mv.Meter == 0 {
 			strengths[mv.Button] = true
 		}
 	}
@@ -344,12 +344,8 @@ func TestEmbeddedBalanceLoads(t *testing.T) {
 		name string
 		v    int32
 	}{
-		{"drive.regen", b.DriveRegen},
-		{"drive.regenWalkForward", b.DriveRegenWalkF},
-		{"drive.regenBurnout", b.DriveRegenBurnout},
-		{"drive.blockCost", b.DriveBlockCost},
-		{"drive.burnoutBlockstun", b.BurnoutBlockstun},
-		{"drive.burnoutChipPercent", b.BurnoutChipPercent},
+		{"damage.chipPercent", b.ChipPercent},
+		{"damage.armorDamagePercent", b.ArmorDamagePercent},
 		{"damage.starterLight", b.StarterLight},
 		{"damage.starterMedium", b.StarterMedium},
 		{"damage.starterHeavy", b.StarterHeavy},
@@ -364,14 +360,6 @@ func TestEmbeddedBalanceLoads(t *testing.T) {
 		if f.v <= 0 {
 			t.Errorf("%s is %d", f.name, f.v)
 		}
-	}
-
-	// The shipped numbers have to produce a game, not just a valid file.
-	if f := sim.DriveMax / b.DriveRegenBurnout; f < 300 || f > 720 {
-		t.Errorf("Burnout lasts %d frames, want roughly the ~9 seconds the design asks for", f)
-	}
-	if n := sim.DriveMax / b.DriveBlockCost; n < 8 || n > 40 {
-		t.Errorf("%d blocked hits empty the gauge; that is not a pressure system", n)
 	}
 }
 
@@ -393,14 +381,8 @@ func TestBalanceValidationRejectsBadData(t *testing.T) {
 		name string
 		edit func(*jsonBalance)
 	}{
-		{"negative regen", func(b *jsonBalance) { b.Drive.Regen = -1 }},
-		{"free blocking", func(b *jsonBalance) { b.Drive.BlockCost = 0 }},
-		{"chip over 100%", func(b *jsonBalance) { b.Drive.BurnoutChip = 101 }},
-		{"walking in regenerates slower than standing still", func(b *jsonBalance) {
-			b.Drive.RegenWalkForward = b.Drive.Regen - 1
-		}},
-		{"Burnout that never ends", func(b *jsonBalance) { b.Drive.RegenBurnout = 0 }},
-		{"Burnout over in a blink", func(b *jsonBalance) { b.Drive.RegenBurnout = sim.DriveMax }},
+		{"negative chip", func(b *jsonBalance) { b.Damage.ChipPercent = -1 }},
+		{"chip over 100%", func(b *jsonBalance) { b.Damage.ChipPercent = 101 }},
 
 		{"a hit that pushes nobody", func(b *jsonBalance) { b.Knockback.Hit = "0" }},
 		{"a block that pushes nobody", func(b *jsonBalance) { b.Knockback.Block = "0" }},
@@ -501,7 +483,7 @@ func TestTheShippedRosterHasThreeSupers(t *testing.T) {
 			if mv.Motion == sim.MotionNone {
 				t.Errorf("character %d: a level %d super with no motion", i, mv.Super)
 			}
-			if got, want := mv.SuperCost(), mv.Super*sim.BarUnits; got != want {
+			if got, want := mv.Meter, mv.Super*sim.BarUnits; got != want {
 				t.Errorf("character %d: level %d costs %d, want %d", i, mv.Super, got, want)
 			}
 			// The design's own table: cheap and low damage at level 1, the
@@ -817,5 +799,27 @@ func TestTheShippedSecondStagesComeOutOfAWhiff(t *testing.T) {
 	}
 	if found == 0 {
 		t.Error("the roster has no second stages that come out of a whiff")
+	}
+}
+
+// Every EX reads any two buttons of one kind (D122).
+func TestEXMovesTakeAnyTwoOfAKind(t *testing.T) {
+	cs := loadRoster(t)
+	punches, kicks := uint16(sim.InLP|sim.InMP|sim.InHP), uint16(sim.InLK|sim.InMK|sim.InHK)
+	n := 0
+	for i := range cs {
+		for m := int32(0); m < cs[i].NumMoves; m++ {
+			mv := &cs[i].Moves[m]
+			if mv.Meter == 0 || mv.Super > 0 {
+				continue
+			}
+			n++
+			if mv.Need != 2 || (mv.Button != punches && mv.Button != kicks) {
+				t.Errorf("character %d move %d: buttons %#x need %d, want any two of a kind", i, m, mv.Button, mv.Need)
+			}
+		}
+	}
+	if n == 0 {
+		t.Error("no EX moves in the roster")
 	}
 }

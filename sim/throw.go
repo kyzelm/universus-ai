@@ -15,7 +15,7 @@ func (s *GameState) techFrame(defender int, now uint32) int32 {
 	if mv == nil {
 		return -1
 	}
-	return s.Players[defender].pressWithin(now, mv.Button, uint32(balance.ThrowTechFrames))
+	return s.Players[defender].pressWithin(now, mv.Button, mv.presses(), uint32(balance.ThrowTechFrames))
 }
 
 // throwOf is the character's *ordinary* throw — the one with no motion — or

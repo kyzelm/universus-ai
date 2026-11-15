@@ -1,16 +1,6 @@
 {
   "_comment": "Global tunables — 03 Game Design/Resource System.md and Round Flow.md.",
 
-  "drive": {
-    "regen": 6,
-    "regenWalkForward": 12,
-    "regenBurnout": 12,
-    "blockCost": 250,
-    "armorDamagePercent": 40,
-    "burnoutBlockstun": 4,
-    "burnoutChipPercent": 12
-  },
-
   "round": {
     "seconds": 99,
     "roundsToWin": 2,
@@ -59,7 +49,9 @@
     "minDamagePercent": 15,
     "counterHitPercent": 125,
     "counterHitstun": 4,
-    "punishHitstun": 8
+    "punishHitstun": 8,
+    "chipPercent": 12,
+    "armorDamagePercent": 40
   },
 
   "super": {

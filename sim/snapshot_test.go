@@ -85,7 +85,7 @@ func TestSnapshotCarriesActionability(t *testing.T) {
 	b := make([]byte, SnapshotSize)
 
 	s.WriteSnapshot(b)
-	if got := i32(b[headerSize+48:]); got != 1 {
+	if got := i32(b[headerSize+40:]); got != 1 {
 		t.Fatalf("idle player is actionable = %d, want 1", got)
 	}
 
@@ -93,10 +93,10 @@ func TestSnapshotCarriesActionability(t *testing.T) {
 	// it that the defender does not owe.
 	s.Advance([2]uint16{InLP, 0})
 	s.WriteSnapshot(b)
-	if got := i32(b[headerSize+48:]); got != 0 {
+	if got := i32(b[headerSize+40:]); got != 0 {
 		t.Errorf("attacking player is actionable = %d, want 0", got)
 	}
-	if got := i32(b[headerSize+PlayerSnapshotSize+48:]); got != 1 {
+	if got := i32(b[headerSize+PlayerSnapshotSize+40:]); got != 1 {
 		t.Errorf("the other player is actionable = %d, want 1", got)
 	}
 }
@@ -120,11 +120,11 @@ func TestSnapshotCarriesTheCollidingBoxes(t *testing.T) {
 	s.WriteSnapshot(b)
 
 	p0 := b[headerSize:]
-	if got := u32(p0[68:]); got == 0 {
+	if got := u32(p0[60:]); got == 0 {
 		t.Error("no hurtboxes in the snapshot")
 	}
 
-	hitOff := 72 + MaxBoxes*boxSize
+	hitOff := 64 + MaxBoxes*boxSize
 	if got := u32(p0[hitOff:]); int32(got) != nHit {
 		t.Fatalf("hit count = %d, want %d", got, nHit)
 	}
@@ -135,7 +135,7 @@ func TestSnapshotCarriesTheCollidingBoxes(t *testing.T) {
 	}
 
 	// The pushbox is always present.
-	push := p0[52:]
+	push := p0[44:]
 	if i32(push[8:]) <= 0 || i32(push[12:]) <= 0 {
 		t.Error("pushbox has no size")
 	}
@@ -154,7 +154,7 @@ func TestSnapshotLeavesNoStaleBoxes(t *testing.T) {
 	}
 	s.WriteSnapshot(b)
 
-	hitOff := headerSize + 72 + MaxBoxes*boxSize
+	hitOff := headerSize + 64 + MaxBoxes*boxSize
 	if u32(b[hitOff:]) == 0 {
 		t.Fatal("setup: expected a hitbox")
 	}

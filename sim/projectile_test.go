@@ -187,8 +187,8 @@ func TestFireballHitsOnceAndIsSpent(t *testing.T) {
 	}
 }
 
-// A projectile connects through applyHit, so blocking works exactly as it does
-// for a normal — and blocking spends it too.
+// A projectile connects through applyHit, so blocking works as it does for any
+// special: it chips, and blocking spends it too.
 func TestFireballCanBeBlocked(t *testing.T) {
 	s := fireball(t)
 	full := s.Players[1].Health
@@ -204,8 +204,8 @@ func TestFireballCanBeBlocked(t *testing.T) {
 	if s.Players[1].State != StateBlockstun {
 		t.Fatalf("defender state %d, want blockstun", s.Players[1].State)
 	}
-	if s.Players[1].Health != full {
-		t.Errorf("blocking cost %d health", full-s.Players[1].Health)
+	if got, want := full-s.Players[1].Health, char().Moves[2].Damage*BalanceOf().ChipPercent/100; got != want {
+		t.Errorf("blocking cost %d health, want the chip (%d)", got, want)
 	}
 	if live(&s) != 0 {
 		t.Error("a blocked fireball was not spent")

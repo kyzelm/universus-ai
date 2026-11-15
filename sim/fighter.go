@@ -117,14 +117,9 @@ func (p *PlayerState) enterMove(index int32, now uint32) {
 	mv := &CharacterAt(p.Char).Moves[index]
 
 	// The meter is spent here, on the frame the move starts, and nowhere else.
-	p.Super -= mv.SuperCost()
+	p.Super -= mv.Meter
 	if mv.Super > 0 {
 		p.Events |= EventSuper
-	}
-
-	// Drive is spent here for the same reason and in the same place.
-	if cost := mv.DriveCost(); cost > 0 {
-		p.spendDrive(cost)
 	}
 
 	// Armour is counted per move, so the count resets with the move rather than
@@ -170,7 +165,7 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 	// The second button of a two-button input lands late, and the move it was
 	// meant to be still comes out.
 	if p.State == StateAttack {
-		if m := s.moveFor(i, stance, now, 0); m >= 0 && s.pairLate(i, in, c.Moves[m].Button) {
+		if m := s.moveFor(i, stance, now, 0); m >= 0 && s.pairLate(i, in, &c.Moves[m]) {
 			p.enterMove(m, now)
 			return
 		}
@@ -325,19 +320,9 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 			continue
 		}
 
-		// The meter gates the super, and it gates it *here*, at selection: a
-		// level 3 the player cannot afford must not be picked and then fail,
-		// because a picked move has already beaten every cheaper one that
-		// shared the button.
-		if cost := mv.SuperCost(); cost > p.Super {
-			continue
-		}
-
-		// The Drive gauge gates EX specials the same way, and Burnout refuses
-		// them outright: no EX at all while the gauge is refilling is the
-		// design's own rule, and it is what makes running out of Drive a state
-		// worth avoiding rather than a slower meter.
-		if cost := mv.DriveCost(); cost > 0 && (p.Burnout != 0 || cost > p.Drive) {
+		// The meter gates supers and EX specials here, at selection: a picked
+		// move has already beaten every cheaper one that shared the press.
+		if mv.Meter > p.Super {
 			continue
 		}
 
@@ -353,7 +338,7 @@ func (s *GameState) moveFor(i int, stance int32, now uint32, cancel uint16) int3
 			continue
 		}
 
-		f := p.pressFrame(now, mv.Button)
+		f := p.pressFrame(now, mv.Button, mv.presses())
 		if f < 0 {
 			continue
 		}
@@ -381,7 +366,7 @@ func tierOf(m *Move) int32 {
 	switch {
 	case m.Super > 0:
 		return 4
-	case m.Drive > 0:
+	case m.Meter > 0:
 		return 3
 	case m.Motion != MotionNone:
 		return 2
@@ -392,24 +377,20 @@ func tierOf(m *Move) int32 {
 	}
 }
 
-// multiButton reports a button mask with more than one bit — a throw or an EX
-// special.
-func multiButton(mask uint16) bool { return mask&(mask-1) != 0 }
-
 // pairLate reports that the player is a frame or two into a single-button
-// attack and is now completing the two-button input pair, which that attack's
+// attack and is now completing the two-button move pair, which that attack's
 // button is part of.
-func (s *GameState) pairLate(i int, in, pair uint16) bool {
+func (s *GameState) pairLate(i int, in uint16, pair *Move) bool {
 	p := &s.Players[i]
-	if !multiButton(pair) || in&pair != pair {
+	if pair.presses() < 2 || !held(pair.Button, pair.presses(), in) {
 		return false
 	}
 	if p.State != StateAttack || p.HasHit != 0 || p.StateFrame >= balance.PairFrames {
 		return false
 	}
 	mv := p.move()
-	return mv != nil && !multiButton(mv.Button) && p.StateFrame < mv.Startup &&
-		pair&mv.Button != 0
+	return mv != nil && mv.presses() == 1 && p.StateFrame < mv.Startup &&
+		pair.Button&mv.Button != 0
 }
 
 // advanceState is step 2: run the current state's clock and decide what the

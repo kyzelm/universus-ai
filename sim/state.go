@@ -36,9 +36,7 @@ type PlayerState struct {
 
 	Health int32
 
-	// Drive and Super are the two resources (03 Game Design/Resource
-	// System.md), in units of a thousandth of a bar — see resource.go.
-	Drive int32
+	// Super is the meter, in thousandths of a bar — see resource.go.
 	Super int32
 
 	// Combo is how many hits the player has taken without recovering, and
@@ -48,9 +46,6 @@ type PlayerState struct {
 	Combo        int32
 	ComboStarter int32
 	Counter      int32
-
-	// Burnout is 1 while the Drive gauge is refilling from empty.
-	Burnout int32
 
 	// State and StateFrame are the state machine.
 	State      int32
@@ -199,8 +194,6 @@ func NewMatch(c0, c1 int32) GameState {
 	for i := range s.Players {
 		s.Players[i].MoveIndex = -1
 		s.Players[i].Eaten = -1
-		// Drive starts full and Super starts empty.
-		s.Players[i].Drive = DriveMax
 	}
 
 	// Round 1, fighting.
@@ -424,8 +417,8 @@ func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16
 
 	// Damage dealt is measured off the health bar at the end of this function
 	// rather than taken from the formula, so the match total the round cap's
-	// tiebreak reads is what actually happened: chip that stopped at 1 health
-	// counts what it removed, and a hit that overkills counts what was left.
+	// tiebreak reads is what actually happened: a hit that overkills counts
+	// what was left.
 	before := dp.Health
 
 	if dp.absorbs() {
@@ -433,7 +426,7 @@ func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16
 		// eats: no hitstun, no knockback, no combo, no counter — their move
 		// carries on, which is what they paid for.
 		dp.Armor++
-		dp.chip(mv.Damage * balance.ArmorDamagePercent / 100)
+		dp.hurt(mv.Damage * balance.ArmorDamagePercent / 100)
 		dp.Events |= EventBlock
 
 		// Meter still moves: a hit that was absorbed is a hit that landed, and
@@ -450,17 +443,9 @@ func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16
 		// Block pushback is its own number and it is the larger one.
 		s.applyKnockback(attacker, defender, mv, true)
 
-		if dp.Burnout != 0 {
-			// The Burnout penalties, and the only place in the game where
-			// blocking deals damage (D32).
-			dp.Stun += balance.BurnoutBlockstun
-			if mv.Motion != MotionNone {
-				// Chip, and chip cannot kill.
-				dp.chip(mv.Damage * balance.BurnoutChipPercent / 100)
-			}
-		} else {
-			// Blocking spends Drive.
-			dp.spendDrive(balance.DriveBlockCost)
+		// Chip: a blocked special, EX or super still hurts, and it can kill.
+		if mv.Motion != MotionNone {
+			dp.hurt(mv.Damage * balance.ChipPercent / 100)
 		}
 	} else {
 		// The counter class is read before anything is applied: it is a fact

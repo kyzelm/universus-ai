@@ -1,49 +1,28 @@
 package sim
 
-// The two resources, per 03 Game Design/Resource System.md.
+// The super meter, per 03 Game Design/Resource System.md.
 
-// Units. One bar is 1000 units, and a resource is never a float or a fraction
-// of a bar — the design note is explicit, so that a fractional cost is an exact
-// integer and half of an odd number never has to be rounded.
+// One bar is 1000 units, so a fractional cost is an exact integer.
 const (
 	BarUnits = 1000
 
-	DriveBars = 6
 	SuperBars = 3
-
-	DriveMax = DriveBars * BarUnits
-	SuperMax = SuperBars * BarUnits
+	SuperMax  = SuperBars * BarUnits
 )
 
-// Balance is the global tunables: costs, regeneration rates and the Burnout
-// penalties.
+// Balance is the global tunables.
 type Balance struct {
-	// DriveRegen is the neutral rate, DriveRegenWalkF the faster one for
-	// walking forward — moving in is rewarded, and that asymmetry is the whole
-	// point of having two rates.
-	DriveRegen      int32
-	DriveRegenWalkF int32
-
-	// DriveRegenBurnout is the refill rate while burnt out, which is what sets
-	// how long Burnout lasts: DriveMax divided by this, in frames.
-	DriveRegenBurnout int32
-
 	// PairFrames is how late the second button of a two-button input may land
 	// and still be read as the pair.
 	PairFrames int32
-
-	// DriveBlockCost is spent per blocked hit.
-	DriveBlockCost int32
 
 	// ArmorDamagePercent is how much of a move's damage an absorbed hit still
 	// deals to an armoured defender (see Move.Armor).
 	ArmorDamagePercent int32
 
-	// BurnoutBlockstun is the extra blockstun a burnt-out defender takes, and
-	// BurnoutChipPercent the chip damage a blocked *special* deals to them —
-	// the only situation in the game where blocking deals damage (D32).
-	BurnoutBlockstun   int32
-	BurnoutChipPercent int32
+	// ChipPercent is how much of its damage a blocked special, EX or super
+	// still deals.
+	ChipPercent int32
 
 	// The damage pipeline (see damage.go).
 	ComboScale       [ComboScaleSteps]int32
@@ -138,20 +117,7 @@ func (s *GameState) updateResources() {
 		for i := range s.Players {
 			p := &s.Players[i]
 			p.Health = CharacterAt(p.Char).Health
-			p.Drive, p.Super = DriveMax, SuperMax
-			p.Burnout = 0
-		}
-		return
-	}
-
-	for i := range s.Players {
-		p := &s.Players[i]
-
-		p.Drive += p.driveRegen()
-		if p.Drive >= DriveMax {
-			p.Drive = DriveMax
-			// Burnout ends when the gauge is *full*, not when it is above zero.
-			p.Burnout = 0
+			p.Super = SuperMax
 		}
 	}
 }
@@ -161,30 +127,6 @@ func (s *GameState) updateResources() {
 func (s *GameState) anyoneStunned() bool {
 	return stunned(s.Players[0].State) || stunned(s.Players[1].State) ||
 		s.Players[0].Combo > 0 || s.Players[1].Combo > 0
-}
-
-// driveRegen is this frame's regeneration rate.
-func (p *PlayerState) driveRegen() int32 {
-	switch {
-	case p.Burnout != 0:
-		return balance.DriveRegenBurnout
-	case p.State == StateBlockstun:
-		// Paused while blocking.
-		return 0
-	case p.State == StateWalkF:
-		return balance.DriveRegenWalkF
-	default:
-		return balance.DriveRegen
-	}
-}
-
-// spendDrive takes n units and enters Burnout if that empties the gauge.
-func (p *PlayerState) spendDrive(n int32) {
-	p.Drive -= n
-	if p.Drive <= 0 {
-		p.Drive = 0
-		p.Burnout = 1
-	}
 }
 
 // gainSuper adds n units, capped.

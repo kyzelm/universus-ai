@@ -1,5 +1,7 @@
 package sim
 
+import "math/bits"
+
 // Frame-accurate input interpretation.
 
 // InputHistory is the ring length, in frames.
@@ -176,25 +178,32 @@ func (s *GameState) Pressed(player int, button uint16) bool {
 
 func (s *GameState) PressedAt(player int, button uint16, now uint32) bool {
 	p := &s.Players[player]
-	return pressed(button, p.at(now, 0), p.at(now, 1))
+	return pressed(button, count(button), p.at(now, 0), p.at(now, 1))
 }
 
-// pressed is the edge rule, and it is written for a mask rather than a single
-// bit: every bit down now, and not every bit down the frame before.
-func pressed(mask, now, before uint16) bool {
-	return mask != 0 && now&mask == mask && before&mask != mask
+// count is how many buttons a mask names.
+func count(mask uint16) int32 { return int32(bits.OnesCount16(mask)) }
+
+// held reports at least need of mask's buttons down.
+func held(mask uint16, need int32, in uint16) bool {
+	return need > 0 && count(in&mask) >= need
 }
 
-// pressFrame is the newest frame within the buffer window on which button was
-// freshly pressed, or -1.
-func (p *PlayerState) pressFrame(now uint32, button uint16) int32 {
-	return p.pressWithin(now, button, InputBuffer)
+// pressed is the edge rule: held now, and not held the frame before.
+func pressed(mask uint16, need int32, now, before uint16) bool {
+	return held(mask, need, now) && !held(mask, need, before)
+}
+
+// pressFrame is the newest frame within the buffer window on which need of
+// mask's buttons were freshly pressed, or -1.
+func (p *PlayerState) pressFrame(now uint32, mask uint16, need int32) int32 {
+	return p.pressWithin(now, mask, need, InputBuffer)
 }
 
 // pressWithin is pressFrame over an arbitrary window.
-func (p *PlayerState) pressWithin(now uint32, button uint16, window uint32) int32 {
+func (p *PlayerState) pressWithin(now uint32, mask uint16, need int32, window uint32) int32 {
 	for back := uint32(0); back < window && back <= now; back++ {
-		if pressed(button, p.at(now, back), p.at(now, back+1)) {
+		if pressed(mask, need, p.at(now, back), p.at(now, back+1)) {
 			return int32(now - back)
 		}
 	}
@@ -209,5 +218,5 @@ func (s *GameState) Buffered(player int, button uint16) bool {
 }
 
 func (s *GameState) BufferedAt(player int, button uint16, now uint32) bool {
-	return s.Players[player].pressFrame(now, button) >= 0
+	return s.Players[player].pressFrame(now, button, count(button)) >= 0
 }

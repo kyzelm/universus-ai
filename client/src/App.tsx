@@ -62,8 +62,8 @@ function Controls() {
 
         <dt>EX special</dt>
         <dd>
-          the special's motion + <b>U+I</b> — two bars for a stronger version. None of it
-          works in Burnout
+          the special's motion + any two punches — 0.4 of a super bar for a stronger
+          version
         </dd>
 
         <dt>throw</dt>

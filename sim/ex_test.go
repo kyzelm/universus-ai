@@ -2,9 +2,7 @@ package sim
 
 import "testing"
 
-// What the Drive gauge buys (03 Game Design/Resource System.md): since D115 cut
-// the other Drive mechanics, EX specials are the only moves with a Drive price,
-// so what is under test here is the price and armour.
+// EX specials and armour.
 
 const (
 	moveArmored = 13
@@ -18,51 +16,63 @@ func qcf(s *GameState, button uint16) {
 	s.Advance([2]uint16{pad[6] | button, 0})
 }
 
-// The price is checked at selection, exactly like a super's: the EX wins the
-// press it shares with the cheaper special, and the bars are gone afterwards.
-func TestEXCostsDriveAndOutranksTheSpecialItSharesAButtonWith(t *testing.T) {
-	s := New()
-	before := s.Players[0].Drive
-	qcf(&s, InLP|InMP)
+// The price is checked at selection: the EX wins the press it shares with the
+// plain special, on any two punches, and the meter is gone afterwards.
+func TestEXTakesAnyTwoPunchesAndCostsMeter(t *testing.T) {
+	for _, pair := range []uint16{InLP | InMP, InLP | InHP, InMP | InHP} {
+		s := New()
+		s.Players[0].Super = 400
+		qcf(&s, pair)
 
-	if got := s.Players[0].MoveIndex; got != moveEX {
-		t.Fatalf("move = %d, want the EX special (%d)", got, moveEX)
-	}
-	// Two bars, less the frame of regeneration that runs after the move comes
-	// out — the gauge refills on the same frame it was charged, so an equality
-	// against two bars would be testing the regeneration rate by accident.
-	spent := before - s.Players[0].Drive
-	if want := 2*BarUnits - BalanceOf().DriveRegen; spent != want {
-		t.Errorf("spent %d units, want %d (two bars, one frame of regen back)", spent, want)
+		if got := s.Players[0].MoveIndex; got != moveEX {
+			t.Errorf("buttons %#x: move = %d, want the EX special (%d)", pair, got, moveEX)
+		}
+		if got := s.Players[0].Super; got != 0 {
+			t.Errorf("buttons %#x: meter = %d after the EX, want 0", pair, got)
+		}
 	}
 }
 
-// The gauge it cannot pay for leaves the cheaper move to win the press — the
-// same courtesy the meter gives the fireball when a super is unaffordable.
+// One punch and one kick is the throw's press, never an EX.
+func TestLPLKIsNotAnEX(t *testing.T) {
+	s := New()
+	s.Players[0].Super = SuperMax
+	qcf(&s, InLP|InLK)
+	if got := s.Players[0].MoveIndex; got != 2 {
+		t.Errorf("move = %d, want the plain special (2)", got)
+	}
+
+	s = New()
+	s.Players[0].Super = SuperMax
+	s.Advance([2]uint16{InLP | InLK, 0})
+	if got := s.Players[0].MoveIndex; got != 10 {
+		t.Errorf("move = %d, want the throw (10)", got)
+	}
+}
+
+// The second punch may land a frame late and still make the EX.
+func TestEXPairMayLandAFrameApart(t *testing.T) {
+	s := New()
+	s.Players[0].Super = 400
+	qcf(&s, InLP)
+	s.Advance([2]uint16{pad[6] | InLP | InHP, 0})
+
+	if got := s.Players[0].MoveIndex; got != moveEX {
+		t.Errorf("move = %d, want the EX special (%d)", got, moveEX)
+	}
+}
+
+// A meter that cannot pay leaves the plain special to win the press.
 func TestAnUnaffordableEXComesOutAsThePlainSpecial(t *testing.T) {
 	s := New()
-	s.Players[0].Drive = BarUnits // one bar against the EX's two
+	s.Players[0].Super = 399
 	qcf(&s, InLP|InMP)
 
 	if got := s.Players[0].MoveIndex; got != 2 {
 		t.Fatalf("move = %d, want the plain special (2)", got)
 	}
-	if s.Players[0].Drive < BarUnits {
-		t.Errorf("drive fell to %d: an unaffordable move was charged for", s.Players[0].Drive)
-	}
-}
-
-// No EX specials at all in Burnout, however much has refilled.
-func TestBurnoutRefusesDriveMovesEvenWithBarsBack(t *testing.T) {
-	s := New()
-	s.Players[0].Burnout = 1
-	// Half a gauge: more than the EX costs, and far enough from full that the
-	// Burnout refill cannot end the state before the motion is finished.
-	s.Players[0].Drive = DriveMax / 2
-	qcf(&s, InLP|InMP)
-
-	if got := s.Players[0].MoveIndex; got != 2 {
-		t.Errorf("move = %d, want the plain special (2) — Burnout allows no EX", got)
+	if got := s.Players[0].Super; got != 399 {
+		t.Errorf("meter = %d: an unaffordable move was charged for", got)
 	}
 }
 
@@ -72,6 +82,7 @@ func TestBurnoutRefusesDriveMovesEvenWithBarsBack(t *testing.T) {
 func armored(t *testing.T, gap int) GameState {
 	t.Helper()
 	s := facing(gap)
+	s.Players[1].Super = 400
 	s.Advance([2]uint16{0, InHP | InHK})
 
 	if got := s.Players[1].MoveIndex; got != moveArmored {
@@ -120,17 +131,17 @@ func TestTheSecondHitIsNotAbsorbed(t *testing.T) {
 	}
 }
 
-// Armour cannot kill.
-func TestAnAbsorbedHitCannotKill(t *testing.T) {
+// Armour's reduced damage can kill.
+func TestAnAbsorbedHitCanKill(t *testing.T) {
 	s := armored(t, 40)
 	s.Players[1].Health = 10
 
-	for f := 0; f < 8 && s.Players[1].State == StateAttack; f++ {
+	for f := 0; f < 8 && s.Players[1].Armor == 0; f++ {
 		s.Advance([2]uint16{InLP, 0})
 	}
 
-	if s.Players[1].Health != 1 {
-		t.Errorf("health = %d, want the floor of 1", s.Players[1].Health)
+	if s.Players[1].Health != 0 {
+		t.Errorf("health = %d, want 0", s.Players[1].Health)
 	}
 }
 

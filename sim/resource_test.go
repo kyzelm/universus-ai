@@ -2,9 +2,7 @@ package sim
 
 import "testing"
 
-// The gauges are fields of GameState, so they roll back with everything else —
-// that is covered by the layout invariant and the rollback test, not repeated
-// here.
+// The super meter.
 
 // blocked runs player 0's jab into a player 1 who is holding away, and stops on
 // the frame the block lands.
@@ -23,192 +21,57 @@ func blocked(t *testing.T, s *GameState) {
 	t.Fatal("the attack never connected, so nothing was blocked")
 }
 
-func TestDriveStartsFullAndSuperStartsEmpty(t *testing.T) {
+func TestSuperStartsEmpty(t *testing.T) {
 	s := New()
 	for i := range s.Players {
-		if s.Players[i].Drive != DriveMax {
-			t.Errorf("p%d starts with %d Drive, want a full %d", i, s.Players[i].Drive, DriveMax)
-		}
 		if s.Players[i].Super != 0 {
 			t.Errorf("p%d starts with %d Super, want none", i, s.Players[i].Super)
 		}
 	}
 }
 
-// Blocking spends Drive.
-func TestBlockingSpendsDrive(t *testing.T) {
-	s := facing(30)
-	blocked(t, &s)
-
-	spent := DriveMax - s.Players[1].Drive
-	b := BalanceOf()
-	// Regeneration runs on the frames before the block lands, so the drop is
-	// the cost less a few frames of it — never more than the cost, and never
-	// nothing.
-	if spent > b.DriveBlockCost || spent < b.DriveBlockCost-100 {
-		t.Errorf("blocking moved the gauge by %d, want about the %d it costs", spent, b.DriveBlockCost)
-	}
-	if s.Players[0].Drive != DriveMax {
-		t.Errorf("the attacker's gauge moved to %d; only the defender pays", s.Players[0].Drive)
-	}
-}
-
-// Regeneration is slow in neutral, faster walking in.
-func TestDriveRegeneratesFasterWalkingForward(t *testing.T) {
-	b := BalanceOf()
-
-	neutral, forward := New(), New()
-	neutral.Players[0].Drive = 0
-	forward.Players[0].Drive = 0
-
-	for range 10 {
-		neutral.Advance([2]uint16{0, 0})
-		forward.Advance([2]uint16{InRight, 0})
-	}
-
-	if forward.Players[0].State != StateWalkF {
-		t.Fatalf("setup: player 0 is in state %d, not walking forward", forward.Players[0].State)
-	}
-	if got, want := neutral.Players[0].Drive, 10*b.DriveRegen; got != want {
-		t.Errorf("neutral regenerated %d over 10 frames, want %d", got, want)
-	}
-	if got, want := forward.Players[0].Drive, 10*b.DriveRegenWalkF; got != want {
-		t.Errorf("walking forward regenerated %d over 10 frames, want %d", got, want)
-	}
-}
-
-// Blockstun pauses regeneration.
-func TestBlockstunPausesDriveRegen(t *testing.T) {
-	s := facing(30)
-	blocked(t, &s)
-
-	before := s.Players[1].Drive
-	for range 5 {
-		s.Advance([2]uint16{0, InRight})
-		if s.Players[1].State != StateBlockstun {
-			t.Fatal("setup: left blockstun before the check finished")
-		}
-	}
-	if s.Players[1].Drive != before {
-		t.Errorf("the gauge moved from %d to %d during blockstun", before, s.Players[1].Drive)
-	}
-}
-
-func TestBurnoutStartsWhenTheGaugeEmpties(t *testing.T) {
-	s := facing(30)
-	s.Players[1].Drive = 1 // one unit left: the next block empties it
-
-	blocked(t, &s)
-
-	if s.Players[1].Burnout == 0 {
-		t.Error("the gauge emptied without entering Burnout")
-	}
-	if s.Players[1].Drive < 0 {
-		t.Errorf("Drive went negative: %d", s.Players[1].Drive)
-	}
-}
-
-// Burnout ends when the gauge is *full*, not when it is above zero.
-func TestBurnoutEndsOnlyWhenTheGaugeIsFull(t *testing.T) {
-	s := New()
-	s.Players[0].Drive, s.Players[0].Burnout = 0, 1
-
-	frames := 0
-	for range 600 {
-		s.Advance([2]uint16{0, 0})
-		frames++
-		if s.Players[0].Burnout == 0 {
-			break
-		}
-		if s.Players[0].Drive >= DriveMax {
-			t.Fatalf("still burnt out on frame %d with a full gauge", frames)
-		}
-	}
-
-	if s.Players[0].Burnout != 0 {
-		t.Fatalf("still burnt out after %d frames with %d Drive", frames, s.Players[0].Drive)
-	}
-	if s.Players[0].Drive != DriveMax {
-		t.Errorf("Burnout ended at %d Drive, want the full %d", s.Players[0].Drive, DriveMax)
-	}
-	if want := DriveMax / BalanceOf().DriveRegenBurnout; int32(frames) != want {
-		t.Errorf("Burnout lasted %d frames, want %d at the balance's refill rate", frames, want)
-	}
-}
-
-// burnt puts player 1 in Burnout for the whole test: the refill rate is set to
-// zero so the recovery clock cannot run out mid-test and turn a Burnout
-// assertion into a healthy-gauge one.
-func burnt(t *testing.T, s *GameState) {
+// fireballBlocked has player 1 block player 0's fireball.
+func fireballBlocked(t *testing.T, s *GameState) {
 	t.Helper()
-	b := testBalance()
-	b.DriveRegenBurnout = 0
-	LoadBalance(b)
-	t.Cleanup(func() { LoadBalance(testBalance()) })
-
-	s.Players[1].Drive, s.Players[1].Burnout = 0, 1
+	feed(s, 2, 3)
+	s.Advance([2]uint16{pad[6] | InLP, InRight})
+	for range 60 {
+		s.Advance([2]uint16{0, InRight})
+		if s.Players[1].State == StateBlockstun {
+			return
+		}
+	}
+	t.Fatal("the fireball was never blocked")
 }
 
-// The Burnout penalties: longer blockstun, and chip damage on a blocked
-// special — the only situation in the game where blocking deals damage (D32).
-func TestBurnoutLengthensBlockstun(t *testing.T) {
+// Chip: a blocked special still hurts, a blocked normal does not.
+func TestChipOnlyOnSpecials(t *testing.T) {
 	s := facing(30)
-	burnt(t, &s)
+	full := s.Players[1].Health
 	blocked(t, &s)
+	if s.Players[1].Health != full {
+		t.Errorf("a blocked normal chipped %d", full-s.Players[1].Health)
+	}
 
-	want := char().Moves[0].Blockstun + BalanceOf().BurnoutBlockstun
-	if got := s.Players[1].Stun; got != want {
-		t.Errorf("blockstun in Burnout = %d, want %d", got, want)
+	s = facing(60)
+	fireballBlocked(t, &s)
+	want := char().Moves[2].Damage * BalanceOf().ChipPercent / 100
+	if got := full - s.Players[1].Health; got != want {
+		t.Errorf("chip damage = %d, want %d", got, want)
 	}
 }
 
-func TestBurnoutChipsOnlyOnSpecials(t *testing.T) {
-	t.Run("a blocked normal still costs nothing", func(t *testing.T) {
-		s := facing(30)
-		burnt(t, &s)
-		full := s.Players[1].Health
+// Chip can kill.
+func TestChipCanKill(t *testing.T) {
+	s := facing(60)
+	s.Players[1].Health = 1
+	fireballBlocked(t, &s)
 
-		blocked(t, &s)
-
-		if s.Players[1].Health != full {
-			t.Errorf("a blocked normal chipped %d in Burnout", full-s.Players[1].Health)
-		}
-	})
-
-	t.Run("a blocked special chips", func(t *testing.T) {
-		s := facing(60)
-		burnt(t, &s)
-		full := s.Players[1].Health
-		mv := &char().Moves[2] // the fireball: a special, so it chips
-
-		feed(&s, 2, 3)
-		s.Advance([2]uint16{pad[6] | InLP, InRight})
-		for range 60 {
-			s.Advance([2]uint16{0, InRight})
-			if s.Players[1].State == StateBlockstun {
-				break
-			}
-		}
-		if s.Players[1].State != StateBlockstun {
-			t.Fatal("the fireball was never blocked")
-		}
-
-		want := mv.Damage * BalanceOf().BurnoutChipPercent / 100
-		if got := full - s.Players[1].Health; got != want {
-			t.Errorf("chip damage = %d, want %d", got, want)
-		}
-	})
-}
-
-// A burnt-out gauge is already empty and refilling.
-func TestBurnoutTakesNoFurtherDrive(t *testing.T) {
-	s := facing(30)
-	s.Players[1].Drive, s.Players[1].Burnout = 0, 1
-
-	blocked(t, &s)
-
-	if s.Players[1].Drive <= 0 {
-		t.Errorf("the gauge is at %d after blocking in Burnout: it should only be refilling", s.Players[1].Drive)
+	if got := s.Players[1].Health; got != 0 {
+		t.Errorf("health = %d after chip on one point of health, want 0", got)
+	}
+	if s.Phase != PhaseKO {
+		t.Errorf("phase = %d, want the KO", s.Phase)
 	}
 }
 

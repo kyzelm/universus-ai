@@ -18,7 +18,6 @@ import {
   readSnapshot,
   BAR_UNITS,
   COUNTER_NAMES,
-  DRIVE_BARS,
   NOBODY,
   numCharacters,
   roster,
@@ -419,7 +418,7 @@ export async function startGame(
     setText(announce, opponentLeft ? 'OPPONENT DISCONNECTED\nYOU WIN' : announcement(snap))
 
     for (let i = 0; i < bars.length; i++) {
-      drawBars(bars[i], snap.players[i], i, snap.frame, snap.wins[i])
+      drawBars(bars[i], snap.players[i], i, snap.wins[i])
       // The combo belongs to the player taking it; it is shown on the side of
       // the player landing it, which is where every game in the genre puts it.
       setCombo(combos[1 - i], snap.players[i])
@@ -637,18 +636,10 @@ const ROUNDS_TO_WIN = 2
 const EMPTY_COLOR = 0x2a2f38
 const WIN_COLOR = 0xe8ecf2
 const HEALTH_COLOR = 0xd8c15a
-const DRIVE_COLOR = 0x4ac8e0
-const BURNOUT_COLOR = 0xe07a2a
 const SUPER_COLOR = 0xc86ee0
 
-/** Health, then the two resources. */
-function drawBars(
-  g: Graphics,
-  p: PlayerSnapshot,
-  seat: number,
-  frame: number,
-  wins: number,
-): void {
+/** Health, then the super meter. */
+function drawBars(g: Graphics, p: PlayerSnapshot, seat: number, wins: number): void {
   const x = seat === 0 ? 10 : VIEW_W - 10 - BAR_W
 
   g.clear()
@@ -657,14 +648,7 @@ function drawBars(
   const w = BAR_W * clamp01(p.health / MAX_HEALTH)
   g.rect(seat === 0 ? x + BAR_W - w : x, 8, w, 14).fill(HEALTH_COLOR)
 
-  const burnout = p.burnout !== 0
-  drawGauge(g, x, 25, 9, seat, p.drive, DRIVE_BARS, {
-    color: burnout ? BURNOUT_COLOR : DRIVE_COLOR,
-    // A slow pulse, driven by the sim's frame so it cannot drift from the
-    // state it is reporting.
-    alpha: burnout ? 0.55 + 0.45 * Math.sin(frame / 6) : 1,
-  })
-  drawGauge(g, x, 37, 7, seat, p.super, SUPER_BARS, {color: SUPER_COLOR, alpha: 1})
+  drawGauge(g, x, 25, 9, seat, p.super, SUPER_BARS, SUPER_COLOR)
 
   // Round wins, as pips beside the health bar.
   for (let i = 0; i < ROUNDS_TO_WIN; i++) {
@@ -682,19 +666,19 @@ function drawGauge(
   seat: number,
   value: number,
   bars: number,
-  style: {color: number; alpha: number},
+  color: number,
 ): void {
   const gap = 2
   const segW = (BAR_W - gap * (bars - 1)) / bars
 
   for (let i = 0; i < bars; i++) {
-    // Both gauges fill away from the outside edge of the screen, like health.
+    // Fills away from the outside edge of the screen, like health.
     const index = seat === 0 ? bars - 1 - i : i
     const sx = x + index * (segW + gap)
     const filled = clamp01(value / BAR_UNITS - i) * segW
 
     g.rect(sx, y, segW, h).fill(EMPTY_COLOR)
-    g.rect(seat === 0 ? sx + segW - filled : sx, y, filled, h).fill(style)
+    g.rect(seat === 0 ? sx + segW - filled : sx, y, filled, h).fill(color)
   }
 }
 
@@ -750,11 +734,10 @@ function setCombo(t: Text, defender: PlayerSnapshot): void {
 function localHud(snap: Snapshot): string {
   const who = (i: number) => {
     const p = snap.players[i]
-    const drive = (p.drive / BAR_UNITS).toFixed(1)
     const meter = (p.super / BAR_UNITS).toFixed(1)
     return (
       `p${i} ${STATE_NAMES[p.state] ?? p.state}:${p.stateFrame} hp ${p.health} ` +
-      `drive ${drive}${p.burnout ? ' BURNOUT' : ''} super ${meter}` +
+      `super ${meter}` +
       (p.combo ? ` combo ${p.combo}` : '')
     )
   }

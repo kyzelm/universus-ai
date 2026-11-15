@@ -17,21 +17,20 @@ package sim
 //	36+2*PlayerSnapshotSize  uint32 projectile count, then MaxProjectiles boxes
 //	 0  int32   X (Fix)          20  int32  state frame
 //	 4  int32   Y (Fix)          24  int32  health
-//	 8  int32   facing           28  int32  drive
-//	12  int32   move index       32  int32  super
-//	16  int32   state            36  int32  burnout
-//	40  int32   combo hits       44  int32  counter class
-//	48  int32   actionable
-//	52  pushbox (4 x int32)
-//	68  uint32  hurt count       72  hurtboxes (MaxBoxes x 4 x int32)
-//	72+64 = 136  uint32 hit count
-//	140 hitboxes (MaxBoxes x 4 x int32)
+//	 8  int32   facing           28  int32  super
+//	12  int32   move index       32  int32  combo hits
+//	16  int32   state            36  int32  counter class
+//	40  int32   actionable
+//	44  pushbox (4 x int32)
+//	60  uint32  hurt count       64  hurtboxes (MaxBoxes x 4 x int32)
+//	64+64 = 128  uint32 hit count
+//	132 hitboxes (MaxBoxes x 4 x int32)
 const (
 	boxSize = 4 * 4
 	// headerSize covers the match-level fields above: the frame, the camera,
 	// hitstop and the round flow.
 	headerSize         = 9 * 4
-	PlayerSnapshotSize = 13*4 + boxSize + 2*(4+MaxBoxes*boxSize)
+	PlayerSnapshotSize = 11*4 + boxSize + 2*(4+MaxBoxes*boxSize)
 	projOffset         = headerSize + 2*PlayerSnapshotSize
 	SnapshotSize       = projOffset + 4 + MaxProjectiles*boxSize
 )
@@ -94,26 +93,22 @@ func (s *GameState) WriteSnapshot(b []byte) {
 		putI32(o[16:], p.State)
 		putI32(o[20:], p.StateFrame)
 		putI32(o[24:], p.Health)
-		// The gauges ride along with health: they are the two most-read HUD
-		// elements after it, and Burnout has to be unmistakable on screen.
-		putI32(o[28:], p.Drive)
-		putI32(o[32:], p.Super)
-		putI32(o[36:], p.Burnout)
+		putI32(o[28:], p.Super)
 		// The combo counter and the counter-hit class.
-		putI32(o[40:], p.Combo)
-		putI32(o[44:], p.Counter)
+		putI32(o[32:], p.Combo)
+		putI32(o[36:], p.Counter)
 		// Whether this player may act this frame, which is the sim's own
 		// predicate and not a state list the view keeps beside it.
-		putI32(o[48:], b2i(Actionable(p.State)))
-		putBox(o[52:], s.Pushbox(i))
+		putI32(o[40:], b2i(Actionable(p.State)))
+		putBox(o[44:], s.Pushbox(i))
 
 		n := s.Hurtboxes(i, &boxes)
-		putU32(o[68:], uint32(n))
+		putU32(o[60:], uint32(n))
 		for k := int32(0); k < n; k++ {
-			putBox(o[72+int(k)*boxSize:], boxes[k])
+			putBox(o[64+int(k)*boxSize:], boxes[k])
 		}
 
-		hitOff := 72 + MaxBoxes*boxSize
+		hitOff := 64 + MaxBoxes*boxSize
 		n = s.Hitboxes(i, &boxes)
 		putU32(o[hitOff:], uint32(n))
 		for k := int32(0); k < n; k++ {

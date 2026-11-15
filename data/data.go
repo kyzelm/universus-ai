@@ -169,16 +169,6 @@ type jsonCharacter struct {
 // jsonBalance groups by resource, because that is how the design note reads and
 // how the values are tuned.
 type jsonBalance struct {
-	Drive struct {
-		Regen            int `json:"regen"`
-		RegenWalkForward int `json:"regenWalkForward"`
-		RegenBurnout     int `json:"regenBurnout"`
-		BlockCost        int `json:"blockCost"`
-		ArmorDamage      int `json:"armorDamagePercent"`
-		BurnoutBlockstun int `json:"burnoutBlockstun"`
-		BurnoutChip      int `json:"burnoutChipPercent"`
-	} `json:"drive"`
-
 	// Input. The pair window is how late the second button of a two-button
 	// input may land and still be read as the pair rather than as the single
 	// button that arrived first.
@@ -239,6 +229,8 @@ type jsonBalance struct {
 		CounterHitPercent int   `json:"counterHitPercent"`
 		CounterHitstun    int   `json:"counterHitstun"`
 		PunishHitstun     int   `json:"punishHitstun"`
+		ChipPercent       int   `json:"chipPercent"`
+		ArmorDamage       int   `json:"armorDamagePercent"`
 	} `json:"damage"`
 
 	Super struct {
@@ -331,13 +323,8 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 		n    int
 		dst  *int32
 	}{
-		{"drive.regen", jb.Drive.Regen, &b.DriveRegen},
-		{"drive.regenWalkForward", jb.Drive.RegenWalkForward, &b.DriveRegenWalkF},
-		{"drive.regenBurnout", jb.Drive.RegenBurnout, &b.DriveRegenBurnout},
-		{"drive.blockCost", jb.Drive.BlockCost, &b.DriveBlockCost},
-		{"drive.armorDamagePercent", jb.Drive.ArmorDamage, &b.ArmorDamagePercent},
-		{"drive.burnoutBlockstun", jb.Drive.BurnoutBlockstun, &b.BurnoutBlockstun},
-		{"drive.burnoutChipPercent", jb.Drive.BurnoutChip, &b.BurnoutChipPercent},
+		{"damage.chipPercent", jb.Damage.ChipPercent, &b.ChipPercent},
+		{"damage.armorDamagePercent", jb.Damage.ArmorDamage, &b.ArmorDamagePercent},
 		{"input.pairFrames", jb.Input.PairFrames, &b.PairFrames},
 		{"round.seconds", jb.Round.Seconds * framesPerSecond, &b.RoundFrames},
 		{"round.roundsToWin", jb.Round.RoundsToWin, &b.RoundsToWin},
@@ -453,26 +440,8 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 
 	// Chip is a fraction of the move's damage, so a value over 100 makes
 	// blocking a special worse than eating it.
-	if b.BurnoutChipPercent > 100 {
-		return b, fmt.Errorf("drive.burnoutChipPercent is %d, want 0..100", b.BurnoutChipPercent)
-	}
-	if b.DriveBlockCost <= 0 {
-		return b, fmt.Errorf("drive.blockCost must be positive, or blocking is free")
-	}
-	// Walking in is meant to be the faster rate.
-	if b.DriveRegenWalkF < b.DriveRegen {
-		return b, fmt.Errorf("drive.regenWalkForward %d is below drive.regen %d",
-			b.DriveRegenWalkF, b.DriveRegen)
-	}
-
-	// Coupled, like jumpVelocity against gravity: the refill rate is what sets
-	// how long Burnout lasts, and neither field says so on its own.
-	if b.DriveRegenBurnout <= 0 {
-		return b, fmt.Errorf("drive.regenBurnout must be positive, or Burnout never ends")
-	}
-	if f := sim.DriveMax / b.DriveRegenBurnout; f < 60 || f > 1800 {
-		return b, fmt.Errorf("drive.regenBurnout %d gives a %d-frame Burnout, want 60..1800",
-			b.DriveRegenBurnout, f)
+	if b.ChipPercent > 100 {
+		return b, fmt.Errorf("damage.chipPercent is %d, want 0..100", b.ChipPercent)
 	}
 
 	// The scaling table.
@@ -577,8 +546,8 @@ type jsonMove struct {
 	// Super level, 1 to 3.
 	Super int `json:"super"`
 
-	// Drive bars the move costs: 2 for an EX special.
-	Drive int `json:"drive"`
+	// Super meter units the move costs: an EX special or a super.
+	Meter int `json:"meter"`
 
 	// Hits the move absorbs while it comes out.
 	Armor int `json:"armor"`
@@ -628,20 +597,29 @@ var buttons = map[string]uint16{
 	"LK": sim.InLK, "MK": sim.InMK, "HK": sim.InHK,
 }
 
-// parseButtons reads "LP" or a combination like "LP+LK".
-func parseButtons(spec string) (uint16, error) {
-	var mask uint16
+// Any two buttons of a kind, the EX press.
+var pairs = map[string]uint16{
+	"PP": sim.InLP | sim.InMP | sim.InHP,
+	"KK": sim.InLK | sim.InMK | sim.InHK,
+}
+
+// parseButtons reads "LP", a combination like "LP+LK", or "PP"/"KK" for any
+// two of a kind; need is 0 when every named button must be down.
+func parseButtons(spec string) (mask uint16, need int32, err error) {
+	if mask, ok := pairs[spec]; ok {
+		return mask, 2, nil
+	}
 	for _, name := range strings.Split(spec, "+") {
 		bit, ok := buttons[strings.TrimSpace(name)]
 		if !ok {
-			return 0, fmt.Errorf("unknown button %q", name)
+			return 0, 0, fmt.Errorf("unknown button %q", name)
 		}
 		mask |= bit
 	}
 	if mask == 0 {
-		return 0, fmt.Errorf("move has no button")
+		return 0, 0, fmt.Errorf("move has no button")
 	}
-	return mask, nil
+	return mask, 0, nil
 }
 
 var levels = map[string]int32{
@@ -859,11 +837,10 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 	m.Blockstun = int32(jm.Blockstun)
 	m.Hitstop = int32(jm.Hitstop)
 
-	button, err := parseButtons(jm.Input.Button)
-	if err != nil {
+	var err error
+	if m.Button, m.Need, err = parseButtons(jm.Input.Button); err != nil {
 		return m, err
 	}
-	m.Button = button
 
 	var ok bool
 	if m.Stance, ok = stances[jm.Input.Stance]; !ok {
@@ -908,12 +885,15 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 		return m, fmt.Errorf("super %d has no motion", m.Super)
 	}
 
-	// The gauge has six bars, so a move that costs more than six can never come
-	// out — and it would fail silently, by never being selected.
-	if jm.Drive < 0 || jm.Drive > sim.DriveBars {
-		return m, fmt.Errorf("drive must be 0..%d bars, got %d", sim.DriveBars, jm.Drive)
+	// A move that costs more than the gauge holds would fail silently, by never
+	// being selected.
+	if jm.Meter < 0 || jm.Meter > sim.SuperMax {
+		return m, fmt.Errorf("meter must be 0..%d, got %d", sim.SuperMax, jm.Meter)
 	}
-	m.Drive = int32(jm.Drive)
+	m.Meter = int32(jm.Meter)
+	if m.Super > 0 && m.Meter == 0 {
+		return m, fmt.Errorf("super %d costs no meter", m.Super)
+	}
 
 	if jm.Armor < 0 {
 		return m, fmt.Errorf("armor must not be negative, got %d", jm.Armor)
@@ -921,8 +901,8 @@ func (jm *jsonMove) convert() (sim.Move, error) {
 	m.Armor = int32(jm.Armor)
 
 	// Armour must be paid for, and there are three currencies.
-	if m.Armored() && m.Drive == 0 && m.Super == 0 && m.Motion == sim.MotionNone {
-		return m, fmt.Errorf("armor %d on a plain normal: it costs no drive, no super level and no motion", m.Armor)
+	if m.Armored() && m.Meter == 0 && m.Motion == sim.MotionNone {
+		return m, fmt.Errorf("armor %d on a plain normal: it costs no meter and no motion", m.Armor)
 	}
 
 	if jm.Knockdown {

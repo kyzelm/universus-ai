@@ -28,16 +28,13 @@ func TestTrainingStopsTheClockAndTheRound(t *testing.T) {
 func TestTrainingRefillsResources(t *testing.T) {
 	s := NewTraining()
 	s.Players[0].Health = 1
-	s.Players[0].Drive = 0
-	s.Players[0].Burnout = 1
 	s.Players[0].Super = 0
 
 	s.Advance([2]uint16{0, 0})
 
 	p := s.Players[0]
-	if p.Health != char().Health || p.Drive != DriveMax || p.Super != SuperMax || p.Burnout != 0 {
-		t.Errorf("not topped up: health %d drive %d super %d burnout %d",
-			p.Health, p.Drive, p.Super, p.Burnout)
+	if p.Health != char().Health || p.Super != SuperMax {
+		t.Errorf("not topped up: health %d super %d", p.Health, p.Super)
 	}
 }
 

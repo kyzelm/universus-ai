@@ -94,11 +94,3 @@ func counterHitstun(counter int32) int32 {
 	}
 	return 0
 }
-
-// chip is damage that cannot kill: health floors at 1 rather than 0.
-func (p *PlayerState) chip(n int32) {
-	p.Health -= n
-	if p.Health < 1 {
-		p.Health = 1
-	}
-}

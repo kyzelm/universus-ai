@@ -26,16 +26,9 @@ func TestMain(m *testing.M) {
 }
 
 // The balance fixture, in round numbers for the same reason as the character
-// one: a test that asserts "eight blocked hits burn you out" must not fail
-// because someone tuned the block cost.
+// one: a test must not fail because someone tuned a number.
 func testBalance() Balance {
 	return Balance{
-		DriveRegen:      10,
-		DriveRegenWalkF: 20,
-
-		DriveRegenBurnout: DriveMax / 20,
-		DriveBlockCost:    BarUnits,
-
 		// The pair window, in frames.
 		PairFrames: 4,
 
@@ -45,8 +38,7 @@ func testBalance() Balance {
 		CameraHalfWidth: FromInt(200),
 		CameraMargin:    FromInt(60),
 
-		BurnoutBlockstun:   5,
-		BurnoutChipPercent: 10,
+		ChipPercent: 10,
 
 		// The scaling table is the shipped shape; the numbers are round enough
 		// to check by hand either way.
@@ -278,6 +270,7 @@ func testCharacter() Character {
 		Damage: 400, Hitstun: 20, Blockstun: 14, Hitstop: 8,
 		Level: LevelMid, Stance: StanceStand, Button: InLP, Motion: MotionQCFx2,
 		Super:   1,
+		Meter:   BarUnits,
 		NumKeys: 3,
 	}
 	c.Moves[8].Keys[0] = Keyframe{Frame: 0, NumHurt: 1}
@@ -296,6 +289,7 @@ func testCharacter() Character {
 		Damage: 900, Hitstun: 24, Blockstun: 16, Hitstop: 10,
 		Level: LevelMid, Stance: StanceStand, Button: InMP, Motion: MotionQCBx2,
 		Super:   3,
+		Meter:   3 * BarUnits,
 		NumKeys: 3,
 	}
 	c.Moves[9].Keys[0] = Keyframe{Frame: 0, NumHurt: 1}
@@ -356,12 +350,12 @@ func testCharacter() Character {
 	c.Moves[12].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
 	c.Moves[12].Keys[2].Hurt[0] = c.StandHurt
 
-	// The armoured move, paid for in Drive.
+	// The armoured move.
 	c.Moves[13] = Move{
 		Startup: 12, Active: 3, Recovery: 20,
 		Damage: 200, Hitstun: 20, Blockstun: 12, Hitstop: 6,
 		Level: LevelMid, Stance: StanceStand, Button: InHP | InHK,
-		Drive:     1,
+		Meter:     400,
 		Armor:     1,
 		Knockdown: 1,
 		NumKeys:   3,
@@ -374,14 +368,13 @@ func testCharacter() Character {
 	c.Moves[13].Keys[2] = Keyframe{Frame: 15, NumHurt: 1}
 	c.Moves[13].Keys[2].Hurt[0] = c.StandHurt
 
-	// The EX special: the fixture's two-bar version of move 2, sharing its
-	// motion and one of its buttons.
+	// The EX special: move 2's motion on any two punches.
 	c.Moves[14] = Move{
 		Startup: 4, Active: 3, Recovery: 8,
 		Damage: 300, Hitstun: 18, Blockstun: 12, Hitstop: 8,
-		Level: LevelMid, Stance: StanceStand, Button: InLP | InMP,
+		Level: LevelMid, Stance: StanceStand, Button: InLP | InMP | InHP, Need: 2,
 		Motion:  MotionQCF,
-		Drive:   2,
+		Meter:   400,
 		NumKeys: 3,
 	}
 	c.Moves[14].Keys[0] = Keyframe{Frame: 0, NumHurt: 1}
@@ -392,7 +385,7 @@ func testCharacter() Character {
 	c.Moves[14].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
 	c.Moves[14].Keys[2].Hurt[0] = c.StandHurt
 
-	// Slot 15 is empty: it was the Drive Reversal, cut by D115.
+	// Slot 15 is empty.
 
 	// A dragon punch: the invincible reversal, and the move the AI's anti-air
 	// rule reaches for.

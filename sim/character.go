@@ -117,7 +117,11 @@ type Move struct {
 
 	Level  int32
 	Stance int32
+
+	// Button is the set of buttons the move reads and Need how many of them
+	// must be down, 0 for all: one exact button, any one of a kind, any two.
 	Button uint16
+	Need   int32
 
 	// Motion is the directional sequence the move requires, or MotionNone for a
 	// normal.
@@ -154,9 +158,8 @@ type Move struct {
 	// stun, and escapable by teching (03 Game Design/Movement and Defense.md).
 	Throw int32
 
-	// Drive is the move's cost in Drive bars, or 0 for everything that does not
-	// spend the gauge (03 Game Design/Resource System.md).
-	Drive int32
+	// Meter is the move's cost in super meter units: an EX special or a super.
+	Meter int32
 
 	// Armor is how many hits the move absorbs while it is coming out.
 	// ponytail: armour covers startup and the active frames, and the recovery
@@ -201,11 +204,13 @@ func (m *Move) IsThrow() bool { return m.Throw != 0 }
 // KnocksDown reports a move that ends with the defender on the ground.
 func (m *Move) KnocksDown() bool { return m.Knockdown != 0 }
 
-// SuperCost is what the move costs to perform, in resource units.
-func (m *Move) SuperCost() int32 { return m.Super * BarUnits }
-
-// DriveCost is what the move takes out of the Drive gauge, in resource units.
-func (m *Move) DriveCost() int32 { return m.Drive * BarUnits }
+// presses is how many of Button's bits must be down.
+func (m *Move) presses() int32 {
+	if m.Need > 0 {
+		return m.Need
+	}
+	return count(m.Button)
+}
 
 // Armored reports a move that absorbs hits on the way out.
 func (m *Move) Armored() bool { return m.Armor > 0 }

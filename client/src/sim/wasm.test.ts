@@ -4,7 +4,6 @@ import '../../public/wasm_exec.js'
 import {
   advance,
   BAR_UNITS,
-  DRIVE_BARS,
   EVENT_HIT,
   eventsAt,
   initSim,
@@ -45,20 +44,13 @@ test('frame 0 is readable before the first advance', () => {
   expect(s.players[0].health).toBeGreaterThan(0)
 })
 
-// The gauges are read from the same block as health and one field further
+// The meter is read from the same block as health and one field further
 // along.
-test('the resource gauges cross the boundary', () => {
+test('the super meter crosses the boundary', () => {
   reset()
   const start = readSnapshot()
 
-  expect(start.players.map((p) => p.drive)).toEqual([
-    DRIVE_BARS * BAR_UNITS,
-    DRIVE_BARS * BAR_UNITS,
-  ])
-  expect(start.players.map((p) => [p.super, p.burnout])).toEqual([
-    [0, 0],
-    [0, 0],
-  ])
+  expect(start.players.map((p) => p.super)).toEqual([0, 0])
 
   // Same walk-in as the hit test: they start out of range of everything, and
   // holding away walks the defender back out of it again.
@@ -66,11 +58,10 @@ test('the resource gauges cross the boundary', () => {
     for (let i = 0; i < 60; i++) advance(RIGHT, LEFT)
   }
 
-  // Blocking spends Drive.
+  // A blocked normal costs nothing.
   walkIn()
   for (let i = 0; i < 40; i++) advance(i === 0 ? LP : 0, RIGHT)
   const blocked = readSnapshot()
-  expect(blocked.players[1].drive).toBeLessThan(DRIVE_BARS * BAR_UNITS)
   expect(blocked.players[1].health).toBe(start.players[1].health)
 
   // Landing one builds Super for both of them, at different rates.
