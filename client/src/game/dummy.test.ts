@@ -84,65 +84,6 @@ test('the dummy reverses out of a knockdown', () => {
   expect(rose).toBe(true)
 })
 
-/**
- * Recording is the seat playing itself with the presses kept: it passes the
- * keyboard through, so what you watch while recording is what plays back.
- */
-test('a take is recorded, passed through, and looped', () => {
-  const d = createDummy()
-  const snap = seen()
-
-  d.setMode('record')
-  const take = [IN_DOWN, IN_DOWN | IN_LP, 0]
-  expect(take.map((bits) => d.poll(snap, bits))).toEqual(take)
-  expect(d.frames()).toBe(3)
-
-  d.setMode('playback')
-  // Twice through, to show the loop rather than the first pass.
-  const played = [...take, ...take].map(() => d.poll(snap, IN_UP))
-  expect(played).toEqual([...take, ...take])
-})
-
-test('playback with nothing recorded stands still', () => {
-  const d = createDummy()
-  d.setMode('playback')
-  expect(d.poll(seen(), IN_UP)).toBe(0)
-})
-
-/** Entering record is what starts a take, so there is no stale half of one. */
-test('recording again replaces the previous take', () => {
-  const d = createDummy()
-  const snap = seen()
-
-  d.setMode('record')
-  d.poll(snap, IN_DOWN)
-  d.poll(snap, IN_DOWN)
-
-  d.setMode('record')
-  d.poll(snap, IN_LP)
-  expect(d.frames()).toBe(1)
-
-  d.setMode('playback')
-  expect(d.poll(snap, 0)).toBe(IN_LP)
-  expect(d.poll(snap, 0)).toBe(IN_LP)
-})
-
-/**
- * The cap stops appending rather than wrapping: a take that dropped its own
- * beginning would play back a setup nobody performed.
- */
-test('a take stops at the cap', () => {
-  const d = createDummy()
-  const snap = seen()
-
-  d.setMode('record')
-  for (let f = 0; f < 700; f++) d.poll(snap, f < 600 ? IN_DOWN : IN_UP)
-
-  expect(d.frames()).toBe(600)
-  d.setMode('playback')
-  expect(d.poll(snap, 0)).toBe(IN_DOWN)
-})
-
 /** The jump setting has to keep jumping. */
 test('the jumping dummy keeps jumping', () => {
   reset(true)

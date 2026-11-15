@@ -6,19 +6,7 @@ import {IN_DOWN, IN_LEFT, IN_LP, IN_RIGHT, IN_UP} from './input'
  * Modes.md), and what makes the frame advantage readout readable by one person.
  */
 
-export const DUMMY_MODES = [
-  'manual',
-  'stand',
-  'crouch',
-  'block',
-  'jump',
-  'reversal',
-  'record',
-  'playback',
-] as const
-
-/** Ten seconds of recording. */
-const MAX_RECORD = 600
+export const DUMMY_MODES = ['manual', 'stand', 'crouch', 'block', 'jump', 'reversal'] as const
 
 export type DummyMode = (typeof DUMMY_MODES)[number]
 
@@ -26,8 +14,6 @@ export interface Dummy {
   mode(): DummyMode
   /** Number keys pick the behaviour: 0 hands the seat back to the keyboard. */
   setMode(mode: DummyMode): void
-  /** Frames in the recording, for the label on screen. */
-  frames(): number
   /** One frame's bitfield, from the state as of the frame just simulated. */
   poll(snap: Snapshot, manual: number): number
 }
@@ -38,22 +24,12 @@ export function createDummy(): Dummy {
   // Where the reversal is in its motion.
   let beat = 0
 
-  // The recording, and where playback is inside it.
-  let tape: number[] = []
-  let head = 0
-
   return {
     mode: () => mode,
     setMode(next) {
-      // Entering record starts a new take; entering playback rewinds to the top
-      // of the one that exists.
-      if (next === 'record') tape = []
-      if (next === 'playback') head = 0
       mode = next
       beat = 0
     },
-
-    frames: () => tape.length,
 
     poll(snap, manual) {
       const me = snap.players[1]
@@ -70,17 +46,6 @@ export function createDummy(): Dummy {
       switch (mode) {
         case 'manual':
           return manual
-        case 'record':
-          // The seat plays itself and the presses are kept.
-          if (tape.length < MAX_RECORD) tape.push(manual)
-          return manual
-        case 'playback':
-          // Looped, with no gap: a setup worth practising is one that repeats,
-          // and a dummy that played its take once would need a key to ask for
-          // it again.
-          // ponytail: the bits are absolute, so a take recorded on one side of
-          // the opponent plays back mirrored on the other.
-          return tape.length > 0 ? tape[head++ % tape.length] : 0
         case 'stand':
           return 0
         case 'crouch':

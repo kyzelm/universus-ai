@@ -442,10 +442,7 @@ export async function startGame(
       setText(advText, advantageText(lab.advantage()))
     }
     if (dummy && dummyText) {
-      // The frame count is the whole recording UI: it is how you know the take
-      // is running, and how long the one you are about to loop is.
-      const n = dummy.frames()
-      setText(dummyText, `DUMMY ${dummy.mode().toUpperCase()}${n ? ` ${n}f` : ''}`)
+      setText(dummyText, `DUMMY ${dummy.mode().toUpperCase()}`)
     }
 
     // ponytail: no interpolation.

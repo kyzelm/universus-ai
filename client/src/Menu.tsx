@@ -11,7 +11,7 @@ const MODE_LABELS: Record<Mode, string> = {
 const MODE_HINTS: Record<Mode, string> = {
   local: 'two players, one machine. The simplest integration test of the whole sim',
   ai: 'a scripted opponent. No network and no second machine',
-  training: 'boxes, frame data, a dummy that records and plays back',
+  training: 'boxes, frame data, a dummy with five fixed behaviours',
   online: 'rollback netcode over a room code. Both players must pick the same pair',
 }
 
