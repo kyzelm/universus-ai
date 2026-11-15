@@ -188,6 +188,15 @@ func (s *GameState) resolveInputs(i int, in uint16) {
 		return
 	}
 
+	s.resolveMovement(p, dir)
+}
+
+// resolveMovement is the directional half of step 1: dash, jump, crouch, walk.
+func (s *GameState) resolveMovement(p *PlayerState, dir uint8) {
+	c := CharacterAt(p.Char)
+	now := s.Frame
+	crouching := dir == DirDown || dir == DirDownBack || dir == DirDownFwd
+
 	// Dashes: two taps of the same direction inside the dash window.
 	if p.doubleTapped(now, DirFwd) {
 		p.enter(StateDash)

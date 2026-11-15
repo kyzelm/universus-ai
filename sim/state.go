@@ -223,7 +223,6 @@ func (s *GameState) Advance(in [2]uint16) {
 		}
 	}
 
-	// 1. Resolve inputs.
 	for i := range s.Players {
 		s.Players[i].Inputs[s.Frame%InputHistory] = uint32(in[i])
 	}
@@ -242,6 +241,7 @@ func (s *GameState) Advance(in [2]uint16) {
 		return
 	}
 
+	// 1. Resolve inputs.
 	for i := range s.Players {
 		s.resolveInputs(i, in[i])
 	}
@@ -253,45 +253,7 @@ func (s *GameState) Advance(in [2]uint16) {
 
 	// 3. Movement and gravity.
 	for i := range s.Players {
-		p := &s.Players[i]
-
-		// Whether the player was in the air is decided before the position
-		// moves, and both the gravity and the landing below read that one
-		// answer.
-		air := p.Airborne()
-		if air {
-			p.VY += p.gravity()
-		}
-		p.X += p.VX
-		p.Y += p.VY
-
-		if p.Y <= GroundY {
-			p.Y = GroundY
-			p.VY = 0
-			if air {
-				// Landing kills horizontal momentum, so a move that came down
-				// does not slide through its recovery.
-				p.VX = 0
-
-				// The floor is what ends a juggle, whoever was juggled and
-				// however they got up there.
-				p.Juggle = 0
-
-				// Landing ends a jump, and it ends an air normal with it: an
-				// air move's recovery is the fall, and it has no business
-				// continuing on the ground.
-				mv := p.move()
-				switch {
-				case mv != nil && mv.Stance == StanceAir:
-					p.land(mv.Landing)
-				case p.State == StateAir:
-					p.land(p.Landing)
-				case p.State == StateHitstun:
-					// A juggle ends on the floor.
-					p.knockdown()
-				}
-			}
-		}
+		s.integrate(i)
 	}
 
 	// 4. Pushboxes and stage bounds, then turn to face the opponent.
@@ -304,24 +266,95 @@ func (s *GameState) Advance(in [2]uint16) {
 	// tested against final positions like everything else.
 	s.advanceProjectiles()
 
-	// 6. Hit detection, then 7.
-	mv0, mv1 := s.Players[0].move(), s.Players[1].move()
-	n0, n1 := s.hitNum(0), s.hitNum(1)
-	hit0 := s.connects(0, 1)
-	hit1 := s.connects(1, 0)
-	if hit0 {
-		s.resolveHit(0, 1, mv0, n0, in[1])
+	// 6. Hit detection: both players are read before either hit is applied.
+	hits := s.detectHits()
+
+	// 7. Hit resolution, player 1's hit first.
+	s.resolveHits(hits, in)
+
+	// 8. Timers, resources, round state.
+	s.updateTimers()
+
+	// 9. Increment frame.
+	s.Frame++
+}
+
+// integrate is step 3 for one player: gravity, velocity, and the landing.
+func (s *GameState) integrate(i int) {
+	p := &s.Players[i]
+
+	// Whether the player was in the air is decided before the position
+	// moves, and both the gravity and the landing below read that one
+	// answer.
+	air := p.Airborne()
+	if air {
+		p.VY += p.gravity()
 	}
-	if hit1 {
-		s.resolveHit(1, 0, mv1, n1, in[0])
+	p.X += p.VX
+	p.Y += p.VY
+
+	if p.Y <= GroundY {
+		p.Y = GroundY
+		p.VY = 0
+		if air {
+			// Landing kills horizontal momentum, so a move that came down
+			// does not slide through its recovery.
+			p.VX = 0
+
+			// The floor is what ends a juggle, whoever was juggled and
+			// however they got up there.
+			p.Juggle = 0
+
+			// Landing ends a jump, and it ends an air normal with it: an
+			// air move's recovery is the fall, and it has no business
+			// continuing on the ground.
+			mv := p.move()
+			switch {
+			case mv != nil && mv.Stance == StanceAir:
+				p.land(mv.Landing)
+			case p.State == StateAir:
+				p.land(p.Landing)
+			case p.State == StateHitstun:
+				// A juggle ends on the floor.
+				p.knockdown()
+			}
+		}
+	}
+}
+
+// contact is one player's connect this frame.
+type contact struct {
+	mv  *Move
+	num int32
+	hit bool
+}
+
+// detectHits is step 6: player 1's hitboxes against player 2's hurtboxes, then
+// the reverse, so a trade resolves identically on both machines.
+func (s *GameState) detectHits() [2]contact {
+	var c [2]contact
+	for i := range c {
+		c[i] = contact{mv: s.Players[i].move(), num: s.hitNum(i), hit: s.connects(i, 1-i)}
+	}
+	return c
+}
+
+// resolveHits is step 7.
+func (s *GameState) resolveHits(c [2]contact, in [2]uint16) {
+	for i := range c {
+		if c[i].hit {
+			s.resolveHit(i, 1-i, c[i].mv, c[i].num, in[1-i])
+		}
 	}
 
 	// Projectiles resolve after both players, so a fireball and the punch that
 	// beat it to the same frame trade in a fixed order rather than in whichever
 	// order the loop happened to reach them.
 	s.resolveProjectiles(in)
+}
 
-	// 8. Timers, resources, round state.
+// updateTimers is step 8.
+func (s *GameState) updateTimers() {
 	s.updateResources()
 
 	// A combo lasts exactly as long as the hitstun holding it together.
@@ -337,9 +370,6 @@ func (s *GameState) Advance(in [2]uint16) {
 	// it and after the combo bookkeeping: a KO is a fact about the health bar
 	// this frame left behind, not about the hit that was being applied.
 	s.updateRound()
-
-	// 9. Increment frame.
-	s.Frame++
 }
 
 // connects reports whether attacker's hitboxes overlap defender's hurtboxes.
@@ -406,16 +436,10 @@ func (s *GameState) hitNum(i int) int32 {
 	return 0
 }
 
-// applyHit is the half of a connect that lands on the defender: block or hit,
-// stun, damage, resources, hitstop.
+// applyHit is the half of a connect that lands on the defender: absorbed,
+// blocked or clean, then what all three share.
 func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16) {
 	ap, dp := &s.Players[attacker], &s.Players[defender]
-
-	// Whether the defender was already off the ground, read before anything
-	// here changes their state: entering hitstun ends StateAir, and the answer
-	// decides both whether this hit counts as a juggle and whether it is
-	// allowed to launch them again.
-	airborne := dp.Airborne()
 
 	// Damage dealt is measured off the health bar at the end of this function
 	// rather than taken from the formula, so the match total the round cap's
@@ -423,68 +447,13 @@ func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16
 	// what was left.
 	before := dp.Health
 
-	if dp.absorbs() {
-		// Armour. The defender is mid-armoured-move and this hit is one it
-		// eats: no hitstun, no knockback, no combo, no counter — their move
-		// carries on, which is what they paid for.
-		dp.Armor++
-		dp.hurt(mv.Damage * balance.ArmorDamagePercent / 100)
-		dp.Events |= EventBlock
-
-		// Meter still moves: a hit that was absorbed is a hit that landed, and
-		// both sides felt it.
-		ap.gainSuper(mv.Damage * balance.SuperDealtPercent / 100)
-		dp.gainSuper(mv.Damage * balance.SuperTakenPercent / 100)
-	} else if s.blocking(defender, defenderIn, mv.Level) {
-		// A blocked hit is not a hit: it ends no combo and starts none, and the
-		// counter class of the last real hit stands until the next one.
-		dp.enter(StateBlockstun)
-		dp.Stun = mv.Blockstun
-		dp.Events |= EventBlock
-
-		// Block pushback is its own number and it is the larger one.
-		s.applyKnockback(attacker, defender, mv, true)
-
-		// Chip: a blocked special, EX or super still hurts, and it can kill.
-		if mv.Motion != MotionNone {
-			dp.hurt(mv.Damage * balance.ChipPercent / 100)
-		}
-	} else {
-		// The counter class is read before anything is applied: it is a fact
-		// about the defender's own attack, and entering hitstun destroys it.
-		counter := s.counterClass(defender)
-
-		// The starter scales the whole combo, so it is captured on the hit that
-		// begins one and never recomputed.
-		if dp.Combo == 0 {
-			dp.ComboStarter = starterScale(mv)
-		}
-		dp.Combo++
-		dp.Counter = counter
-
-		dp.enter(StateHitstun)
-		dp.Stun = mv.Hitstun + counterHitstun(counter)
-		dp.Events |= EventHit
-
-		// Owed after the hitstun, not instead of it, and set after enter
-		// because entering a state is what clears the previous debt.
-		if mv.KnocksDown() {
-			dp.Down = 1
-		}
-
-		dp.hurt(scaledDamage(mv, dp.ComboStarter, dp.Combo, counter))
-
-		// Super is built from the move's base damage, not the scaled figure.
-		ap.gainSuper(mv.Damage * balance.SuperDealtPercent / 100)
-		dp.gainSuper(mv.Damage * balance.SuperTakenPercent / 100)
-
-		// A hit taken in the air is a juggle hit.
-		if airborne {
-			dp.Juggle++
-		}
-
-		// Pushback, and the launcher with it: one field family, two behaviours.
-		s.applyKnockback(attacker, defender, mv, false)
+	switch {
+	case dp.absorbs():
+		s.absorbHit(ap, dp, mv)
+	case s.blocking(defender, defenderIn, mv.Level):
+		s.blockHit(attacker, defender, mv)
+	default:
+		s.cleanHit(attacker, defender, mv)
 	}
 
 	// A special that connects pays a flat bonus whether it hit or was blocked.
@@ -501,6 +470,81 @@ func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16
 	// One place, so every source of damage — hits, chip, projectiles, whatever
 	// comes next — is counted without anyone having to remember to.
 	s.Dealt[attacker] += before - dp.Health
+}
+
+// absorbHit is a hit eaten by armour: no hitstun, no knockback, no combo, no
+// counter — the defender's move carries on, which is what they paid for.
+func (s *GameState) absorbHit(ap, dp *PlayerState, mv *Move) {
+	dp.Armor++
+	dp.hurt(mv.Damage * balance.ArmorDamagePercent / 100)
+	dp.Events |= EventBlock
+
+	// Meter still moves: a hit that was absorbed is a hit that landed, and both
+	// sides felt it.
+	ap.gainSuper(mv.Damage * balance.SuperDealtPercent / 100)
+	dp.gainSuper(mv.Damage * balance.SuperTakenPercent / 100)
+}
+
+// blockHit is a blocked hit: it ends no combo and starts none, and the counter
+// class of the last real hit stands until the next one.
+func (s *GameState) blockHit(attacker, defender int, mv *Move) {
+	dp := &s.Players[defender]
+	dp.enter(StateBlockstun)
+	dp.Stun = mv.Blockstun
+	dp.Events |= EventBlock
+
+	// Block pushback is its own number and it is the larger one.
+	s.applyKnockback(attacker, defender, mv, true)
+
+	// Chip: a blocked special, EX or super still hurts, and it can kill.
+	if mv.Motion != MotionNone {
+		dp.hurt(mv.Damage * balance.ChipPercent / 100)
+	}
+}
+
+// cleanHit is a hit that landed: stun, damage, meter, knockback, in that order.
+func (s *GameState) cleanHit(attacker, defender int, mv *Move) {
+	ap, dp := &s.Players[attacker], &s.Players[defender]
+
+	// Whether the defender was already off the ground, read before entering
+	// hitstun ends StateAir: it decides whether this hit counts as a juggle.
+	airborne := dp.Airborne()
+
+	// The counter class is read before anything is applied: it is a fact about
+	// the defender's own attack, and entering hitstun destroys it.
+	counter := s.counterClass(defender)
+
+	// The starter scales the whole combo, so it is captured on the hit that
+	// begins one and never recomputed.
+	if dp.Combo == 0 {
+		dp.ComboStarter = starterScale(mv)
+	}
+	dp.Combo++
+	dp.Counter = counter
+
+	dp.enter(StateHitstun)
+	dp.Stun = mv.Hitstun + counterHitstun(counter)
+	dp.Events |= EventHit
+
+	// Owed after the hitstun, not instead of it, and set after enter because
+	// entering a state is what clears the previous debt.
+	if mv.KnocksDown() {
+		dp.Down = 1
+	}
+
+	dp.hurt(scaledDamage(mv, dp.ComboStarter, dp.Combo, counter))
+
+	// Super is built from the move's base damage, not the scaled figure.
+	ap.gainSuper(mv.Damage * balance.SuperDealtPercent / 100)
+	dp.gainSuper(mv.Damage * balance.SuperTakenPercent / 100)
+
+	// A hit taken in the air is a juggle hit.
+	if airborne {
+		dp.Juggle++
+	}
+
+	// Pushback, and the launcher with it: one field family, two behaviours.
+	s.applyKnockback(attacker, defender, mv, false)
 }
 
 // separate pushes overlapping pushboxes apart, half the overlap each, then the
