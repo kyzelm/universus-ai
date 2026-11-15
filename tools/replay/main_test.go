@@ -122,3 +122,15 @@ func TestRunPrintsAChecksumPerFrameStartingAtZero(t *testing.T) {
 		t.Error("two runs of the same log printed different checksums")
 	}
 }
+
+// The bot log is in the corpus for its round transitions, so it has to have them.
+func TestTheBotMatchIsDecided(t *testing.T) {
+	u := sim.Setup{Chars: [2]int32{0, 1}}
+	s := sim.NewSessionOf(u)
+	for _, in := range bot(u) {
+		s.Advance(in)
+	}
+	if st := s.State(); st.Winner == sim.RoundNobody || st.Round < 2 {
+		t.Errorf("winner %d in round %d: the bots did not finish a match", st.Winner, st.Round)
+	}
+}

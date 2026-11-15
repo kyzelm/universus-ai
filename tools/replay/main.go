@@ -1,6 +1,7 @@
 // Command replay is the headless replay harness.
 //
 //	replay gen <frames> <file>   write a deterministic input log
+//	replay bot <file>            write a whole match, the AI against itself
 //	replay run <file>            print "<frame> <checksum>" for every frame
 package main
 
@@ -18,6 +19,7 @@ import (
 
 const usage = `usage:
   replay gen <frames> <file>   write a deterministic input log
+  replay bot <file>            write a whole match, the AI against itself
   replay run <file>            print "<frame> <checksum>" for every frame
   replay dump <file> <frame>   print every state field at a frame, for diffing`
 
@@ -41,6 +43,10 @@ func cli(args []string) error {
 			return fmt.Errorf("frame count %q must be a positive integer", args[1])
 		}
 		return writeLog(args[2], sim.Setup{}, gen(frames))
+
+	case len(args) == 2 && args[0] == "bot":
+		u := sim.Setup{Chars: [2]int32{0, 1}}
+		return writeLog(args[1], u, bot(u))
 
 	case len(args) == 3 && args[0] == "dump":
 		frame, err := strconv.Atoi(args[2])
@@ -109,6 +115,21 @@ func gen(frames int) [][2]uint16 {
 			held = [2]uint16{next(), next()}
 		}
 		in[f] = held
+	}
+	return in
+}
+
+// bot plays the scripted opponent against itself until the match is decided,
+// so the log has knockouts, round resets and a match end in it.
+func bot(u sim.Setup) [][2]uint16 {
+	s := sim.NewSessionOf(u)
+	devs := [2]*sim.AIDevice{sim.NewAIDevice(1), sim.NewAIDevice(2)}
+	var in [][2]uint16
+	// ponytail: capped at five timed-out rounds, in case two bots ever stall.
+	for len(in) < 32000 && s.State().Winner == sim.RoundNobody {
+		i := [2]uint16{devs[0].Press(s.State(), 0), devs[1].Press(s.State(), 1)}
+		s.Advance(i)
+		in = append(in, i)
 	}
 	return in
 }
