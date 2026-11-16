@@ -74,6 +74,7 @@ func (s *GameState) endRound(winner int32) {
 	// the hit that ends a round is the one moment nobody wants to sit through
 	// twice.
 	s.Hitstop = 0
+	s.Freeze = 0
 	s.enterPhase(PhaseKO)
 }
 
@@ -166,6 +167,7 @@ func (s *GameState) startRound() {
 	s.Timer = balance.RoundFrames
 	s.RoundWinner = RoundNobody
 	s.Hitstop = 0
+	s.Freeze = 0
 	// A fireball must not outlive the round that fired it: the pool is state
 	// like everything else, and a projectile left in it would arrive during the
 	// next round's intro.

@@ -58,7 +58,8 @@
     "max": 2000,
     "dealtPercent": 30,
     "takenPercent": 15,
-    "onSpecial": 100
+    "onSpecial": 100,
+    "freeze": 40
   },
 
   "ai": {

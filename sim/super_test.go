@@ -180,3 +180,31 @@ func TestCancelCategoriesComeFromTheSource(t *testing.T) {
 		}
 	})
 }
+
+// The freeze is state, so it stops both fighters and then lets them go.
+func TestSuperFreezesTheMatch(t *testing.T) {
+	balance.SuperFreeze = 5
+	defer func() { balance.SuperFreeze = 0 }()
+
+	s := New()
+	s.Players[0].Super = 2 * BarUnits
+	qcfx2(&s, InLP)
+	if s.Freeze != 5 || s.Players[0].Events&EventSuper == 0 {
+		t.Fatalf("freeze = %d, events = %#x on the super's first frame", s.Freeze, s.Players[0].Events)
+	}
+
+	at := s.Players[0].StateFrame
+	for range 5 {
+		s.Advance([2]uint16{0, InRight})
+		if s.Players[0].StateFrame != at || s.Players[1].State != StateIdle {
+			t.Fatalf("something moved during the freeze")
+		}
+		if s.Players[0].Events != 0 {
+			t.Fatalf("the super event fired again inside the freeze")
+		}
+	}
+	s.Advance([2]uint16{0, 0})
+	if s.Players[0].StateFrame == at {
+		t.Errorf("the super did not resume after the freeze")
+	}
+}

@@ -91,6 +91,8 @@ type Balance struct {
 	SuperDealtPercent int32
 	SuperTakenPercent int32
 	SuperOnSpecial    int32
+	// SuperFreeze is how many frames a super stops the match for.
+	SuperFreeze int32
 }
 
 // The loaded balance.

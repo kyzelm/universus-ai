@@ -247,6 +247,7 @@ type jsonBalance struct {
 		DealtPercent int `json:"dealtPercent"`
 		TakenPercent int `json:"takenPercent"`
 		OnSpecial    int `json:"onSpecial"`
+		Freeze       int `json:"freeze"`
 	} `json:"super"`
 
 	// The scripted opponent (03 Game Design/AI Opponent.md).
@@ -333,6 +334,7 @@ func (jb *jsonBalance) convert() (sim.Balance, error) {
 		{"super.dealtPercent", jb.Super.DealtPercent, &b.SuperDealtPercent},
 		{"super.takenPercent", jb.Super.TakenPercent, &b.SuperTakenPercent},
 		{"super.onSpecial", jb.Super.OnSpecial, &b.SuperOnSpecial},
+		{"super.freeze", jb.Super.Freeze, &b.SuperFreeze},
 		{"ai.decisionFrames", jb.AI.DecisionFrames, &b.AIDecisionFrames},
 		{"ai.throwPercent", jb.AI.ThrowPercent, &b.AIThrowPercent},
 		{"ai.projectilePercent", jb.AI.ProjectilePercent, &b.AIProjectilePercent},

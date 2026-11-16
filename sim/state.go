@@ -110,6 +110,9 @@ type GameState struct {
 	// Hitstop freezes both fighters for a few frames on a connect.
 	Hitstop int32
 
+	// Freeze is the super freeze: frames left with the whole match stopped.
+	Freeze int32
+
 	// Round flow — see round.go.
 	Phase      int32
 	PhaseFrame int32
@@ -230,6 +233,13 @@ func (s *GameState) Advance(in [2]uint16) {
 	// Hitstop freezes the whole match: no input, no movement, no new hits.
 	if s.Hitstop > 0 {
 		s.Hitstop--
+		s.Frame++
+		return
+	}
+
+	// Super freeze stops the match the same way.
+	if s.Freeze > 0 {
+		s.Freeze--
 		s.Frame++
 		return
 	}
@@ -356,6 +366,11 @@ func (s *GameState) resolveHits(c [2]contact, in [2]uint16) {
 // updateTimers is step 8.
 func (s *GameState) updateTimers() {
 	s.updateResources()
+
+	// A super that started this frame freezes the match from the next one.
+	if (s.Players[0].Events|s.Players[1].Events)&EventSuper != 0 {
+		s.Freeze = balance.SuperFreeze
+	}
 
 	// A combo lasts exactly as long as the hitstun holding it together.
 	for i := range s.Players {

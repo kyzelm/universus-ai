@@ -35,7 +35,7 @@ func TestDumpCoversEveryField(t *testing.T) {
 	start := New()
 	out := start.Dump()
 	for _, want := range []string{
-		"Frame", "RNG", "Hitstop", "CamX",
+		"Frame", "RNG", "Hitstop", "Freeze", "CamX",
 		"Players[0].X", "Players[0].Y", "Players[0].VX", "Players[0].VY",
 		"Players[0].Facing", "Players[0].Char", "Players[0].Health",
 		"Players[0].State", "Players[0].StateFrame", "Players[0].MoveIndex",

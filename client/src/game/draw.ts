@@ -59,6 +59,9 @@ const EVENT_COLORS: readonly (readonly [number, number])[] = [
 const SPARK_FRAMES = 10
 const SPARK_RADIUS = 14
 
+/** How long the super flash fades for, in display frames. */
+const FLASH_FRAMES = 20
+
 /** The rollback visualiser (01 Thesis/Supervisor Deliverables.md). */
 const STRIP_COL = 2
 const STRIP_H = 12
@@ -128,6 +131,12 @@ export function createScene(app: Application, sheets: Sheet[], showBoxes: boolea
   const sparkLayer = new Graphics()
   world.addChild(sparkLayer)
 
+  // The super flash sits over the world and under the bars.
+  const flash = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(0xffffff)
+  flash.alpha = 0
+  app.stage.addChild(flash)
+  let flashLife = 0
+
   const bars = [new Graphics(), new Graphics()]
   bars.forEach((b) => app.stage.addChild(b))
 
@@ -173,6 +182,7 @@ export function createScene(app: Application, sheets: Sheet[], showBoxes: boolea
         // event's own frame.
         if (bits & bit) sparks.push({x: p.x, y: p.y, life: SPARK_FRAMES, color})
       }
+      if (bits & EVENT_SUPER) flashLife = FLASH_FRAMES
     },
 
     setHud(text) {
@@ -181,6 +191,7 @@ export function createScene(app: Application, sheets: Sheet[], showBoxes: boolea
 
     reset() {
       sparks.length = 0
+      flashLife = 0
     },
 
     draw(snap, {net, banner, lab}) {
@@ -196,6 +207,9 @@ export function createScene(app: Application, sheets: Sheet[], showBoxes: boolea
       world.scale.set(zoom)
       // Pinned at the ground line, so zooming grows the fighters upward.
       world.position.set(VIEW_W / 2 - centre * SCALE * zoom, GROUND_PX * (1 - zoom))
+
+      flash.alpha = (0.6 * flashLife) / FLASH_FRAMES
+      if (flashLife > 0) flashLife--
 
       sparkLayer.clear()
       for (let i = sparks.length - 1; i >= 0; i--) {
