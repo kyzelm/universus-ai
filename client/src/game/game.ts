@@ -1,3 +1,4 @@
+import {playEvents} from './sound'
 import {Application} from 'pixi.js'
 import {CLEAN, createLink, type Impairment, type Link} from '../net/impair'
 import {createNetplay, depthP99, type Netplay} from '../net/netplay'
@@ -194,7 +195,10 @@ export async function startGame(
 
     // Under netplay the confirmed line lags the simulated frame by the rollback
     // window; locally every frame that has run is settled the moment it has.
-    pump.drain(net ? net.confirmed : snap.frame - 1, ({seat, bits}) => scene.spark(snap, seat, bits))
+    pump.drain(net ? net.confirmed : snap.frame - 1, ({seat, bits}) => {
+      scene.spark(snap, seat, bits)
+      playEvents(bits)
+    })
 
     // Three seconds of silence is a disconnect and the match ends there (02
     // Architecture/Transport and Connectivity.md).
