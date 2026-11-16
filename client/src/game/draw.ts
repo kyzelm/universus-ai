@@ -1,4 +1,4 @@
-import {type Application, Container, Graphics, Sprite, Text} from 'pixi.js'
+import {type Application, Container, Graphics, Sprite, Text, type Texture} from 'pixi.js'
 import {MAX_ROLLBACK, TIMELINE, type Netplay} from '../net/netplay'
 import {
   BAR_UNITS,
@@ -91,7 +91,9 @@ export interface Scene {
 }
 
 /** Builds the stage, back to front. */
-export function createScene(app: Application, sheets: Sheet[], showBoxes: boolean, training: boolean): Scene {
+export function createScene(
+  app: Application, sheets: Sheet[], stage: Texture, showBoxes: boolean, training: boolean,
+): Scene {
   // The world scrolls under a fixed camera; the stage layer does not.
   const world = new Container()
   // Balance data, read once from the sim so the view frames what it collides.
@@ -100,6 +102,12 @@ export function createScene(app: Application, sheets: Sheet[], showBoxes: boolea
   app.stage.addChild(world)
 
   world.addChild(new Graphics().rect(-2000, GROUND_PX, 4000, VIEW_H - GROUND_PX).fill(0x2a2f38))
+
+  // The background is part of the world, so the sim's camera scrolls it with the fighters.
+  const backdrop = new Sprite(stage)
+  backdrop.anchor.set(0.5, 0)
+  backdrop.setSize(2 * stageHalf * SCALE, VIEW_H)
+  world.addChild(backdrop)
 
   // Wall markers, so the corner is visible as a place rather than a surprise.
   for (const side of [-1, 1]) {

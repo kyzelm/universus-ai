@@ -1,5 +1,5 @@
 import {playEvents} from './sound'
-import {Application} from 'pixi.js'
+import {Application, Assets, type Texture} from 'pixi.js'
 import {CLEAN, createLink, type Impairment, type Link} from '../net/impair'
 import {createNetplay, depthP99, type Netplay} from '../net/netplay'
 import type {Peer} from '../net/peer'
@@ -125,7 +125,9 @@ export async function startGame(
   )
   sizer.observe(app.canvas)
 
-  const scene = createScene(app, sheets, showBoxes, training)
+  // The stage is view-only: one picture behind the fighters, never in GameState.
+  const stage: Texture = await Assets.load('/stage.png')
+  const scene = createScene(app, sheets, stage, showBoxes, training)
   const lab = training ? createLab() : null
   const dummy = training ? createDummy() : null
 

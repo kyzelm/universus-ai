@@ -397,6 +397,32 @@ def check(rosters):
     print("collapse rule ok")
 
 
+# The stage background covers the whole stage at one image pixel per view pixel.
+STAGE = (1280, 450)
+STAGE_FLOOR = 380
+
+
+def build_stage():
+    """art/stage.png if it has been drawn, a placeholder otherwise."""
+    out = OUT.parent / "stage.png"
+    src = ART / "stage.png"
+    if src.exists():
+        Image.open(src).save(out)
+        return "drawn"
+    w, h = STAGE
+    img = Image.new("RGB", STAGE)
+    d = ImageDraw.Draw(img)
+    for i in range(STAGE_FLOOR // 20):
+        d.rectangle([0, i * 20, w, i * 20 + 20], fill=(18 + i, 20 + i * 2, 28 + i * 3))
+    for x in range(40, w, 160):
+        d.rectangle([x, 150, x + 56, STAGE_FLOOR], fill=(30, 36, 50))
+        d.rectangle([x - 8, 150, x + 64, 162], fill=(38, 45, 62))
+    d.rectangle([0, STAGE_FLOOR, w, h], fill=(42, 47, 56))
+    d.line([0, STAGE_FLOOR, w, STAGE_FLOOR], fill=(70, 78, 94), width=2)
+    img.save(out)
+    return "placeholder"
+
+
 if __name__ == "__main__":
     # The whole roster, keyed by the name the client lowercases to find a sheet.
     rosters = {}
@@ -408,3 +434,4 @@ if __name__ == "__main__":
     for key, c in rosters.items():
         tags, total, art, size = build(key, c)
         print(f"{key:5} {tags:3} tags ({art} drawn) {total:4} cells  {size[0]}x{size[1]}")
+    print(f"stage {build_stage()}")
