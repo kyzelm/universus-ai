@@ -1,14 +1,17 @@
 # Universus — agent brief (code repo)
 
-Browser 2D fighting game, BSc engineering thesis. **This is the implementation repo.** The design
-vault is the source of truth for *what* to build and *why*:
+Browser 2D fighting game, BSc engineering thesis. **This repo is the reference implementation.** The
+defended artifact is a second repo, `~/Dev/universus`, which the user retypes from this one by hand:
+never edit it, and remember that every line kept here is a line typed there. Prefer the simplest
+version that works. The design vault is the source of truth for *what* to build and *why*:
 
 ```
 /home/kyzelm/Obsidian/Universus/
   Universus.md                  home map, locked stack
-  00 Meta/Decision Log.md       D1–D118, every locked decision + reason
+  00 Meta/Decision Log.md       D1–D127, every locked decision + reason
   01 Thesis/Implementation Log.md  dated problems and fixes — chapter 5 is written from it
-  06 Roadmap/Task Board.md      concrete tasks, M0–M3 broken down
+  06 Roadmap/Refactor Plan.md   the plan since 2026-11-13: cut, simplify, add, then the hand-port
+  06 Roadmap/Task Board.md      what was built (M0–M3) and the checklist of what is left
   06 Roadmap/Build Roadmap.md   milestones, M0 pass criteria
   02 Architecture/*.md          sim, fixed-point, WASM boundary, rollback, transport, backend
   03 Game Design/*.md           combat, input, character data, resources, rounds, AI
@@ -59,8 +62,8 @@ art/        hand-drawn Aseprite exports per character, sources for tools/sprites
 testdata/   input log corpus — every desync bug ever found lands here as a regression log
 ```
 
-Monorepo, one Go module, one version. All four trees are real: ~19 000 lines of Go across sim,
-server and tools, ~44 TypeScript files in the client. Assume code exists and read it before
+Monorepo, one Go module, one version. All four trees are real: about 13 600 lines of Go across sim,
+server, data and tools, tests included, and 48 TypeScript files in the client. Assume code exists and read it before
 proposing to write it.
 
 ## Core formats — do not drift from these
@@ -145,10 +148,25 @@ results chapter and they are painful to retrofit.
 
 ## Where the project actually is
 
-**M0 through M3 are code-complete.** Sim, rollback, netcode, training mode, scripted AI, bot-vs-bot
-harness, and the whole backend spine — auth, Postgres with embedded migrations, ranked and casual
-queues, match results, the ladder, disconnect handling, verification by re-simulation, all three
-anti-cheat checks, menus and character select. Decision Log runs to **D118**.
+**M0 through M3 are code-complete, and the refactor to a reference is done through phase 4**
+(2026-11-16, see the vault's *Refactor Plan*). Sim, rollback, netcode, training mode, one scripted
+AI, bot-vs-bot harness, and the whole backend spine: auth, Postgres with embedded migrations, ranked
+and casual queues, match results, the ladder, disconnect handling, verification by re-simulation,
+all three anti-cheat checks, menus, character select, options and a result screen. Decision Log runs
+to **D127**.
+
+What the refactor changed, so old notes and old habits do not bring it back:
+
+- **One gauge.** Drive and Burnout are gone (D122). EX specials cost 400 of the 2000-unit super
+  meter and take the motion plus any two punches or any two kicks; a move's press is a button set
+  plus how many of it must be down. Chip damage and armour damage can kill.
+- **One super per character**, on any button of its kind (`236236P`, `236236K`), no levels (D123).
+  It freezes the match for `super.freeze` frames, counted in `GameState.Freeze` (D126).
+- **One AI**, no tiers; `?ai` takes no value (D124). **No dummy recording** (D125).
+- **Options are client-side**: volume and keybinds in `localStorage`, read when the bitfield is
+  packed (D127). URL flags are parsed once, in `client/src/flags.ts`.
+- `sim.Advance` is the nine documented steps, one function each. `client/src/game/` is `game.ts`
+  (loop), `draw.ts` (Pixi scene), `hud.ts` (HUD text), `sound.ts` (placeholder tones).
 
 M0's bars were measured, not estimated, and four cleared with margin (see the vault's *M0 Results*):
 sim step **p99 0.023 ms** against 0.5 · 8-frame rollback **p99 0.540 ms** against 4 · **10 001
@@ -158,25 +176,26 @@ was needed; max rollback stays at 8 and TinyGo stays unopened.
 **One bar is still open and it is the same one blocking two milestones**: RTT across a real network
 between two machines. It needs a partner and a tunnel, not code — the server already serves the
 built client at its own origin behind one port (D93), and a run is set up entirely from its URL.
-That session is also M2's exit and M3's playtest row.
 
-**Current work is M4 (art).** The engineering half is done: sprite sheets load from Aseprite's export
-format and animation is chosen from the render snapshot alone. The drawing has not started.
+**What is left is the user's**: the hand-port, the measurements (M-A, M-B, M-C and the two-machine
+session, all run on the hand-written repo), the drawing, and the thesis text. Code is due in the
+first days of January 2027 and the text at the end of January. Work here is limited to what the
+port turns up. **Measurements starting late is the failure mode**: cut backend features and art,
+never the measurement stage.
+
+Art pipeline, unchanged by the refactor:
 
 - Tag naming is **D113**: an attack's tag is the move's `id`, everything else is the sim's state
   name. There is no `animation` field in character JSON and there must not be — `Version()` hashes
   the raw embedded bytes, so a cosmetic rename would refuse a handshake against identical frame data.
-- `tools/sprites.py` generates placeholder sheets and the move-index-to-tag table. CI reruns it and
-  fails on a JSON diff, so the table cannot drift from the roster.
+- `tools/sprites.py` generates placeholder sheets, the move-index-to-tag table and the stage
+  background. CI reruns it and fails on a JSON diff, so the table cannot drift from the roster.
 - Hand-drawn Aseprite exports go in `art/<name>/` (any number per character, each its own canvas),
-  never over `client/public/sprites/*`.
-  The generator composites them over the placeholders tag by tag and adds the move table, so a
-  half-drawn sheet still loads. Frame durations become sim frames. Canvas size comes from the
-  export and the feet from a slice named `origin` (D117); exports are lined up on it. Every character
-  in `data/characters/` gets a sheet (D118). Rerun it after every export.
-
-Then M5: measurement matrix, camera latency rig, deploy, and ~68 pages of thesis. **M5 starting late
-is the failure mode** — cut features, never weeks from M5.
+  never over `client/public/sprites/*`. The generator composites them over the placeholders tag by
+  tag, so a half-drawn sheet still loads. Frame durations become sim frames. Canvas size comes from
+  the export and the feet from a slice named `origin` (D117). Every character in `data/characters/`
+  gets a sheet (D118). The stage is `art/stage.png`, 1280×450, floor line at y=380. Rerun the
+  generator after every export.
 
 Placeholder art throughout; art never blocks engineering. The box overlay is off outside training
 now that fighters are sprites; `?boxes` brings it back anywhere.
@@ -184,7 +203,10 @@ now that fighters are sprites; `?boxes` brings it back anywhere.
 ## When working here
 
 - A task is done when it is **verified**, not when it is written.
-- Record an input log for every playtest and every fixed desync; commit it to `testdata/`.
+- Record an input log for every playtest and every fixed desync; commit it to `testdata/`. A change
+  to anything under `data/` moves `Version()`: re-stamp with `replay gen 10000 testdata/m0-10k.inputs`
+  and `replay bot testdata/botmatch.inputs`.
+- Check anything visual in a real browser. Headless Chrome renders the Pixi canvas black.
 - New locked decision → append to the vault's Decision Log with the next D-number **and the reason**.
 - Migrations are numbered `.sql` files applied by the Go binary at startup. No framework.
 - Deliberately absent, do not add: Redis, message broker, microservices, k8s, migration framework,
