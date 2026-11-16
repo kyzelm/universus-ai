@@ -7,6 +7,7 @@ import Menu from './Menu'
 import {flags} from './flags'
 import {setupFromURL, type RunSetup} from './setup'
 import NetPanel from './net/NetPanel'
+import Options from './Options'
 import type {Standing} from './net/report'
 
 declare global {
@@ -32,21 +33,6 @@ function Controls() {
     <details className="controls">
       <summary>controls</summary>
       <dl>
-        <dt>move</dt>
-        <dd>
-          P1 <b>W A S D</b> · P2 <b>← ↓ ↑ →</b>
-        </dd>
-
-        <dt>punch</dt>
-        <dd>
-          <b>U I O</b> / <b>Num 7 8 9</b> — light, medium, heavy
-        </dd>
-
-        <dt>kick</dt>
-        <dd>
-          <b>J K L</b> / <b>Num 4 5 6</b> — all six work standing, crouching and in the air
-        </dd>
-
         <dt>fireball</dt>
         <dd>↓ ↘ → + punch, three strengths</dd>
 
@@ -67,7 +53,7 @@ function Controls() {
 
         <dt>throw</dt>
         <dd>
-          <b>H</b> / <b>Num 0</b> / pad <b>L1</b>, or <b>LP+LK</b> on the same frame — beats
+the throw key, pad <b>L1</b>, or <b>LP+LK</b> on the same frame — beats
           blocking, misses anyone airborne, escaped by pressing throw back within five frames
         </dd>
       </dl>
@@ -184,6 +170,7 @@ export default function App() {
           <p className="keys">loading the sim…</p>
         )}
         <Controls />
+        <Options />
       </main>
     )
   }
@@ -198,7 +185,7 @@ export default function App() {
         <main>
           <div className="bar">
             <span className="keys">
-              P1 <b>WASD</b> · P2 <b>{ai ? 'AI' : 'arrows'}</b>
+              {ai && 'P2 is the AI'}
               {game?.training && ' · training: R resets · 0-5 dummy'}
             </span>
             {/* Back to the title. */}
@@ -220,6 +207,7 @@ export default function App() {
           </div>
 
           <Controls />
+          <Options />
           <NetPanel game={game} />
         </main>
       </div>

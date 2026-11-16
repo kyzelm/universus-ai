@@ -1,3 +1,4 @@
+import {options} from '../options'
 import {EVENT_BLOCK, EVENT_HIT, EVENT_KNOCKDOWN, EVENT_SUPER, EVENT_THROWN} from '../sim/wasm'
 
 // ponytail: synthesised tones stand in for the recordings (04 Art/Audio.md), swap in samples when they exist.
@@ -10,7 +11,8 @@ const TONES: readonly (readonly [number, number, number, OscillatorType])[] = [
   [EVENT_SUPER, 880, 0.4, 'sawtooth'],
 ]
 
-const VOLUME = 0.15
+/** Gain at full volume. */
+const MAX_GAIN = 0.3
 
 let ctx: AudioContext | undefined
 
@@ -25,7 +27,7 @@ export function playEvents(bits: number): void {
     if (!(bits & bit)) continue
     const end = ctx.currentTime + seconds
     const osc = new OscillatorNode(ctx, {type, frequency: hz})
-    const gain = new GainNode(ctx, {gain: VOLUME})
+    const gain = new GainNode(ctx, {gain: Math.max(options.volume * MAX_GAIN, 0.001)})
     // Pitch and volume both fall away, which is what makes a tone read as an impact.
     osc.frequency.exponentialRampToValueAtTime(hz / 2, end)
     gain.gain.exponentialRampToValueAtTime(0.001, end)

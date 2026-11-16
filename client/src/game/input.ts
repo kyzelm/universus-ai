@@ -1,3 +1,5 @@
+import {ACTIONS, options, type Action, type Bindings} from '../options'
+
 /** Devices to input bitfield. */
 export const IN_UP = 1 << 0
 export const IN_DOWN = 1 << 1
@@ -13,33 +15,17 @@ export const IN_HK = 1 << 10
 /** Two buttons on one key, which is how throws are played everywhere. */
 const THROW = IN_LP | IN_LK
 
-/** KeyboardEvent.code to bit — or to a mask, for the macro. */
-const P1_KEYS: Record<string, number> = {
-  KeyW: IN_UP,
-  KeyS: IN_DOWN,
-  KeyA: IN_LEFT,
-  KeyD: IN_RIGHT,
-  KeyU: IN_LP,
-  KeyI: IN_MP,
-  KeyO: IN_HP,
-  KeyJ: IN_LK,
-  KeyK: IN_MK,
-  KeyL: IN_HK,
-  KeyH: THROW,
+/** What each bindable action presses. */
+const ACTION_BITS: Record<Action, number> = {
+  up: IN_UP, down: IN_DOWN, left: IN_LEFT, right: IN_RIGHT,
+  lp: IN_LP, mp: IN_MP, hp: IN_HP, lk: IN_LK, mk: IN_MK, hk: IN_HK, throw: THROW,
 }
 
-const P2_KEYS: Record<string, number> = {
-  ArrowUp: IN_UP,
-  ArrowDown: IN_DOWN,
-  ArrowLeft: IN_LEFT,
-  ArrowRight: IN_RIGHT,
-  Numpad7: IN_LP,
-  Numpad8: IN_MP,
-  Numpad9: IN_HP,
-  Numpad4: IN_LK,
-  Numpad5: IN_MK,
-  Numpad6: IN_HK,
-  Numpad0: THROW,
+/** A seat's bindings as KeyboardEvent.code to bit, or to a mask for the macro. */
+export function keyMasks(b: Bindings): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const a of ACTIONS) out[b[a]] = ACTION_BITS[a]
+  return out
 }
 
 /** Standard Gamepad mapping, button index to bit. */
@@ -108,7 +94,8 @@ export function createInput(target: EventTarget = window): Input {
 
   const down = (e: Event) => {
     const {code} = e as KeyboardEvent
-    if (code in P1_KEYS || code in P2_KEYS) {
+    // Bindings are read at use, so a rebind applies to the very next press.
+    if (options.keys.some((b) => Object.values(b).includes(code))) {
       held.add(code)
       tapped.add(code)
       e.preventDefault() // arrows scroll the page otherwise
@@ -140,8 +127,8 @@ export function createInput(target: EventTarget = window): Input {
       // but keyboard-left plus pad-right is an opposing pair that only exists
       // after the merge, and an unresolved pair must never reach the sim.
       return [
-        resolveSOCD(packBits(pressed, P1_KEYS) | (connected[0] ? packPad(connected[0]) : 0)),
-        resolveSOCD(packBits(pressed, P2_KEYS) | (connected[1] ? packPad(connected[1]) : 0)),
+        resolveSOCD(packBits(pressed, keyMasks(options.keys[0])) | (connected[0] ? packPad(connected[0]) : 0)),
+        resolveSOCD(packBits(pressed, keyMasks(options.keys[1])) | (connected[1] ? packPad(connected[1]) : 0)),
       ]
     },
     dispose() {
