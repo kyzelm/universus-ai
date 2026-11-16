@@ -1,3 +1,4 @@
+import {parseFlags} from '../flags'
 import {token} from './account'
 import {guest, host, type Connection, type Peer} from './peer'
 
@@ -91,7 +92,7 @@ export function queueURL(mode: string, origin: Origin = location): string {
 
 function socketBase(origin: Origin): string {
   const scheme = origin.protocol === 'https:' ? 'wss:' : 'ws:'
-  return new URLSearchParams(origin.search).get('relay') ?? `${scheme}//${origin.host}`
+  return parseFlags(origin.search).relay ?? `${scheme}//${origin.host}`
 }
 
 export async function negotiate(

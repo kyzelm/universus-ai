@@ -4,6 +4,7 @@ import {DUMMY_MODES} from './game/dummy'
 import {loadSim, roster as loadRoster} from './sim/wasm'
 import {startGame, type Game} from './game/game'
 import Menu from './Menu'
+import {flags} from './flags'
 import {setupFromURL, type RunSetup} from './setup'
 import NetPanel from './net/NetPanel'
 
@@ -109,13 +110,12 @@ export default function App() {
 
     // ?bench leaves the sim untouched so a measurement harness can drive it
     // without the render loop advancing frames underneath it.
-    const params = new URLSearchParams(location.search)
-    if (params.has('bench')) return
+    if (flags.bench) return
 
     // ?bot hands the local player to a seeded input device, which is what a
     // measurement run needs: rollback only happens when a prediction is wrong,
     // and nobody pressing anything is a prediction that is always right.
-    const bot = params.has('bot') ? createBot() : undefined
+    const bot = flags.bot ? createBot() : undefined
     // Training is the lab (03 Game Design/Game Modes.md): infinite resources,
     // no clock, no round end, and no netplay — the mode is sim state, so a
     // match cannot be half in it.
@@ -123,7 +123,7 @@ export default function App() {
     // The box overlay is the lab's whole job (03 Game Design/Game Modes.md),
     // so training gets it without asking; ?boxes turns it on anywhere else,
     // which is what debugging a netplay session needs.
-    const showBoxes = training || params.has('boxes')
+    const showBoxes = training || flags.boxes
     const {ai, chars} = setup
 
     // StrictMode mounts twice in dev, and startGame is async: the first run can
@@ -185,7 +185,7 @@ export default function App() {
               {game?.training && ' · training: R resets · 0-5 dummy'}
             </span>
             {/* Back to the title. */}
-            {setupFromURL() === null && (
+            {!flags.run && (
               <button
                 type="button"
                 onClick={() => {

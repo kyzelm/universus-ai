@@ -1,3 +1,5 @@
+import {flags} from '../flags'
+
 /**
  * WebRTC DataChannel with manual signalling: the offer and answer blobs are
  * carried between the two ends by hand (copy, paste).
@@ -24,7 +26,7 @@ const ICE: RTCConfiguration = {iceServers: [{urls: 'stun:stun.l.google.com:19302
  * be exercised (Decision Log D15, D88).
  */
 function iceConfig(): RTCConfiguration {
-  if (new URLSearchParams(location.search).get('ice') === 'off') {
+  if (flags.iceOff) {
     return {iceServers: [], iceTransportPolicy: 'relay'}
   }
   return ICE

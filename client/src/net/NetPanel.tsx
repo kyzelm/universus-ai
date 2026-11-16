@@ -6,6 +6,7 @@ import {joinQueue, joinRoom, type Kind, type Session} from './room'
 import SignIn from './SignIn'
 import {account, type Account} from './account'
 import {roster} from '../sim/wasm'
+import {flags} from '../flags'
 
 /**
  * The measurement matrix, as buttons (01 Thesis/Measurement Methodology.md,
@@ -16,13 +17,12 @@ const LOSS_PRESETS = [0, 2, 5]
 
 /** A whole run out of the URL: `?room=CODE&bot&rtt=200&loss=5&jitter=15`. */
 function urlImpairment(): Impairment | null {
-  const p = new URLSearchParams(location.search)
-  if (!p.has('rtt') && !p.has('loss') && !p.has('jitter')) return null
+  const {rtt, loss, jitter} = flags
+  if (rtt === null && loss === null && jitter === null) return null
 
-  const num = (key: string) => Math.max(0, Number(p.get(key) ?? 0) || 0)
   // The presets are round-trip figures and the layer delays arrivals in one
   // direction, so it is given half — the same halving the buttons do.
-  return {delayMs: num('rtt') / 2, jitterMs: num('jitter'), lossPercent: num('loss')}
+  return {delayMs: (rtt ?? 0) / 2, jitterMs: jitter ?? 0, lossPercent: loss ?? 0}
 }
 
 /** Two ways in. */
@@ -133,7 +133,7 @@ export default function NetPanel({game}: {game: Game | null}) {
 
   // ?room=CODE joins on load.
   useEffect(() => {
-    const joining = new URLSearchParams(location.search).get('room')
+    const joining = flags.room
     if (!game || !joining || autoJoined.current) return
 
     autoJoined.current = true
