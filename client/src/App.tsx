@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from 'react'
+import {music, play} from './audio'
 import {createBot} from './game/bot'
 import {DUMMY_MODES} from './game/dummy'
 import {loadSim, roster as loadRoster} from './sim/wasm'
@@ -61,6 +62,9 @@ the throw key, pad <b>L1</b>, or <b>LP+LK</b> on the same frame — beats
   )
 }
 
+/** How long the opponent-found splash stays up; index.css animates inside it. */
+const SPLASH_MS = 1800
+
 function resultTitle(r: MatchResult): string {
   if (r.won === undefined) return `PLAYER ${r.winner + 1} WINS`
   return r.won ? 'YOU WIN' : 'YOU LOSE'
@@ -96,6 +100,27 @@ export default function App() {
 
   // How the match ended, or null while it is being played.
   const [result, setResult] = useState<MatchResult | null>(null)
+
+  // The pair an online match was made with, while its splash is on screen.
+  const [found, setFound] = useState<[number, number] | null>(null)
+  const onFound = (chars: [number, number]) => {
+    // A measured run must not pay for an animation it is not measuring.
+    if (flags.bot) return
+    play('found')
+    setPanel(false)
+    setFound(chars)
+    setTimeout(() => setFound(null), SPLASH_MS)
+  }
+
+  // One track for the menu and one for a match.
+  useEffect(() => music(setup === null ? 'menu' : 'match'), [setup])
+
+  // The jingle belongs to the moment the match ends, not to the LP arriving after it.
+  const winner = result?.winner
+  const won = result?.won
+  useEffect(() => {
+    if (winner !== undefined) play(won === false ? 'lose' : 'win')
+  }, [winner, won])
 
   // The panel under the game: Esc shows and hides it over the canvas.
   const [panel, setPanel] = useState(false)
@@ -208,11 +233,19 @@ export default function App() {
 
           <Controls />
           <Options />
-          <NetPanel game={game} />
+          <NetPanel game={game} onFound={onFound} />
         </main>
       </div>
+      {found && (
+        <div className="splash">
+          <b>OPPONENT FOUND</b>
+          <span>
+            {roster[found[0]]?.name} <i>vs</i> {roster[found[1]]?.name}
+          </span>
+        </div>
+      )}
       {result && (
-        <div className="overlay result">
+        <div className={`overlay result ${result.won === false ? 'lost' : 'won'}`}>
           <main>
             <h2>{resultTitle(result)}</h2>
             {result.standing && <p className="keys">{standingText(result.standing)}</p>}

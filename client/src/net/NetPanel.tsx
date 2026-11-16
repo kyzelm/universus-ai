@@ -32,7 +32,7 @@ function matchup(chars: [number, number]): string {
   return `${names[chars[0]]?.name ?? '?'} vs ${names[chars[1]]?.name ?? '?'}`
 }
 
-export default function NetPanel({game}: {game: Game | null}) {
+export default function NetPanel({game, onFound}: {game: Game | null; onFound(chars: [number, number]): void}) {
   const [role, setRole] = useState<'idle' | 'host' | 'guest'>('idle')
   const [localBlob, setLocalBlob] = useState('')
   const [remoteBlob, setRemoteBlob] = useState('')
@@ -75,6 +75,7 @@ export default function NetPanel({game}: {game: Game | null}) {
       // a player who chose one fighter and is handed another needs the line
       // that says why.
       setStatus(`connected — ${matchup(s.chars)}`)
+      onFound(s.chars)
 
       // Applied after connecting, not before: connect() builds the link, so a
       // condition set earlier would be replaced by the clean one.
@@ -102,6 +103,7 @@ export default function NetPanel({game}: {game: Game | null}) {
       setKind(s.kind)
       game.connect(s.peer, s.seat, {chars: s.chars, matchID: s.matchID, transport: s.kind})
       setStatus(`connected — ${matchup(s.chars)}`)
+      onFound(s.chars)
 
       const condition = urlImpairment()
       if (condition) impair(condition)

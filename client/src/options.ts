@@ -6,13 +6,16 @@ export type Action = (typeof ACTIONS)[number]
 export type Bindings = Record<Action, string>
 
 export interface Options {
-  /** 0 to 1. */
+  /** Effects, 0 to 1. */
   volume: number
+  /** Music, 0 to 1. */
+  music: number
   keys: [Bindings, Bindings]
 }
 
 export const DEFAULTS: Options = {
   volume: 0.5,
+  music: 0.3,
   keys: [
     {
       up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD',
@@ -36,14 +39,18 @@ export function parseOptions(json: string | null): Options {
   } catch {
     // Unreadable storage is the same as none.
   }
-  const volume = typeof raw.volume === 'number' && raw.volume >= 0 && raw.volume <= 1 ? raw.volume : DEFAULTS.volume
+  const level = (v: unknown, d: number) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : d)
   const seat = (i: number): Bindings => {
     const out = {...DEFAULTS.keys[i]}
     const stored = (raw.keys?.[i] ?? {}) as Partial<Bindings>
     for (const a of ACTIONS) if (typeof stored[a] === 'string') out[a] = stored[a]
     return out
   }
-  return {volume, keys: [seat(0), seat(1)]}
+  return {
+    volume: level(raw.volume, DEFAULTS.volume),
+    music: level(raw.music, DEFAULTS.music),
+    keys: [seat(0), seat(1)],
+  }
 }
 
 /** The live settings; read it at use, never copy it. */

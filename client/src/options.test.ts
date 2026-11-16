@@ -7,6 +7,7 @@ test('stored options fall back to the defaults field by field', () => {
   expect(parseOptions('not json')).toEqual(DEFAULTS)
   const o = parseOptions(JSON.stringify({volume: 7, keys: [{up: 'KeyT', lp: 3}]}))
   expect(o.volume).toBe(DEFAULTS.volume)
+  expect(o.music).toBe(DEFAULTS.music)
   expect(o.keys[0].up).toBe('KeyT')
   expect(o.keys[0].lp).toBe(DEFAULTS.keys[0].lp)
   expect(o.keys[1]).toEqual(DEFAULTS.keys[1])

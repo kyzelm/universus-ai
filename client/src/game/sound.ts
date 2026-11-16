@@ -1,14 +1,15 @@
+import {play, type Clip} from '../audio'
 import {options} from '../options'
 import {EVENT_BLOCK, EVENT_HIT, EVENT_KNOCKDOWN, EVENT_SUPER, EVENT_THROWN} from '../sim/wasm'
 
-// ponytail: synthesised tones stand in for the recordings (04 Art/Audio.md), swap in samples when they exist.
-/** One tone per event flag: bit, start Hz, seconds, waveform. */
-const TONES: readonly (readonly [number, number, number, OscillatorType])[] = [
-  [EVENT_HIT, 220, 0.08, 'square'],
-  [EVENT_BLOCK, 660, 0.05, 'triangle'],
-  [EVENT_THROWN, 140, 0.15, 'sawtooth'],
-  [EVENT_KNOCKDOWN, 70, 0.2, 'sine'],
-  [EVENT_SUPER, 880, 0.4, 'sawtooth'],
+// A recording in /sounds wins; the synthesised tone is what plays until one exists (04 Art/Audio.md).
+/** One sound per event flag: bit, recording, then the tone's start Hz, seconds and waveform. */
+const TONES: readonly (readonly [number, Clip, number, number, OscillatorType])[] = [
+  [EVENT_HIT, 'hit', 220, 0.08, 'square'],
+  [EVENT_BLOCK, 'block', 660, 0.05, 'triangle'],
+  [EVENT_THROWN, 'throw', 140, 0.15, 'sawtooth'],
+  [EVENT_KNOCKDOWN, 'knockdown', 70, 0.2, 'sine'],
+  [EVENT_SUPER, 'super', 880, 0.4, 'sawtooth'],
 ]
 
 /** Gain at full volume. */
@@ -23,8 +24,8 @@ export function playEvents(bits: number): void {
   // The browser keeps a context suspended until the first key press.
   void ctx.resume()
 
-  for (const [bit, hz, seconds, type] of TONES) {
-    if (!(bits & bit)) continue
+  for (const [bit, clip, hz, seconds, type] of TONES) {
+    if (!(bits & bit) || play(clip)) continue
     const end = ctx.currentTime + seconds
     const osc = new OscillatorNode(ctx, {type, frequency: hz})
     const gain = new GainNode(ctx, {gain: Math.max(options.volume * MAX_GAIN, 0.001)})

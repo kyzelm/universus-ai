@@ -1,4 +1,5 @@
 import {useState} from 'react'
+import {refreshVolume} from './audio'
 import {ACTIONS, DEFAULTS, options, rebind, setOptions, type Action} from './options'
 
 const LABELS: Record<Action, string> = {
@@ -20,6 +21,7 @@ export default function Options() {
 
   const save = (next: typeof o) => {
     setOptions(next)
+    refreshVolume()
     setO(next)
   }
 
@@ -42,13 +44,17 @@ export default function Options() {
     <details className="controls">
       <summary>options</summary>
       <dl>
-        <dt>volume</dt>
-        <dd>
-          <input
-            type="range" min="0" max="1" step="0.05" value={o.volume}
-            onChange={(e) => save({...o, volume: Number(e.target.value)})}
-          />
-        </dd>
+        {(['volume', 'music'] as const).map((k) => (
+          <div key={k} style={{display: 'contents'}}>
+            <dt>{k === 'volume' ? 'effects' : 'music'}</dt>
+            <dd>
+              <input
+                type="range" min="0" max="1" step="0.05" value={o[k]}
+                onChange={(e) => save({...o, [k]: Number(e.target.value)})}
+              />
+            </dd>
+          </div>
+        ))}
 
         {ACTIONS.map((a) => (
           <div key={a} style={{display: 'contents'}}>

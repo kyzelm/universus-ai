@@ -1,4 +1,5 @@
-import {useState} from 'react'
+import {useEffect, useRef, useState} from 'react'
+import {play} from './audio'
 import {MODES, type Mode, type RunSetup} from './setup'
 
 const MODE_LABELS: Record<Mode, string> = {
@@ -9,10 +10,61 @@ const MODE_LABELS: Record<Mode, string> = {
 }
 
 const MODE_HINTS: Record<Mode, string> = {
-  local: 'two players, one machine. The simplest integration test of the whole sim',
-  ai: 'a scripted opponent. No network and no second machine',
-  training: 'boxes, frame data, a dummy with five fixed behaviours',
-  online: 'rollback netcode over a room code. Both players must pick the same pair',
+  local: 'two players, one machine',
+  ai: 'a scripted opponent, no network',
+  training: 'boxes, frame data, a dummy with five behaviours',
+  online: 'rollback netcode, ranked, casual or a room code',
+}
+
+const TITLE = 'UNIVERSUS'
+
+/** How much the sheet's pixels are magnified in the select screen. */
+const PORTRAIT_SCALE = 1.5
+
+/** The part of a sheet's JSON the portrait reads. */
+interface PortraitMeta {
+  frames: {frame: {x: number; y: number; w: number; h: number}}[]
+  meta: {frameTags: {name: string; from: number; to: number}[]}
+}
+
+/** A fighter's idle loop, stepped through the sprite sheet one cell per sim frame. */
+export function Portrait({name, flip = false}: {name: string; flip?: boolean}) {
+  const el = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let raf = 0
+    let cancelled = false
+    void fetch(`/sprites/${name}.json`)
+      .then((r) => r.json() as Promise<PortraitMeta>)
+      .then((sheet) => {
+        const idle = sheet.meta.frameTags.find((t) => t.name === 'idle')
+        if (cancelled || !idle || !el.current) return
+        const div = el.current
+        const {w, h} = sheet.frames[idle.from].frame
+        div.style.width = `${w}px`
+        div.style.height = `${h}px`
+        div.style.backgroundImage = `url(/sprites/${name}.png)`
+        const start = performance.now()
+        const tick = (now: number) => {
+          const n = idle.to - idle.from + 1
+          const f = sheet.frames[idle.from + (Math.floor(((now - start) * 60) / 1000) % n)].frame
+          div.style.backgroundPosition = `${-f.x}px ${-f.y}px`
+          raf = requestAnimationFrame(tick)
+        }
+        raf = requestAnimationFrame(tick)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+    }
+  }, [name])
+
+  return (
+    <div className="portrait" style={{zoom: PORTRAIT_SCALE}}>
+      <div ref={el} className={flip ? 'flip' : ''} />
+    </div>
+  )
 }
 
 export interface MenuProps {
@@ -27,11 +79,27 @@ export default function Menu({roster, onStart}: MenuProps) {
 
   if (mode === null) {
     return (
-      <div className="menu">
-        <h1>UNIVERSUS</h1>
+      <div className="menu" key="title">
+        <h1 className="logo" aria-label={TITLE}>
+          {[...TITLE].map((c, i) => (
+            <span key={i} style={{'--i': i} as React.CSSProperties}>
+              {c}
+            </span>
+          ))}
+        </h1>
+        <p className="tagline">a fighting game that rolls back</p>
+
         <div className="modes">
-          {MODES.map((m) => (
-            <button key={m} type="button" onClick={() => setMode(m)}>
+          {MODES.map((m, i) => (
+            <button
+              key={m}
+              type="button"
+              style={{'--i': i} as React.CSSProperties}
+              onClick={() => {
+                play('select')
+                setMode(m)
+              }}
+            >
               <b>{MODE_LABELS[m]}</b>
               <span>{MODE_HINTS[m]}</span>
             </button>
@@ -41,45 +109,62 @@ export default function Menu({roster, onStart}: MenuProps) {
     )
   }
 
-  // Who the second column belongs to is the mode's business, and saying so is
-  // most of what makes the screen readable: in training it is the dummy, and
-  // against the AI it is the opponent nobody is holding.
-  const seat2 =
-    mode === 'training' ? 'dummy' : mode === 'ai' ? 'opponent' : mode === 'online' ? 'P2' : 'P2'
+  // Who the second column belongs to is the mode's business: in training it is
+  // the dummy, and against the AI it is the opponent nobody is holding.
+  const seat2 = mode === 'training' ? 'dummy' : mode === 'ai' ? 'opponent' : 'P2'
 
   return (
-    <div className="menu">
-      <h1>{MODE_LABELS[mode]}</h1>
+    <div className="menu" key="select">
+      <h1 className="heading">{MODE_LABELS[mode]}</h1>
 
       <div className="select">
         {(['P1', seat2] as const).map((label, seat) => (
-          <div key={label} className="column">
+          <div key={label} className={`column seat${seat}`}>
             <h2>{label}</h2>
-            {roster.map((c) => (
-              <button
-                key={c.index}
-                type="button"
-                className={chars[seat] === c.index ? 'on' : ''}
-                onClick={() =>
-                  setChars((prev) => {
-                    const next: [number, number] = [prev[0], prev[1]]
-                    next[seat] = c.index
-                    return next
-                  })
-                }
-              >
-                {c.name}
-              </button>
-            ))}
+            {/* Keyed by the pick, so a new fighter walks in rather than swapping in place. */}
+            <Portrait key={chars[seat]} name={roster[chars[seat]].name.toLowerCase()} flip={seat === 1} />
+            <div className="picks">
+              {roster.map((c) => (
+                <button
+                  key={c.index}
+                  type="button"
+                  className={chars[seat] === c.index ? 'on' : ''}
+                  onClick={() => {
+                    play('select')
+                    setChars((prev) => {
+                      const next: [number, number] = [prev[0], prev[1]]
+                      next[seat] = c.index
+                      return next
+                    })
+                  }}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
           </div>
         ))}
+        <span className="vs">VS</span>
       </div>
 
       <div className="row">
-        <button type="button" onClick={() => setMode(null)}>
+        <button
+          type="button"
+          onClick={() => {
+            play('back')
+            setMode(null)
+          }}
+        >
           back
         </button>
-        <button type="button" onClick={() => onStart({mode, ai: mode === 'ai', chars})}>
+        <button
+          type="button"
+          className="fight"
+          onClick={() => {
+            play('confirm')
+            onStart({mode, ai: mode === 'ai', chars})
+          }}
+        >
           fight
         </button>
       </div>
