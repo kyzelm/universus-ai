@@ -1,8 +1,7 @@
 import {useEffect, useRef, useState} from 'react'
 import type {Game} from '../game/game'
 import {CLEAN, type Impairment} from './impair'
-import {guest, host, type Connection} from './peer'
-import {joinQueue, joinRoom, type Kind, type Session} from './room'
+import {joinQueue, joinRoom, type Session} from './room'
 import SignIn from './SignIn'
 import {account, type Account} from './account'
 import {roster} from '../sim/wasm'
@@ -25,56 +24,41 @@ function urlImpairment(): Impairment | null {
   return {delayMs: (rtt ?? 0) / 2, jitterMs: jitter ?? 0, lossPercent: loss ?? 0}
 }
 
-/** Two ways in. */
 /** "Shoto vs Grappler". */
 function matchup(chars: [number, number]): string {
   const names = roster()
   return `${names[chars[0]]?.name ?? '?'} vs ${names[chars[1]]?.name ?? '?'}`
 }
 
+/** The online lobby: sign in, find a match, and say what it found. */
 export default function NetPanel({game, onFound}: {game: Game | null; onFound(chars: [number, number]): void}) {
-  const [role, setRole] = useState<'idle' | 'host' | 'guest'>('idle')
-  const [localBlob, setLocalBlob] = useState('')
-  const [remoteBlob, setRemoteBlob] = useState('')
-  const [status, setStatus] = useState('not connected')
-  const [kind, setKind] = useState<Kind | null>(null)
+  // What is being waited for, or why the last attempt failed.
+  const [status, setStatus] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [session, setSession] = useState<Session | null>(null)
   const [code, setCode] = useState('')
   const [cfg, setCfg] = useState<Impairment>(CLEAN)
-
-  const conn = useRef<Connection | null>(null)
-  const room = useRef<Session | null>(null)
   // Who is signed in, if anybody.
   const [who, setWho] = useState<Account | null>(account)
-  const autoJoined = useRef(false)
 
-  useEffect(
-    () => () => {
-      conn.current?.close()
-      room.current?.close()
-    },
-    [],
-  )
+  const room = useRef<Session | null>(null)
+  const autoJoined = useRef(false)
+  useEffect(() => () => room.current?.close(), [])
 
   /**
-   * The room does the whole negotiation, so there is nothing to paste and
-   * nothing to time: it comes back with a peer and which seat this end has.
+   * A queue and a room code differ only in who decided the two of you should
+   * meet; the negotiation after it is the same, and comes back with a peer and
+   * which seat this end has.
    */
-  async function connectRoom(joining = code) {
-    if (!game) return setStatus('the sim is still loading')
-
+  async function enter(waiting: string, join: (g: Game) => Promise<Session>) {
+    if (!game) return
     try {
-      setStatus('waiting for the other end…')
-      // This end's pick goes in; the host's comes back, for both ends.
-      const s = await joinRoom(joining, (data) => game.receive(data), game.chars)
-
+      setSearching(true)
+      setStatus(waiting)
+      const s = await join(game)
       room.current = s
-      setRole(s.seat === 0 ? 'host' : 'guest')
-      setKind(s.kind)
       game.connect(s.peer, s.seat, {chars: s.chars, matchID: s.matchID, transport: s.kind})
-      // Naming the pair is not decoration for the guest: the host picked it, so
-      // a player who chose one fighter and is handed another needs the line
-      // that says why.
-      setStatus(`connected — ${matchup(s.chars)}`)
+      setSession(s)
       onFound(s.chars)
 
       // Applied after connecting, not before: connect() builds the link, so a
@@ -83,55 +67,15 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
       if (condition) impair(condition)
     } catch (e) {
       setStatus(`failed: ${(e as Error).message}`)
+    } finally {
+      setSearching(false)
     }
   }
 
-  /**
-   * The queue. Everything after the pairing is the negotiation a private match
-   * already uses, so this differs from connectRoom by one call and by who
-   * decided the two of you should meet.
-   */
-  async function queueUp(mode: 'ranked' | 'casual') {
-    if (!game) return setStatus('the sim is still loading')
-
-    try {
-      setStatus(`waiting for a ${mode} match…`)
-      const s = await joinQueue(mode, (data) => game.receive(data), game.chars)
-
-      room.current = s
-      setRole(s.seat === 0 ? 'host' : 'guest')
-      setKind(s.kind)
-      game.connect(s.peer, s.seat, {chars: s.chars, matchID: s.matchID, transport: s.kind})
-      setStatus(`connected — ${matchup(s.chars)}`)
-      onFound(s.chars)
-
-      const condition = urlImpairment()
-      if (condition) impair(condition)
-    } catch (e) {
-      setStatus(`failed: ${(e as Error).message}`)
-    }
-  }
-
-  async function connect(as: 'host' | 'guest') {
-    if (!game) return setStatus('the sim is still loading')
-
-    try {
-      setStatus('gathering candidates…')
-      const forward = (data: ArrayBuffer) => game.receive(data)
-      const c = as === 'host' ? await host(forward) : await guest(remoteBlob, forward)
-
-      conn.current = c
-      setRole(as)
-      setLocalBlob(c.localBlob)
-      setStatus(as === 'host' ? 'paste the answer below' : 'send the answer back')
-
-      // The host is seat 0 and drives P1; whoever joined drives P2.
-      game.connect(await c.ready, as === 'host' ? 0 : 1)
-      setStatus('connected')
-    } catch (e) {
-      setStatus(`failed: ${(e as Error).message}`)
-    }
-  }
+  const queueUp = (mode: 'ranked' | 'casual') =>
+    enter(`searching for a ${mode} match`, (g) => joinQueue(mode, (d) => g.receive(d), g.chars))
+  const connectRoom = (joining = code) =>
+    enter(`waiting in room ${joining}`, (g) => joinRoom(joining, (d) => g.receive(d), g.chars))
 
   // ?room=CODE joins on load.
   useEffect(() => {
@@ -154,30 +98,20 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
     game?.impair(next)
   }
 
-  /** The blob came off a clipboard, so a bad paste has to land as a message. */
-  async function acceptAnswer() {
-    try {
-      setStatus('connecting…')
-      await conn.current?.accept?.(remoteBlob)
-    } catch (e) {
-      setStatus(`failed: ${(e as Error).message}`)
-    }
-  }
-
-  // Training is offline by construction: the mode is sim state, so two ends
-  // that disagreed about it would desync on the first checksum.
-  if (game?.training) {
+  if (searching) {
     return (
       <section className="net">
-        <p className="keys">
-          training — infinite resources, no clock, no rounds. <b>R</b> resets. Reload without{' '}
-          <b>?training</b> to play online
-        </p>
+        <div className="spinner" />
+        <p className="searching">{status}</p>
+        {/* ponytail: leaving the queue is a reload, which closes the socket; an abort signal if a reload ever costs something. */}
+        <button type="button" onClick={() => location.assign(location.pathname)}>
+          cancel
+        </button>
       </section>
     )
   }
 
-  if (role === 'idle') {
+  if (!session) {
     return (
       <section className="net">
         <SignIn onChange={setWho} />
@@ -185,8 +119,12 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
         {/* Ranked and casual are the same socket and the same negotiation; what differs is how wide the skill bands open while you wait (D43, D44). */}
         {who && (
           <div className="row">
-            <button onClick={() => void queueUp('ranked')}>ranked queue</button>
-            <button onClick={() => void queueUp('casual')}>casual queue</button>
+            <button className="big" disabled={!game} onClick={() => void queueUp('ranked')}>
+              ranked
+            </button>
+            <button className="big" disabled={!game} onClick={() => void queueUp('casual')}>
+              casual
+            </button>
           </div>
         )}
 
@@ -198,59 +136,25 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
             // typed space becomes no character rather than a failed connection.
             onChange={(e) => setCode(e.target.value.replace(/[^A-Za-z0-9-]/g, '').slice(0, 32))}
           />
-          <button disabled={!code} onClick={() => void connectRoom()}>
-            connect
+          <button disabled={!code || !game} onClick={() => void connectRoom()}>
+            private match
           </button>
         </div>
 
-        <div className="row">
-          <button onClick={() => void connect('host')}>host</button>
-          <button onClick={() => setRole('guest')}>join</button>
-        </div>
-
         <p className="keys">
-          {status} — same room code on both ends, or <b>host</b>/<b>join</b> to signal by hand.
-          The host&apos;s characters are the ones played; signalling by hand has no room to
-          agree over, so both ends must have picked the same pair
+          {status || 'sign in for the ranked and casual queues, or share a room code with a friend'}
         </p>
       </section>
     )
   }
 
-  const connected = status.startsWith('connected')
   return (
     <section className="net">
       <p className="keys">
-        {role} · {status} {kind && `· ${kind}`} {connected && '· WASD moves you'}
+        you are <b>P{session.seat + 1}</b> · {matchup(session.chars)} · {session.kind}
       </p>
 
-      {role === 'guest' && !localBlob && !kind && (
-        <>
-          <textarea
-            placeholder="paste the host's offer"
-            value={remoteBlob}
-            onChange={(e) => setRemoteBlob(e.target.value)}
-          />
-          <button onClick={() => void connect('guest')}>create answer</button>
-        </>
-      )}
-
-      {localBlob && !connected && (
-        <textarea readOnly value={localBlob} onFocus={(e) => e.currentTarget.select()} />
-      )}
-
-      {role === 'host' && !connected && (
-        <>
-          <textarea
-            placeholder="paste the guest's answer"
-            value={remoteBlob}
-            onChange={(e) => setRemoteBlob(e.target.value)}
-          />
-          <button onClick={() => void acceptAnswer()}>accept answer</button>
-        </>
-      )}
-
-      {connected && (
+      {flags.debug && (
         <div className="conditions">
           <p className="keys">
             artificial conditions — set the same pair on <b>both</b> ends, then read the

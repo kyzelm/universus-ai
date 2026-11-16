@@ -8,6 +8,8 @@ export interface Flags {
   bench: boolean
   /** ?boxes shows the box overlay outside training. */
   boxes: boolean
+  /** ?debug shows the HUD text, the rollback strip and the network condition buttons. */
+  debug: boolean
   /** ?sweep replaces the game with the M-A harness. */
   sweep: boolean
   /** ?room=CODE joins on load. */
@@ -41,6 +43,7 @@ export function parseFlags(search: string): Flags {
     bot: p.has('bot'),
     bench: p.has('bench'),
     boxes: p.has('boxes'),
+    debug: p.has('debug'),
     sweep: p.has('sweep'),
     room: p.get('room'),
     relay: p.get('relay'),

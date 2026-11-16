@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {play} from './audio'
+import {decodeLog} from './game/log'
 import {MODES, type Mode, type RunSetup} from './setup'
 
 const MODE_LABELS: Record<Mode, string> = {
@@ -76,6 +77,20 @@ export interface MenuProps {
 export default function Menu({roster, onStart}: MenuProps) {
   const [mode, setMode] = useState<Mode | null>(null)
   const [chars, setChars] = useState<[number, number]>([0, 0])
+  const [error, setError] = useState('')
+  const file = useRef<HTMLInputElement>(null)
+
+  /** A saved input log is a whole run: its header carries the mode and the fighters. */
+  async function watch(f: File | undefined) {
+    if (!f) return
+    try {
+      const {setup, inputs} = decodeLog(await f.arrayBuffer())
+      const mode: Mode = setup.training ? 'training' : setup.ai ? 'ai' : 'local'
+      onStart({mode, ai: setup.ai, chars: setup.chars, replay: inputs})
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
 
   if (mode === null) {
     return (
@@ -104,6 +119,15 @@ export default function Menu({roster, onStart}: MenuProps) {
               <span>{MODE_HINTS[m]}</span>
             </button>
           ))}
+          <button
+            type="button"
+            style={{'--i': MODES.length} as React.CSSProperties}
+            onClick={() => file.current?.click()}
+          >
+            <b>replay</b>
+            <span>{error || 'play back a saved input log, frame for frame'}</span>
+          </button>
+          <input ref={file} type="file" hidden onChange={(e) => void watch(e.target.files?.[0])} />
         </div>
       </div>
     )

@@ -103,11 +103,15 @@ export default function App() {
 
   // The pair an online match was made with, while its splash is on screen.
   const [found, setFound] = useState<[number, number] | null>(null)
+  // An online run shows the lobby until it has an opponent.
+  const [connected, setConnected] = useState(false)
+  const lobby = setup?.mode === 'online' && !connected
   const onFound = (chars: [number, number]) => {
-    // A measured run must not pay for an animation it is not measuring.
+    // The lobby closes for everyone; a measured run skips the animation it is not measuring.
+    setConnected(true)
+    setPanel(false)
     if (flags.bot) return
     play('found')
-    setPanel(false)
     setFound(chars)
     setTimeout(() => setFound(null), SPLASH_MS)
   }
@@ -168,7 +172,14 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
 
-    void startGame(host.current!, bot, training, ai, chars, showBoxes, setResult).then((g) => {
+    void startGame(host.current!, {
+      bot, training, ai, chars, showBoxes,
+      // The lab reads its numbers off the HUD; a match shows it only when asked.
+      debug: training || flags.debug,
+      hold: setup.mode === 'online',
+      replay: setup.replay,
+      onResult: setResult,
+    }).then((g) => {
       if (cancelled) return g.dispose()
       started = g
       // The measurement harness reads this.
@@ -183,6 +194,7 @@ export default function App() {
       delete window.universus
       setGame(null)
       setResult(null)
+      setConnected(false)
     }
   }, [setup])
 
@@ -206,11 +218,13 @@ export default function App() {
       <div className="stage" ref={host} />
 
       {/* Hidden, not unmounted: NetPanel holds the live connection, and unmounting it would drop the match. */}
-      <div className="overlay" hidden={!panel}>
+      <div className={`overlay ${lobby ? 'lobby' : ''}`} hidden={!panel && !lobby}>
         <main>
+          {lobby && <h2>ONLINE</h2>}
           <div className="bar">
             <span className="keys">
               {ai && 'P2 is the AI'}
+              {setup.replay && 'replay of a saved input log'}
               {game?.training && ' · training: R resets · 0-5 dummy'}
             </span>
             {/* Back to the title. */}
@@ -231,9 +245,9 @@ export default function App() {
             </button>
           </div>
 
+          {setup.mode === 'online' && <NetPanel game={game} onFound={onFound} />}
           <Controls />
           <Options />
-          <NetPanel game={game} onFound={onFound} />
         </main>
       </div>
       {found && (

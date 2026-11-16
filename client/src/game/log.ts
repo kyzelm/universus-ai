@@ -8,6 +8,22 @@ export const LOG_HEADER = 16
 const MAGIC = 'UNIV'
 const VERSION = 1
 
+/** Reads a log back: its setup, the data version it was recorded against, and the input pairs. */
+export function decodeLog(buf: ArrayBuffer): {setup: Setup; dataVersion: number; inputs: number[]} {
+  const v = new DataView(buf)
+  const magic = String.fromCharCode(...new Uint8Array(buf, 0, Math.min(4, buf.byteLength)))
+  if (buf.byteLength < LOG_HEADER || magic !== MAGIC || v.getUint8(4) !== VERSION) {
+    throw new Error('that file is not an input log')
+  }
+  const inputs: number[] = []
+  for (let o = LOG_HEADER; o + 1 < buf.byteLength; o += 2) inputs.push(v.getUint16(o, true))
+  return {
+    setup: {training: v.getUint8(5) === 1, ai: v.getUint8(6) === 1, chars: [v.getUint8(7), v.getUint8(8)]},
+    dataVersion: v.getUint32(12, true),
+    inputs,
+  }
+}
+
 /** Packs a session into the log format. */
 export function encodeLog(
   setup: Setup,

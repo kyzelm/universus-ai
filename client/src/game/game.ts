@@ -94,16 +94,31 @@ export interface MatchSession {
   transport?: 'p2p' | 'relay'
 }
 
+/** How a run is started; everything is optional and off by default. */
+export interface GameOptions {
+  bot?: Bot
+  training?: boolean
+  ai?: boolean
+  chars?: [number, number]
+  showBoxes?: boolean
+  /** Draws the HUD text and the rollback strip. */
+  debug?: boolean
+  /** Waits for connect() before simulating anything: an online match has no local half. */
+  hold?: boolean
+  /** Input pairs from a log, played instead of the keyboard. */
+  replay?: readonly number[]
+  onResult?(r: MatchResult): void
+}
+
 /** Starts the sim, the render loop and the input layer. */
-export async function startGame(
-  parent: HTMLElement,
-  bot?: Bot,
-  training = false,
-  ai = false,
-  chars: [number, number] = [0, 0],
-  showBoxes = false,
-  onResult: (r: MatchResult) => void = () => {},
-): Promise<Game> {
+export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promise<Game> {
+  const {bot, training = false, ai = false, showBoxes = false, debug = false, replay} = o
+  const onResult = o.onResult ?? (() => {})
+  let chars = o.chars ?? ([0, 0] as [number, number])
+  /** True while nothing may be simulated: before an online match connects, after a replay ends. */
+  let holding = o.hold ?? false
+  /** How many replay frames have been played. */
+  let played = 0
   await loadSim()
   // The characters arrive from the URL, so they are user input and clamped here
   // — the first point at which the roster is loaded and its size is known.
@@ -127,7 +142,7 @@ export async function startGame(
 
   // The stage is view-only: one picture behind the fighters, never in GameState.
   const stage: Texture = await Assets.load('/stage.png')
-  const scene = createScene(app, sheets, stage, showBoxes, training)
+  const scene = createScene(app, sheets, stage, showBoxes, training, debug)
   const lab = training ? createLab() : null
   const dummy = training ? createDummy() : null
 
@@ -205,8 +220,14 @@ export async function startGame(
     // Once the opponent has gone the match is over: no reconnection window
     // (D51), so there is nothing left to simulate and the last confirmed frame
     // is the one the result is reported from.
-    for (let i = opponentLeft ? 0 : clock.tick(ticker.deltaMS); i > 0; i--) {
-      const [keys, p2] = input.poll()
+    for (let i = opponentLeft || holding ? 0 : clock.tick(ticker.deltaMS); i > 0; i--) {
+      // A replay is a device too: the log's pair for this frame, and the end of the log is the end.
+      if (replay && played * 2 >= replay.length) {
+        holding = true
+        break
+      }
+      const [keys, p2] = replay ? [replay[played * 2], replay[played * 2 + 1]] : input.poll()
+      played++
       // The bot is a device: it stands in for the local player's keyboard and
       // is read once per fixed step, exactly where the keyboard is read.
       const p1 = bot ? bot.poll() : keys
@@ -262,7 +283,11 @@ export async function startGame(
       net,
       // The disconnect takes the screen over: immediate match end, an explicit
       // message and a win (02 Architecture/Disconnect and Match Integrity.md).
-      banner: opponentLeft ? 'OPPONENT DISCONNECTED\nYOU WIN' : announcement(snap),
+      banner: opponentLeft
+        ? 'OPPONENT DISCONNECTED\nYOU WIN'
+        : replay && holding
+          ? 'REPLAY ENDED'
+          : announcement(snap),
       lab: lab && dummy && {
         inputs: [0, 1].map((seat) => lab.history(seat).join('\n')),
         advantage: advantageText(lab.advantage()),
@@ -271,7 +296,7 @@ export async function startGame(
     })
 
     // ponytail: no interpolation.
-    if (hudTicks++ % HUD_EVERY === 0) {
+    if (debug && hudTicks++ % HUD_EVERY === 0) {
       const top = net ? netHud(net, link, uploadStatus) : localHud(snap)
       scene.setHud(`${top}\n${costHud(stepCost, frameCost, longFrames)}`)
     }
@@ -288,6 +313,8 @@ export async function startGame(
 
     restart() {
       ended = false
+      played = 0
+      holding = false
       reset(training, ai, chars)
       pump.reset()
       lab?.reset()
@@ -312,6 +339,7 @@ export async function startGame(
       matchID = session?.matchID ?? 0
       transport = session?.transport
       mySeat = seat
+      holding = false
       ended = false
       opponentLeft = false
       reset(false, false, chars)

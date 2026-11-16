@@ -1,5 +1,5 @@
 import {expect, test} from 'vitest'
-import {encodeLog, LOG_HEADER} from './log'
+import {decodeLog, encodeLog, LOG_HEADER} from './log'
 
 /** The byte layout, pinned against the table in tools/replay/main.go. */
 test('the header carries the setup the match was started from', () => {
@@ -30,4 +30,15 @@ test('a normal match writes a zeroed setup, not an absent one', () => {
   expect(v.byteLength).toBe(LOG_HEADER)
   expect(v.getUint8(5)).toBe(0)
   expect(v.getUint8(6)).toBe(0)
+})
+
+test('a log reads back as the run that wrote it, and anything else is refused', () => {
+  const setup = {training: false, ai: true, chars: [1, 0] as [number, number]}
+  expect(decodeLog(encodeLog(setup, 42, [1, 2, 0x0410, 0]))).toEqual({
+    setup,
+    dataVersion: 42,
+    inputs: [1, 2, 0x0410, 0],
+  })
+  expect(() => decodeLog(new ArrayBuffer(4))).toThrow()
+  expect(() => decodeLog(new TextEncoder().encode('not a log, just some text').buffer)).toThrow()
 })

@@ -14,6 +14,8 @@ export interface RunSetup {
   /** Seat 2 is the scripted opponent: true only in mode `ai`. */
   ai: boolean
   chars: [number, number]
+  /** Input pairs from a saved log, when the run is a replay of one. */
+  replay?: number[]
 }
 
 /**

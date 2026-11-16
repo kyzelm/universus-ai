@@ -92,7 +92,7 @@ export interface Scene {
 
 /** Builds the stage, back to front. */
 export function createScene(
-  app: Application, sheets: Sheet[], stage: Texture, showBoxes: boolean, training: boolean,
+  app: Application, sheets: Sheet[], stage: Texture, showBoxes: boolean, training: boolean, debug: boolean,
 ): Scene {
   // The world scrolls under a fixed camera; the stage layer does not.
   const world = new Container()
@@ -108,13 +108,6 @@ export function createScene(
   backdrop.anchor.set(0.5, 0)
   backdrop.setSize(2 * stageHalf * SCALE, VIEW_H)
   world.addChild(backdrop)
-
-  // Wall markers, so the corner is visible as a place rather than a surprise.
-  for (const side of [-1, 1]) {
-    world.addChild(
-      new Graphics().rect(side * stageHalf * SCALE - 2, 0, 4, GROUND_PX).fill(0x3a4150),
-    )
-  }
 
   // Fighters go under the overlay: boxes are a thing drawn *on* a character.
   const fighters = sheets.map((sheet) => {
@@ -259,7 +252,7 @@ export function createScene(
       }
 
       // Rollback made visible.
-      if (net) {
+      if (net && debug) {
         drawTimeline(strip, net)
         setText(stripKey, 'clean · predicted · corrected   ▏= rollback landed, height = depth')
       } else {
