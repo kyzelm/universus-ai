@@ -77,6 +77,7 @@ func (a *auth) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/profile", a.requireUser(a.profile))
 	if a.matches != nil {
 		mux.HandleFunc("POST /api/match/{id}/result", a.requireUser(a.submitResult))
+		mux.HandleFunc("GET /api/match/{id}/result", a.requireUser(a.matchResult))
 	}
 }
 

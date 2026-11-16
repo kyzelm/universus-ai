@@ -332,3 +332,17 @@ body:has(.stage) {
 .signin label {
   cursor: pointer;
 }
+
+/* The result screen sits mid-screen, over the match's last frame. */
+.overlay.result {
+  place-items: center;
+  text-align: center;
+}
+
+.overlay.result main {
+  width: min(360px, 100%);
+}
+
+.overlay.result .bar {
+  justify-content: center;
+}

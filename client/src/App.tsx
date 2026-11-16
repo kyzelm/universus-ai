@@ -2,11 +2,12 @@ import {useEffect, useRef, useState} from 'react'
 import {createBot} from './game/bot'
 import {DUMMY_MODES} from './game/dummy'
 import {loadSim, roster as loadRoster} from './sim/wasm'
-import {startGame, type Game} from './game/game'
+import {startGame, type Game, type MatchResult} from './game/game'
 import Menu from './Menu'
 import {flags} from './flags'
 import {setupFromURL, type RunSetup} from './setup'
 import NetPanel from './net/NetPanel'
+import type {Standing} from './net/report'
 
 declare global {
   interface Window {
@@ -74,6 +75,18 @@ function Controls() {
   )
 }
 
+function resultTitle(r: MatchResult): string {
+  if (r.won === undefined) return `PLAYER ${r.winner + 1} WINS`
+  return r.won ? 'YOU WIN' : 'YOU LOSE'
+}
+
+function standingText(s: Standing): string {
+  if (s.status === 'settled') return `${s.lpChange! >= 0 ? '+' : ''}${s.lpChange} LP`
+  if (s.status === 'mismatch') return 'the two reports disagreed: match voided'
+  if (s.status === 'waiting') return 'waiting for the other player to report'
+  return s.status
+}
+
 export default function App() {
   const host = useRef<HTMLDivElement>(null)
   const [game, setGame] = useState<Game | null>(null)
@@ -94,6 +107,9 @@ export default function App() {
   }, [])
 
   const ai = setup?.ai ?? false
+
+  // How the match ended, or null while it is being played.
+  const [result, setResult] = useState<MatchResult | null>(null)
 
   // The panel under the game: Esc shows and hides it over the canvas.
   const [panel, setPanel] = useState(false)
@@ -141,7 +157,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
 
-    void startGame(host.current!, bot, training, ai, chars, showBoxes).then((g) => {
+    void startGame(host.current!, bot, training, ai, chars, showBoxes, setResult).then((g) => {
       if (cancelled) return g.dispose()
       started = g
       // The measurement harness reads this.
@@ -155,6 +171,7 @@ export default function App() {
       started?.dispose()
       delete window.universus
       setGame(null)
+      setResult(null)
     }
   }, [setup])
 
@@ -206,6 +223,32 @@ export default function App() {
           <NetPanel game={game} />
         </main>
       </div>
+      {result && (
+        <div className="overlay result">
+          <main>
+            <h2>{resultTitle(result)}</h2>
+            {result.standing && <p className="keys">{standingText(result.standing)}</p>}
+            <div className="bar">
+              {/* ponytail: no online rematch, both ends requeue from the menu. */}
+              {result.won === undefined && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    game?.restart()
+                    setResult(null)
+                  }}
+                >
+                  rematch
+                </button>
+              )}
+              {/* A run named by the URL has no menu behind it, so it goes to the title page. */}
+              <button type="button" onClick={() => (flags.run ? location.assign(location.pathname) : setSetup(null))}>
+                menu
+              </button>
+            </div>
+          </main>
+        </div>
+      )}
       <span className="hint">
         <b>Esc</b> {panel ? 'close' : 'menu'}
       </span>

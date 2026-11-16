@@ -125,12 +125,27 @@ func TestARankedResultMovesBothRatings(t *testing.T) {
 		t.Fatal("two identical uploads did not agree")
 	}
 
+	if status, _, err := matches.standing(ctx, id, a.ID); status != "waiting" || err != nil {
+		t.Errorf("before settling the match stands as %q, %v", status, err)
+	}
+
 	row, err := matches.byID(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := matches.settle(ctx, row, upload(1)); err != nil {
 		t.Fatal(err)
+	}
+
+	// Each player reads back what the ladder paid them, and nobody else can.
+	if status, change, err := matches.standing(ctx, id, a.ID); status != "settled" || change != lpBase || err != nil {
+		t.Errorf("the winner reads %q %+d, %v", status, change, err)
+	}
+	if status, change, _ := matches.standing(ctx, id, b.ID); status != "settled" || change != 0 {
+		t.Errorf("the loser reads %q %+d, want settled and a floored 0", status, change)
+	}
+	if _, _, err := matches.standing(ctx, id, a.ID+b.ID+1); err != errNoMatch {
+		t.Errorf("a stranger reading the match gave %v", err)
 	}
 
 	// Seat 1 won, so player a gained and player b lost the same amount.

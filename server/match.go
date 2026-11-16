@@ -2,6 +2,7 @@
 // Verification.md, 03 Game Design/Game Modes.md).
 //
 //	POST /api/match/{id}/result
+//	GET  /api/match/{id}/result
 package main
 
 import (
@@ -249,6 +250,52 @@ func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (in
 	// their tier boundary, so they may have paid less than the winner gained.
 	changes := map[int64]int{winner: newWinner - lp[winner], loser: newLoser - lp[loser]}
 	return changes[r.p1], changes[r.p2], nil
+}
+
+// standing is what became of a match for one of its players: "waiting",
+// "mismatch" or "settled", and what the ladder paid them.
+func (m matchStore) standing(ctx context.Context, id, user int64) (string, int, error) {
+	var p1, p2 int64
+	var winner, c1, c2 *int
+	var verified string
+	err := m.pool.QueryRow(ctx,
+		`SELECT p1_id, p2_id, winner, verified, p1_lp_change, p2_lp_change FROM matches WHERE id = $1`, id).
+		Scan(&p1, &p2, &winner, &verified, &c1, &c2)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && user != p1 && user != p2) {
+		return "", 0, errNoMatch
+	}
+	if err != nil {
+		return "", 0, err
+	}
+
+	change := c1
+	if user == p2 {
+		change = c2
+	}
+	switch {
+	case verified == "mismatch":
+		return "mismatch", 0, nil
+	case winner == nil:
+		return "waiting", 0, nil
+	case change == nil:
+		return "settled", 0, nil // casual pays nothing
+	}
+	return "settled", *change, nil
+}
+
+func (a *auth) matchResult(w http.ResponseWriter, r *http.Request, u User) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	status, change, err := a.matches.standing(r.Context(), id, u.ID)
+	if errors.Is(err, errNoMatch) {
+		httpError(w, http.StatusNotFound, "no such match")
+		return
+	}
+	if err != nil {
+		log.Printf("reading match %d: %v", id, err)
+		httpError(w, http.StatusInternalServerError, "could not read the match")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": status, "lpChange": change})
 }
 
 // void is what a disagreement costs: no winner, no LP, and both accounts

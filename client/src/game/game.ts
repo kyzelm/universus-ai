@@ -20,7 +20,7 @@ import {
 } from '../sim/wasm'
 import type {Bot} from './bot'
 import {encodeLog} from './log'
-import {uploadResult} from '../net/report'
+import {awaitStanding, uploadResult, type Standing} from '../net/report'
 import {createClock, STEP_MS} from './clock'
 import {createScene, VIEW_H, VIEW_W} from './draw'
 import {createEvents} from './events'
@@ -77,6 +77,16 @@ export interface Game {
   dispose(): void
 }
 
+/** How a match ended, for the result screen. */
+export interface MatchResult {
+  /** The winning seat. */
+  winner: 0 | 1
+  /** Whether the local player won, online only. */
+  won?: boolean
+  /** What the ladder made of it, once the server has said. */
+  standing?: Standing
+}
+
 /** What the room agreed on, as the game needs it. */
 export interface MatchSession {
   chars?: [number, number]
@@ -92,6 +102,7 @@ export async function startGame(
   ai = false,
   chars: [number, number] = [0, 0],
   showBoxes = false,
+  onResult: (r: MatchResult) => void = () => {},
 ): Promise<Game> {
   await loadSim()
   // The characters arrive from the URL, so they are user input and clamped here
@@ -128,9 +139,10 @@ export async function startGame(
 
   let net: Netplay | null = null
   let link: Link | null = null
-  // The match this session was recorded as, and whether its result has gone up.
+  // The match this session was recorded as, and whether it has ended.
   let matchID = 0
-  let reported = false
+  let ended = false
+  let disposed = false
   let transport: 'p2p' | 'relay' | undefined
   /** Which seat this end is driving, once connected. */
   let mySeat: 0 | 1 = 0
@@ -150,6 +162,33 @@ export async function startGame(
     const src = net ? net.log : recorded
     const setup: Setup = net ? {training: false, ai: false, chars} : {training, ai, chars}
     return encodeLog(setup, dataVersion(), src)
+  }
+
+  /** Uploads a finished ranked or casual match, then waits for the ladder. */
+  const report = (n: Netplay, id: number, winner: 0 | 1, result: MatchResult) => {
+    const s = n.stats
+    void uploadResult(id, {
+      // The sim counts seats from 0 and the server from 1.
+      winner: winner + 1,
+      // The frames the log actually contains, which is what the server
+      // replays and counts — not the frame this end had simulated to, which
+      // on a disconnect runs past the last confirmed input.
+      endFrame: n.log.length / 2,
+      chars,
+      disconnect: opponentLeft,
+      transport,
+      rttMs: s.rtt.count ? Math.round(s.rtt.percentile(50)) : 0,
+      rollbackAvg: averageDepth(s),
+      inputLog: new Uint8Array(logBytes()),
+      checksums: n.checksums(),
+    })
+      .then((status) => {
+        uploadStatus = status
+        return awaitStanding(id)
+      })
+      .then((standing) => {
+        if (!disposed) onResult({...result, standing})
+      })
   }
 
   // Effects fire from state, on confirmed frames, and never from inside the sim.
@@ -208,27 +247,13 @@ export async function startGame(
 
     // The result goes up once the match is over and the frame is settled.
     const finished = snap.phase === PHASE_MATCH_END && snap.winner !== NOBODY &&
-      net !== null && net.confirmed >= snap.frame
-    if (net && matchID && !reported && (finished || opponentLeft)) {
-      reported = true
-      const s = net.stats
-      void uploadResult(matchID, {
-        // The sim counts seats from 0 and the server from 1.
-        winner: opponentLeft ? mySeat + 1 : snap.winner + 1,
-        // The frames the log actually contains, which is what the server
-        // replays and counts — not the frame this end had simulated to, which
-        // on a disconnect runs past the last confirmed input.
-        endFrame: net.log.length / 2,
-        chars,
-        disconnect: opponentLeft,
-        transport,
-        rttMs: s.rtt.count ? Math.round(s.rtt.percentile(50)) : 0,
-        rollbackAvg: averageDepth(s),
-        inputLog: new Uint8Array(logBytes()),
-        checksums: net.checksums(),
-      }).then((status) => {
-        uploadStatus = status
-      })
+      (net === null || net.confirmed >= snap.frame)
+    if (!ended && (finished || opponentLeft)) {
+      ended = true
+      const winner = (opponentLeft ? mySeat : snap.winner) as 0 | 1
+      const result: MatchResult = net ? {winner, won: winner === mySeat} : {winner}
+      onResult(result)
+      if (net && matchID) report(net, matchID, winner, result)
     }
 
     scene.draw(snap, {
@@ -260,6 +285,7 @@ export async function startGame(
     },
 
     restart() {
+      ended = false
       reset(training, ai, chars)
       pump.reset()
       lab?.reset()
@@ -284,7 +310,7 @@ export async function startGame(
       matchID = session?.matchID ?? 0
       transport = session?.transport
       mySeat = seat
-      reported = false
+      ended = false
       opponentLeft = false
       reset(false, false, chars)
       // The match restarts at frame 0, so what has been fired restarts with it.
@@ -344,6 +370,7 @@ export async function startGame(
     },
 
     dispose() {
+      disposed = true
       input.dispose()
       link?.dispose()
       // The Go runtime keeps running: quit() cannot be undone and loadSim is

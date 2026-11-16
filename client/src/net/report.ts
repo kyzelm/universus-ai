@@ -54,3 +54,31 @@ export async function uploadResult(matchID: number, r: MatchReport): Promise<str
     return 'could not reach the server'
   }
 }
+
+/** What the ladder made of a match, for the player asking. */
+export interface Standing {
+  /** "waiting" | "settled" | "mismatch", or why it could not be read. */
+  status: string
+  lpChange?: number
+}
+
+const POLL_MS = 2000
+const POLL_TRIES = 15
+
+/** Asks until the match is no longer waiting on the other upload. */
+export async function awaitStanding(matchID: number): Promise<Standing> {
+  for (let i = 0; i < POLL_TRIES; i++) {
+    try {
+      const res = await fetch(`/api/match/${matchID}/result`, {
+        headers: {Authorization: `Bearer ${token()}`},
+      })
+      const body = (await res.json()) as Standing & {error?: string}
+      if (!res.ok) return {status: body.error ?? `could not read the result (${res.status})`}
+      if (body.status !== 'waiting') return body
+    } catch {
+      return {status: 'could not reach the server'}
+    }
+    await new Promise((r) => setTimeout(r, POLL_MS))
+  }
+  return {status: 'waiting'}
+}
