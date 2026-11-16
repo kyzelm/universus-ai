@@ -1,81 +1,42 @@
-import {Application, Container, Graphics, Sprite, Text} from 'pixi.js'
+import {Application} from 'pixi.js'
 import {CLEAN, createLink, type Impairment, type Link} from '../net/impair'
-import {createNetplay, depthP99, MAX_ROLLBACK, TIMELINE, type Netplay} from '../net/netplay'
+import {createNetplay, depthP99, type Netplay} from '../net/netplay'
 import type {Peer} from '../net/peer'
 import {
   advance,
-  dataVersion,
-  type Box,
   checksum,
-  EVENT_BLOCK,
-  EVENT_HIT,
-  EVENT_KNOCKDOWN,
-  EVENT_SUPER,
-  EVENT_THROWN,
+  dataVersion,
   eventsAt,
   loadSim,
-  type PlayerSnapshot,
-  readSnapshot,
-  BAR_UNITS,
-  COUNTER_NAMES,
   NOBODY,
   numCharacters,
-  roster,
-  PHASE_FIGHT,
-  PHASE_INTRO,
-  PHASE_KO,
   PHASE_MATCH_END,
-  SUPER_BARS,
+  readSnapshot,
   reset,
   rewind,
+  roster,
   type Setup,
-  type Snapshot,
-  STATE_NAMES,
-  stageGeometry,
 } from '../sim/wasm'
 import type {Bot} from './bot'
 import {encodeLog} from './log'
 import {uploadResult} from '../net/report'
 import {createClock, STEP_MS} from './clock'
+import {createScene, VIEW_H, VIEW_W} from './draw'
 import {createEvents} from './events'
 import {createDummy, type DummyMode} from './dummy'
+import {announcement, averageDepth, costByDepth, costHud, localHud, netHud} from './hud'
 import {createInput} from './input'
 import {loadSheet} from './sprites'
 import {advantageText, createLab} from './lab'
-import {createSamples, type Samples} from './stats'
+import {createSamples} from './stats'
 
-const VIEW_W = 800
-const VIEW_H = 450
-
-/** Pixels per sim unit at full zoom-out: the 400-unit screen fills the view. */
-const SCALE = 2
-const GROUND_PX = 380
-
-/**
- * Zoom is framing, not gameplay: the sim's camera (and the screen-edge walls
- * that cap separation) always use the full screen width.
- */
-const ZOOM_CLOSE_HALF = 160
-const ZOOM_START = 240
-const ZOOM_FULL = 80
-/** Fraction of the gap to the target half-width closed per displayed frame. */
-const ZOOM_SMOOTH = 0.08
-/** How close to the side of a zoomed frame a player gets before it shifts. */
-const ZOOM_EDGE = 40
+/** The loop: input, the fixed step, netplay, and what gets reported. */
 
 /**
  * Displayed frames between HUD refreshes, counted off the display and not off
  * the sim frame.
  */
 const HUD_EVERY = 30
-
-/**
- * Debug box colours, the convention every fighting game debug view uses: blue
- * pushbox, green hurtbox, red hitbox.
- */
-const PUSH_COLOR = 0x4a8ce0
-const HURT_COLOR = 0x4ae08c
-const HIT_COLOR = 0xe0574a
 
 /** Frames between pings. */
 const PING_EVERY = 30
@@ -85,30 +46,6 @@ const PING_EVERY = 30
  * Connectivity.md).
  */
 const DISCONNECT_MS = 3000
-
-/** Effect colours, one per event flag. */
-const EVENT_COLORS: readonly (readonly [number, number])[] = [
-  [EVENT_HIT, 0xffe08a],
-  [EVENT_BLOCK, 0x8ac8ff],
-  [EVENT_THROWN, 0xffa84a],
-  [EVENT_KNOCKDOWN, 0xff7a4a],
-  [EVENT_SUPER, 0xd08aff],
-]
-
-/** How long a spark lives, in display frames. */
-const SPARK_FRAMES = 10
-const SPARK_RADIUS = 14
-
-/** The rollback visualiser (01 Thesis/Supervisor Deliverables.md). */
-const STRIP_COL = 2
-const STRIP_H = 12
-const STRIP_DEPTH_H = 22
-const STRIP_X = 10
-const STRIP_Y = VIEW_H - 32
-
-/** Clean, predicted, corrected — indexed by the FRAME_* constants. */
-const STRIP_COLORS = [0x3a7a4a, 0xd8a53a, 0xe0574a]
-
 
 export interface Game {
   /**
@@ -176,81 +113,9 @@ export async function startGame(
   )
   sizer.observe(app.canvas)
 
-  // The world scrolls under a fixed camera; the stage layer does not.
-  const world = new Container()
-  // Balance data, read once from the sim so the view frames what it collides.
-  const {stageHalf, camHalf: screenHalf} = stageGeometry()
-  let camHalf = screenHalf
-  app.stage.addChild(world)
-
-  world.addChild(new Graphics().rect(-2000, GROUND_PX, 4000, VIEW_H - GROUND_PX).fill(0x2a2f38))
-
-  // Wall markers, so the corner is visible as a place rather than a surprise.
-  for (const side of [-1, 1]) {
-    world.addChild(
-      new Graphics().rect(side * stageHalf * SCALE - 2, 0, 4, GROUND_PX).fill(0x3a4150),
-    )
-  }
-
-  // Fighters go under the overlay: boxes are a thing drawn *on* a character.
-  const fighters = sheets.map((sheet) => {
-    const s = new Sprite()
-    s.anchor.set(sheet.anchor.x, sheet.anchor.y)
-    world.addChild(s)
-    return s
-  })
-
-  // Projectiles have no sprite yet, so they are drawn as the hitbox they are —
-  // on their own layer, because that hitbox is the only thing on screen saying
-  // a fireball exists.
-  const projectiles = new Graphics()
-  world.addChild(projectiles)
-
-  const boxes = new Graphics()
-  boxes.visible = showBoxes
-  world.addChild(boxes)
-
-  // Sparks live in the world, not on the stage: an effect at a fighter's feet
-  // has to scroll with the fighter.
-  const sparkLayer = new Graphics()
-  world.addChild(sparkLayer)
-
-  const bars = [new Graphics(), new Graphics()]
-  bars.forEach((b) => app.stage.addChild(b))
-
-  const addText = (x: number, y: number, ax: number, ay: number, fontSize: number,
-    fill = 0x8a94a6, fontWeight: 'bold' | 'normal' = 'normal'): Text => {
-    const t = new Text({text: '', style: {fill, fontFamily: 'monospace', fontSize, fontWeight}})
-    t.position.set(x, y)
-    t.anchor.set(ax, ay)
-    app.stage.addChild(t)
-    return t
-  }
-
-  // The combo readout, one per seat.
-  const combos = [0, 1].map((seat) =>
-    addText(seat ? VIEW_W - 12 : 12, 48, seat, 0, 14, 0xe0c04a, 'bold'))
-
-  // The round clock and the announcement.
-  const timer = addText(VIEW_W / 2, 6, 0.5, 0, 26, 0xe8ecf2, 'bold')
-  const announce = addText(VIEW_W / 2, 150, 0.5, 0.5, 30, 0xe8ecf2, 'bold')
-
-  const strip = new Graphics()
-  app.stage.addChild(strip)
-  const stripKey = addText(STRIP_X, STRIP_Y + STRIP_H + 2, 0, 0, 10)
-  const hud = addText(8, 66, 0, 0, 12)
-
-  // The lab overlay.
+  const scene = createScene(app, sheets, showBoxes, training)
   const lab = training ? createLab() : null
   const dummy = training ? createDummy() : null
-  // One column per seat, at the edges the fighters spend least time against.
-  const inputCols = lab ? [addText(8, 190, 0, 0, 11), addText(VIEW_W - 8, 190, 1, 0, 11)] : null
-  // Over the column for the seat it drives, so what the dummy is doing and what
-  // it is pressing read as one thing.
-  const dummyText = dummy ? addText(VIEW_W - 8, 176, 1, 0, 11) : null
-  // Named for the frame advantage on screen, not the netplay one: net.advantage
-  // is how far ahead of the other machine this one is running.
-  const advText = lab ? addText(VIEW_W / 2, 38, 0.5, 0, 16) : null
 
   const input = createInput()
   const clock = createClock()
@@ -288,7 +153,6 @@ export async function startGame(
 
   // Effects fire from state, on confirmed frames, and never from inside the sim.
   const pump = createEvents(eventsAt)
-  const sparks: {x: number; y: number; life: number; color: number}[] = []
 
   app.ticker.add((ticker) => {
     frameCost.push(ticker.deltaMS)
@@ -328,29 +192,9 @@ export async function startGame(
 
     const snap = readSnapshot()
 
-    // The camera is sim state, not a view decision — corner position is
-    // gameplay, so both machines must agree on where the corner is.
-    const [a, b] = snap.players
-    const gap = Math.abs(a.x - b.x)
-    const t = Math.min(1, Math.max(0, (ZOOM_START - gap) / (ZOOM_START - ZOOM_FULL)))
-    const target = screenHalf + (ZOOM_CLOSE_HALF - screenHalf) * t * t * (3 - 2 * t)
-    camHalf += (target - camHalf) * ZOOM_SMOOTH
-    const zoom = screenHalf / camHalf
-    const centre = frame(snap.camX, Math.min(a.x, b.x), Math.max(a.x, b.x), camHalf, stageHalf)
-    world.scale.set(zoom)
-    // Pinned at the ground line, so zooming grows the fighters upward.
-    world.position.set(VIEW_W / 2 - centre * SCALE * zoom, GROUND_PX * (1 - zoom))
-
     // Under netplay the confirmed line lags the simulated frame by the rollback
     // window; locally every frame that has run is settled the moment it has.
-    pump.drain(net ? net.confirmed : snap.frame - 1, ({seat, bits}) => {
-      const p = snap.players[seat]
-      for (const [bit, color] of EVENT_COLORS) {
-        // ponytail: drawn where the fighter is now, not where they were on the
-        // event's own frame.
-        if (bits & bit) sparks.push({x: p.x, y: p.y, life: SPARK_FRAMES, color})
-      }
-    })
+    pump.drain(net ? net.confirmed : snap.frame - 1, ({seat, bits}) => scene.spark(snap, seat, bits))
 
     // Three seconds of silence is a disconnect and the match ends there (02
     // Architecture/Transport and Connectivity.md).
@@ -383,72 +227,22 @@ export async function startGame(
       })
     }
 
-    sparkLayer.clear()
-    for (let i = sparks.length - 1; i >= 0; i--) {
-      const s = sparks[i]
-      const t = s.life / SPARK_FRAMES
-      sparkLayer
-        .circle(s.x * SCALE, GROUND_PX - (s.y + 24) * SCALE, SPARK_RADIUS * (1.4 - t))
-        .stroke({color: s.color, width: 2, alpha: t})
-      if (--s.life <= 0) sparks.splice(i, 1)
-    }
-
-    // The animation is a pure function of the snapshot — state, how many frames
-    // it has been in it, and which move — so a frame resimulated eight times
-    // during a rollback picks the same texture eight times.
-    for (let i = 0; i < fighters.length; i++) {
-      const p = snap.players[i]
-      const f = fighters[i]
-      f.texture = sheets[i].texture(p.state, p.stateFrame, p.moveIndex)
-      f.position.set(p.x * SCALE, GROUND_PX - p.y * SCALE)
-      // Facing is the sim's, and it flips the sprite rather than the data:
-      // boxes are authored facing right and mirrored when placed, and the art
-      // is drawn once for the same reason.
-      f.scale.set(p.facing, 1)
-    }
-
-    projectiles.clear()
-    for (const b of snap.projectiles) drawHitbox(projectiles, b)
-
-    boxes.clear()
-    if (boxes.visible) for (const p of snap.players) drawBoxes(boxes, p)
-    setText(timer, `${seconds(snap.timer)}`)
-    // The disconnect takes the screen over: immediate match end, an explicit
-    // message and a win (02 Architecture/Disconnect and Match Integrity.md).
-    setText(announce, opponentLeft ? 'OPPONENT DISCONNECTED\nYOU WIN' : announcement(snap))
-
-    for (let i = 0; i < bars.length; i++) {
-      drawBars(bars[i], snap.players[i], i, snap.wins[i])
-      // The combo belongs to the player taking it; it is shown on the side of
-      // the player landing it, which is where every game in the genre puts it.
-      setCombo(combos[1 - i], snap.players[i])
-    }
-
-    // Rollback made visible.
-    if (net) {
-      drawTimeline(strip, net)
-      setText(stripKey, 'clean · predicted · corrected   ▏= rollback landed, height = depth')
-    } else {
-      strip.clear()
-      setText(stripKey, '')
-    }
-
-    // Every frame, unlike the HUD below: an input display that refreshed twice
-    // a second would not show the input it exists to show.
-    if (lab && inputCols && advText) {
-      for (let seat = 0; seat < inputCols.length; seat++) {
-        setText(inputCols[seat], lab.history(seat).join('\n'))
-      }
-      setText(advText, advantageText(lab.advantage()))
-    }
-    if (dummy && dummyText) {
-      setText(dummyText, `DUMMY ${dummy.mode().toUpperCase()}`)
-    }
+    scene.draw(snap, {
+      net,
+      // The disconnect takes the screen over: immediate match end, an explicit
+      // message and a win (02 Architecture/Disconnect and Match Integrity.md).
+      banner: opponentLeft ? 'OPPONENT DISCONNECTED\nYOU WIN' : announcement(snap),
+      lab: lab && dummy && {
+        inputs: [0, 1].map((seat) => lab.history(seat).join('\n')),
+        advantage: advantageText(lab.advantage()),
+        dummy: `DUMMY ${dummy.mode().toUpperCase()}`,
+      },
+    })
 
     // ponytail: no interpolation.
     if (hudTicks++ % HUD_EVERY === 0) {
       const top = net ? netHud(net, link, uploadStatus) : localHud(snap)
-      hud.text = `${top}\n${costHud(stepCost, frameCost, longFrames)}`
+      scene.setHud(`${top}\n${costHud(stepCost, frameCost, longFrames)}`)
     }
   })
 
@@ -465,7 +259,7 @@ export async function startGame(
       reset(training, ai, chars)
       pump.reset()
       lab?.reset()
-      sparks.length = 0
+      scene.reset()
       recorded.length = 0
     },
 
@@ -491,7 +285,7 @@ export async function startGame(
       reset(false, false, chars)
       // The match restarts at frame 0, so what has been fired restarts with it.
       pump.reset()
-      sparks.length = 0
+      scene.reset()
       ticks = 0
       longFrames = 0
       // Both ends of a measured run open the same URL, so the seat is the only
@@ -554,293 +348,4 @@ export async function startGame(
       app.destroy(true, {children: true})
     },
   }
-}
-
-/**
- * Three seconds of frames, oldest on the left, coloured by what each was
- * simulated from — and a white tick wherever a correction landed, as tall as
- * the rollback was deep.
- */
-function drawTimeline(g: Graphics, net: Netplay): void {
-  g.clear()
-  const end = net.frame - 1
-  const first = end - TIMELINE + 1
-
-  g.rect(STRIP_X, STRIP_Y - STRIP_DEPTH_H, TIMELINE * STRIP_COL, STRIP_DEPTH_H + STRIP_H).fill({
-    color: 0x0e1014,
-    alpha: 0.55,
-  })
-
-  let runStart = 0
-  let runKind = -1
-
-  const flush = (until: number) => {
-    if (runKind < 0) return
-    const x = STRIP_X + runStart * STRIP_COL
-    g.rect(x, STRIP_Y, (until - runStart) * STRIP_COL, STRIP_H).fill(STRIP_COLORS[runKind])
-  }
-
-  for (let i = 0; i < TIMELINE; i++) {
-    const packed = net.sample(first + i)
-    const kind = packed < 0 ? -1 : packed & 3
-    if (kind !== runKind) {
-      flush(i)
-      runStart = i
-      runKind = kind
-    }
-
-    // Ticks are drawn per frame rather than per run: two corrections a frame
-    // apart are two events, and merging them would report one.
-    const depth = packed < 0 ? 0 : packed >> 2
-    if (depth > 0) {
-      const h = (depth / MAX_ROLLBACK) * STRIP_DEPTH_H
-      g.rect(STRIP_X + i * STRIP_COL, STRIP_Y - h, STRIP_COL, h).fill(0xe8ecf2)
-    }
-  }
-  flush(TIMELINE)
-
-  // The confirmed line: everything to its right is a prediction that can still
-  // be taken back, which is also the line effects are fired up to.
-  const c = net.confirmed - first
-  if (c >= 0 && c < TIMELINE) {
-    g.rect(STRIP_X + c * STRIP_COL, STRIP_Y - 3, 1, STRIP_H + 6).fill(0xe8ecf2)
-  }
-}
-
-/** Sim coordinates are feet-origin, y up; the canvas is y down. */
-function toScreen(b: Box): [number, number, number, number] {
-  return [b.x * SCALE, GROUND_PX - (b.y + b.h) * SCALE, b.w * SCALE, b.h * SCALE]
-}
-
-function drawBoxes(g: Graphics, p: PlayerSnapshot): void {
-  g.rect(...toScreen(p.pushbox)).stroke({color: PUSH_COLOR, width: 1})
-  for (const b of p.hurtboxes) {
-    g.rect(...toScreen(b)).fill({color: HURT_COLOR, alpha: 0.2}).stroke({color: HURT_COLOR, width: 1})
-  }
-  for (const b of p.hitboxes) drawHitbox(g, b)
-}
-
-function drawHitbox(g: Graphics, b: Box): void {
-  g.rect(...toScreen(b)).fill({color: HIT_COLOR, alpha: 0.3}).stroke({color: HIT_COLOR, width: 1})
-}
-
-const BAR_W = 340
-const MAX_HEALTH = 10000
-
-/** Pips drawn per seat. */
-const ROUNDS_TO_WIN = 2
-
-const EMPTY_COLOR = 0x2a2f38
-const WIN_COLOR = 0xe8ecf2
-const HEALTH_COLOR = 0xd8c15a
-const SUPER_COLOR = 0xc86ee0
-
-/** Health, then the super meter. */
-function drawBars(g: Graphics, p: PlayerSnapshot, seat: number, wins: number): void {
-  const x = seat === 0 ? 10 : VIEW_W - 10 - BAR_W
-
-  g.clear()
-  g.rect(x, 8, BAR_W, 14).fill(EMPTY_COLOR)
-  // Drains from the centre outward, so both bars empty toward the middle.
-  const w = BAR_W * clamp01(p.health / MAX_HEALTH)
-  g.rect(seat === 0 ? x + BAR_W - w : x, 8, w, 14).fill(HEALTH_COLOR)
-
-  drawGauge(g, x, 25, 9, seat, p.super, SUPER_BARS, SUPER_COLOR)
-
-  // Round wins, as pips beside the health bar.
-  for (let i = 0; i < ROUNDS_TO_WIN; i++) {
-    const px = seat === 0 ? x + BAR_W + 6 + i * 12 : x - 12 - i * 12
-    g.circle(px, 15, 4).fill(i < wins ? WIN_COLOR : EMPTY_COLOR)
-  }
-}
-
-/** One segmented gauge. */
-function drawGauge(
-  g: Graphics,
-  x: number,
-  y: number,
-  h: number,
-  seat: number,
-  value: number,
-  bars: number,
-  color: number,
-): void {
-  const gap = 2
-  const segW = (BAR_W - gap * (bars - 1)) / bars
-
-  for (let i = 0; i < bars; i++) {
-    // Fills away from the outside edge of the screen, like health.
-    const index = seat === 0 ? bars - 1 - i : i
-    const sx = x + index * (segW + gap)
-    const filled = clamp01(value / BAR_UNITS - i) * segW
-
-    g.rect(sx, y, segW, h).fill(EMPTY_COLOR)
-    g.rect(seat === 0 ? sx + segW - filled : sx, y, filled, h).fill(color)
-  }
-}
-
-/**
- * The round clock in whole seconds, rounded up: the sim counts frames, and the
- * view is the only place allowed to hold a number that is not exact.
- */
-function seconds(frames: number): number {
-  return Math.ceil((frames * STEP_MS) / 1000)
-}
-
-/** What is written across the middle of the screen. */
-function announcement(snap: Snapshot): string {
-  const who = (seat: number) => `PLAYER ${seat + 1}`
-
-  switch (snap.phase) {
-    case PHASE_FIGHT:
-      return ''
-    case PHASE_KO:
-      // A drawn round ended either on a double KO or on the clock; both read
-      // as a draw, and the distinction is not one the player needs.
-      if (snap.roundWinner === NOBODY) return 'DRAW'
-      return snap.timer === 0 ? 'TIME UP' : 'K.O.'
-    case PHASE_INTRO:
-      return 'FIGHT'
-    case PHASE_MATCH_END:
-      return `${who(snap.winner)} WINS THE MATCH`
-    default:
-      return snap.roundWinner === NOBODY ? 'DRAW' : `${who(snap.roundWinner)} WINS THE ROUND`
-  }
-}
-
-/** Assigning re-lays out the text, so only do it when it actually changed. */
-function setText(t: Text, text: string): void {
-  if (t.text !== text) t.text = text
-}
-
-function clamp01(v: number): number {
-  return Math.max(0, Math.min(1, v))
-}
-
-/** Reads as "COUNTER · 3 hits", or nothing at all outside a combo. */
-function setCombo(t: Text, defender: PlayerSnapshot): void {
-  const parts = []
-  if (defender.combo > 0) {
-    if (COUNTER_NAMES[defender.counter]) parts.push(COUNTER_NAMES[defender.counter])
-    parts.push(`${defender.combo} hit${defender.combo === 1 ? '' : 's'}`)
-  }
-  setText(t, parts.join(' · '))
-}
-
-/** One line per player. */
-function localHud(snap: Snapshot): string {
-  const who = (i: number) => {
-    const p = snap.players[i]
-    const meter = (p.super / BAR_UNITS).toFixed(1)
-    return (
-      `p${i} ${STATE_NAMES[p.state] ?? p.state}:${p.stateFrame} hp ${p.health} ` +
-      `super ${meter}` +
-      (p.combo ? ` combo ${p.combo}` : '')
-    )
-  }
-  return [
-    `frame ${snap.frame}${snap.hitstop ? `  HITSTOP ${snap.hitstop}` : ''}`,
-    who(0),
-    who(1),
-  ].join('\n')
-}
-
-/**
- * M-A as the methodology asks for it: cost by rollback depth, one row per depth
- * (01 Thesis/Measurement Methodology.md).
- */
-function costByDepth(step: Samples, net: Netplay | null) {
-  // percentile(100) is the maximum: the worst frame is what breaks a fighting
-  // game, so it is reported beside the tail rather than in place of it.
-  const row = (depth: number, s: Samples) => ({
-    depth,
-    count: s.count,
-    p50: s.percentile(50),
-    p99: s.percentile(99),
-    max: s.percentile(100),
-  })
-
-  const rows = [row(0, step)]
-  if (net) {
-    for (let d = 1; d <= MAX_ROLLBACK; d++) rows.push(row(d, net.stats.replayByDepth[d]))
-  }
-  return rows
-}
-
-/** The cost line, shown in both modes. */
-function costHud(stepCost: Samples, frameCost: Samples, longFrames: number): string {
-  const sim = (p: number) => stepCost.percentile(p).toFixed(3)
-  const frame = (p: number) => frameCost.percentile(p).toFixed(1)
-
-  return (
-    `sim p50 ${sim(50)}ms p99 ${sim(99)}ms  ` +
-    `frame p50 ${frame(50)}ms p99 ${frame(99)}ms  long ${longFrames}`
-  )
-}
-
-/**
- * Mean rollback depth over the session — a measurement column, and the one
- * place a float is welcome: it is reported, never simulated from.
- */
-function averageDepth(s: Netplay['stats']): number {
-  let frames = 0
-  let total = 0
-  for (let d = 1; d < s.depths.length; d++) {
-    frames += s.depths[d]
-    total += s.depths[d] * d
-  }
-  return frames ? total / frames : 0
-}
-
-function netHud(net: Netplay, link: Link | null, upload: string): string {
-  const s = net.stats
-  if (s.dataMismatch) {
-    return 'REFUSED: the peer has different character data.\nRebuild both ends from the same commit.'
-  }
-  const pct = (n: number) => ((n / Math.max(1, s.frames)) * 100).toFixed(1)
-  const rtt = (p: number) => (s.rtt.count ? s.rtt.percentile(p).toFixed(1) : '—')
-
-  return [
-    // Ahead and behind read differently and both matter: the leading end is
-    // the one that skips, and a skip count that never moves on a laggy link
-    // means time synchronisation is not doing its job.
-    `frame ${net.frame}  ahead ${net.advantage > 0 ? '+' : ''}${net.advantage}  ` +
-      `rtt p50 ${rtt(50)}ms p99 ${rtt(99)}ms`,
-    `rollback ${pct(s.rollbacks)}% depth p99 ${depthP99(s.depths)}  ` +
-      `mispredict ${pct(s.mispredicted)}%`,
-    `stalls ${s.stalls}  skips ${s.skipped}  checked ${s.verified}  ` +
-      (s.desyncs ? `DESYNC at frame ${s.desyncFrame}` : 'desync 0'),
-    conditions(link),
-    // What the server made of the result, once there is one.
-    upload && `result: ${upload}`,
-  ]
-    .filter(Boolean)
-    .join('\n')
-}
-
-/** The artificial conditions in force, and what they actually did. */
-function conditions(link: Link | null): string {
-  if (!link) return ''
-  const {delayMs, jitterMs, lossPercent} = link.cfg
-  if (delayMs <= 0 && jitterMs <= 0 && lossPercent <= 0) return ''
-
-  const {arrived, dropped} = link.stats
-  const rate = ((dropped / Math.max(1, arrived + dropped)) * 100).toFixed(1)
-  return `SIM-NET +${delayMs}±${jitterMs}ms ${lossPercent}% loss (dropped ${dropped}, ${rate}%)`
-}
-
-/**
- * Centre of a frame `half` wide that starts at the sim's camera and moves only
- * to keep both players `ZOOM_EDGE` inside it — the same dead zone the sim's
- * camera uses, so a zoomed frame does not start sliding a standing player
- * either.
- */
-function frame(camX: number, lo: number, hi: number, half: number, stageHalf: number): number {
-  const reach = half - ZOOM_EDGE
-  let c = camX
-  if (hi - lo <= 2 * reach) {
-    if (hi > c + reach) c = hi - reach
-    if (lo < c - reach) c = lo + reach
-  }
-  return Math.min(Math.max(c, -stageHalf + half), stageHalf - half)
 }
