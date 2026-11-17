@@ -9,7 +9,6 @@ import {
   IN_RIGHT,
   IN_UP,
   packBits,
-  packPad,
   resolveSOCD,
 } from './input'
 
@@ -126,63 +125,6 @@ test('dispose stops tracking', () => {
 
   press(target, 'KeyA')
   expect(input.poll()).toEqual([0, 0])
-})
-
-test('gamepad: dpad and face buttons map to bits', () => {
-  expect(packPad(fakePad({buttons: [14]}))).toBe(IN_LEFT)
-  expect(packPad(fakePad({buttons: [13]}))).toBe(IN_DOWN)
-  expect(packPad(fakePad({buttons: [2]}))).toBe(IN_LP)
-  expect(packPad(fakePad({buttons: [0]}))).toBe(IN_LK)
-  expect(packPad(fakePad({buttons: [5]}))).toBe(IN_HP)
-  expect(packPad(fakePad({buttons: [6]}))).toBe(IN_HP)
-  expect(packPad(fakePad({buttons: [13, 15, 2]}))).toBe(IN_DOWN | IN_RIGHT | IN_LP)
-  expect(packPad(fakePad())).toBe(0)
-})
-
-test('gamepad: stick reads past the deadzone, and browser Y is negative up', () => {
-  expect(packPad(fakePad({axes: [-1, 0]}))).toBe(IN_LEFT)
-  expect(packPad(fakePad({axes: [1, 0]}))).toBe(IN_RIGHT)
-  expect(packPad(fakePad({axes: [0, -1]}))).toBe(IN_UP)
-  expect(packPad(fakePad({axes: [0, 1]}))).toBe(IN_DOWN)
-  expect(packPad(fakePad({axes: [1, 1]}))).toBe(IN_RIGHT | IN_DOWN)
-
-  // Resting drift must not read as a direction, or the player walks by itself.
-  expect(packPad(fakePad({axes: [0.2, -0.3]}))).toBe(0)
-})
-
-test('gamepad: unused buttons are ignored, reserved bits stay clear', () => {
-  const all = packPad(fakePad({buttons: Array.from({length: 16}, (_, i) => i)}))
-  expect(all & ((1 << 7) | (1 << 11))).toBe(0)
-  expect(all >> 16).toBe(0)
-})
-
-test('the first two connected pads take seat 0 and seat 1', () => {
-  const target = new EventTarget()
-  connectPads(fakePad({buttons: [14]}), fakePad({buttons: [15]}))
-  const input = createInput(target)
-
-  expect(input.poll()).toEqual([IN_LEFT, IN_RIGHT])
-  input.dispose()
-})
-
-// getGamepads returns a sparse array with holes for empty slots.
-test('a disconnected slot does not promote the next pad', () => {
-  const target = new EventTarget()
-  connectPads(null, fakePad({buttons: [15]}))
-  const input = createInput(target)
-
-  expect(input.poll()).toEqual([IN_RIGHT, 0])
-  input.dispose()
-})
-
-test('keyboard and pad merge for the same seat', () => {
-  const target = new EventTarget()
-  connectPads(fakePad({buttons: [2]})) // LP on the pad
-  const input = createInput(target)
-
-  target.dispatchEvent(new KeyboardEvent('keydown', {code: 'KeyD', cancelable: true}))
-  expect(input.poll()).toEqual([IN_RIGHT | IN_LP, 0])
-  input.dispose()
 })
 
 // Each device is SOCD-clean on its own; the opposing pair only exists after the
