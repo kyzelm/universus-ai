@@ -95,6 +95,7 @@ func (s *GameState) spawn(owner, move int32, mv *Move) {
 			VX:     p.forward(mv.Proj.Speed),
 			Life:   mv.Proj.Life,
 		}
+		p.Events |= EventFireball
 		return
 	}
 }

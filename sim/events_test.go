@@ -136,3 +136,34 @@ func TestReplayingAFrameDoesNotRepeatItsEvents(t *testing.T) {
 		t.Fatal("no events at all in 40 frames, so this test is checking nothing")
 	}
 }
+
+// Each new flag fires once over a jab, a jump and a round start.
+func TestTheSoundEventsFireOnce(t *testing.T) {
+	count := func(s *GameState, frames int, in [2]uint16, p int, bit int32) int {
+		n := 0
+		for range frames {
+			s.Advance(in)
+			if s.Players[p].Events&bit != 0 {
+				n++
+			}
+		}
+		return n
+	}
+
+	s := facing(40)
+	if n := count(&s, 30, [2]uint16{InLP, 0}, 0, EventAttack); n != 1 {
+		t.Errorf("a held jab flagged EventAttack %d times, want 1", n)
+	}
+	s = facing(40)
+	if n := count(&s, 90, [2]uint16{InUp, 0}, 0, EventJump); n != 1 {
+		t.Errorf("a held jump flagged EventJump %d times, want 1", n)
+	}
+	s = facing(40)
+	if n := count(&s, 90, [2]uint16{InUp, 0}, 0, EventLand); n != 1 {
+		t.Errorf("a held jump flagged EventLand %d times, want 1", n)
+	}
+	s = New()
+	if n := count(&s, 600, [2]uint16{}, 0, EventFight); n != 1 {
+		t.Errorf("the first round flagged EventFight %d times, want 1", n)
+	}
+}

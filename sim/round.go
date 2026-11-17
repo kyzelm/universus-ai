@@ -30,11 +30,20 @@ func (s *GameState) updateRound() {
 		return
 	}
 
+	// A full clock is the first frame of a round's fight.
+	if s.Timer == balance.RoundFrames {
+		s.Players[0].Events |= EventFight
+	}
 	if s.Timer > 0 {
 		s.Timer--
 	}
 
 	dead0, dead1 := s.Players[0].Health <= 0, s.Players[1].Health <= 0
+	for i := range s.Players {
+		if s.Players[i].Health <= 0 {
+			s.Players[i].Events |= EventKO
+		}
+	}
 	switch {
 	// A double KO on the same frame is a draw, and it has to be checked before
 	// either single KO or the player the loop reached first would win it.

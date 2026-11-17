@@ -79,6 +79,12 @@ export const EVENT_BLOCK = 1 << 1
 export const EVENT_THROWN = 1 << 2
 export const EVENT_KNOCKDOWN = 1 << 3
 export const EVENT_SUPER = 1 << 4
+export const EVENT_ATTACK = 1 << 5
+export const EVENT_FIREBALL = 1 << 6
+export const EVENT_JUMP = 1 << 7
+export const EVENT_LAND = 1 << 8
+export const EVENT_KO = 1 << 9
+export const EVENT_FIGHT = 1 << 10
 
 /** How many frames of events the sim keeps, mirroring sim/rollback.go. */
 export const EVENT_RING = 64

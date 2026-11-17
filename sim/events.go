@@ -16,6 +16,24 @@ const (
 
 	// EventSuper is a super activating, on the player who spent the bars.
 	EventSuper int32 = 1 << 4
+
+	// EventAttack is a move starting.
+	EventAttack int32 = 1 << 5
+
+	// EventFireball is a projectile spawning, on its owner.
+	EventFireball int32 = 1 << 6
+
+	// EventJump is a jump starting.
+	EventJump int32 = 1 << 7
+
+	// EventLand is touching down from the air.
+	EventLand int32 = 1 << 8
+
+	// EventKO is health reaching zero in a fight.
+	EventKO int32 = 1 << 9
+
+	// EventFight is a round starting; match-wide, so it rides on player 0 only.
+	EventFight int32 = 1 << 10
 )
 
 // clearEvents wipes both players' flags.

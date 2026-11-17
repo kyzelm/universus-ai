@@ -81,6 +81,7 @@ func (p *PlayerState) knockdown() {
 
 // land ends an airborne action on touchdown, owing n frames of recovery.
 func (p *PlayerState) land(n int32) {
+	p.Events |= EventLand
 	if n <= 0 {
 		p.enter(StateIdle)
 		return
@@ -112,6 +113,7 @@ func (p *PlayerState) enterMove(index int32, now uint32) {
 	p.MoveIndex = index
 	p.HasHit = 0
 	p.Eaten = int32(now)
+	p.Events |= EventAttack
 
 	// A grounded move owns the character's velocity from here.
 	mv := &CharacterAt(p.Char).Moves[index]
@@ -216,6 +218,7 @@ func (s *GameState) resolveMovement(p *PlayerState, dir uint8) {
 	case (dir == DirUp || dir == DirUpFwd || dir == DirUpBack) && p.JumpHeld == 0:
 		p.JumpHeld = 1
 		p.enter(StatePreJump)
+		p.Events |= EventJump
 		// The jump direction is committed here, at the *start* of pre-jump.
 		switch dir {
 		case DirUpFwd:
