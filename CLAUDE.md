@@ -168,8 +168,8 @@ What the refactor changed, so old notes and old habits do not bring it back:
 - `sim.Advance` is the nine documented steps, one function each. `client/src/game/` is `game.ts`
   (loop), `draw.ts` (Pixi scene), `hud.ts` (HUD text), `sound.ts` (match event sounds).
 - **The shell is React with CSS animations; Pixi draws only the match.** Recorded sound is
-  `client/public/sounds/<name>.mp3`, played by `client/src/audio.ts`; a missing file is silence and a
-  match event falls back to its synthesised tone. Names are listed in that folder's README.
+  `client/public/sounds/<name>.mp3`, played by `client/src/audio.ts`; a missing clip plays a
+  synthesised tone, a missing music track is silence. Names are listed in that folder's README.
 
 M0's bars were measured, not estimated, and four cleared with margin (see the vault's *M0 Results*):
 sim step **p99 0.023 ms** against 0.5 · 8-frame rollback **p99 0.540 ms** against 4 · **10 001

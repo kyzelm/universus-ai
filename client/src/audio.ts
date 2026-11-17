@@ -2,12 +2,12 @@ import {options} from './options'
 
 /**
  * Recorded sound: clips and one music loop, read from /sounds/<name>.mp3.
- * A file that is not there is silence, so the game runs before anything is recorded.
+ * A clip with no file plays a synthesised tone instead; a track with no file is silence.
  */
 export const CLIPS = [
   // The shell.
   'select', 'confirm', 'back', 'found', 'win', 'lose',
-  // The match, replacing the synthesised tone of the same event (game/sound.ts).
+  // The match, fired from the event drain (game/sound.ts).
   'hit', 'block', 'throw', 'knockdown', 'super',
 ] as const
 export type Clip = (typeof CLIPS)[number]
@@ -27,13 +27,48 @@ const probe = (name: string) =>
 // Optional: the test environment has no fetch target.
 if (typeof Audio !== 'undefined') for (const n of [...CLIPS, 'menu', 'match']) void probe(n)
 
-/** Plays a clip once; false when there is no recording of it. */
-export function play(name: Clip): boolean {
-  if (!present.has(name)) return false
-  const a = new Audio(url(name))
-  a.volume = options.volume
-  void a.play().catch(() => {})
-  return true
+/** The tone a clip plays until it is recorded: start Hz, seconds, waveform. */
+const TONES: Record<Clip, readonly [number, number, OscillatorType]> = {
+  select: [520, 0.04, 'triangle'],
+  confirm: [780, 0.12, 'triangle'],
+  back: [330, 0.08, 'triangle'],
+  found: [440, 0.5, 'square'],
+  win: [660, 0.6, 'triangle'],
+  lose: [180, 0.6, 'sine'],
+  hit: [220, 0.08, 'square'],
+  block: [660, 0.05, 'triangle'],
+  throw: [140, 0.15, 'sawtooth'],
+  knockdown: [70, 0.2, 'sine'],
+  super: [880, 0.4, 'sawtooth'],
+}
+
+/** Tone gain at full volume. */
+const MAX_GAIN = 0.3
+
+let ctx: AudioContext | undefined
+
+/** Plays a clip once, its recording if there is one, else its tone. */
+export function play(name: Clip): void {
+  if (present.has(name)) {
+    const a = new Audio(url(name))
+    a.volume = options.volume
+    void a.play().catch(() => {})
+    return
+  }
+  if (typeof AudioContext === 'undefined') return
+  ctx ??= new AudioContext()
+  // The browser keeps a context suspended until the first click or key press.
+  void ctx.resume()
+  const [hz, seconds, type] = TONES[name]
+  const end = ctx.currentTime + seconds
+  const osc = new OscillatorNode(ctx, {type, frequency: hz})
+  const gain = new GainNode(ctx, {gain: Math.max(options.volume * MAX_GAIN, 0.001)})
+  // Pitch and volume both fall away, which is what makes a tone read as an impact.
+  osc.frequency.exponentialRampToValueAtTime(hz / 2, end)
+  gain.gain.exponentialRampToValueAtTime(0.001, end)
+  osc.connect(gain).connect(ctx.destination)
+  osc.start()
+  osc.stop(end)
 }
 
 let player: HTMLAudioElement | undefined
