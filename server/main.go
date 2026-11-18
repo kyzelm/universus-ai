@@ -1,6 +1,4 @@
 // Universus backend.
-//
-//	GET /ws?room=CODE
 package main
 
 import (
@@ -21,30 +19,25 @@ import (
 )
 
 const (
-	// Generous for a base64 SDP blob with a long candidate list, mean for
-	// anything else.
+	// Generous for a base64 SDP blob with a long candidate list, mean for anything else.
 	readLimit = 32 << 10
 
-	// A peer whose socket has stopped draining must not wedge the other end's
-	// read loop.
+	// A peer whose socket has stopped draining must not wedge the other end's read loop.
 	writeTimeout = 5 * time.Second
 
 	// How long a client has to send its opening token frame.
 	handshakeTimeout = 10 * time.Second
 )
 
-// hub is the server's shared state: the codes people type at each other, the
-// queues people wait in, and the accounts both are gated on when there are any.
+// hub is the server's shared state.
 type hub struct {
 	rooms *rooms
 	queue *matchmaker
-	// nil when the server runs without a database, which is also when it runs
-	// without accounts.
+	// nil when the server runs without a database, which is also when it runs without accounts.
 	auth *auth
 }
 
-// Room codes are typed by hand and appear in a URL, so they are checked rather
-// than trusted.
+// Room codes are typed by hand and appear in a URL, so they are checked rather than trusted.
 var codeOK = regexp.MustCompile(`^[A-Za-z0-9-]{1,32}$`)
 
 type client struct {
@@ -56,9 +49,8 @@ type client struct {
 	user *User
 	// Ladder points, read once when the queue is joined.
 	lp int
-	// Round trip to *this server* in nanoseconds, which is the only latency
-	// anybody can measure before a match exists (02 Architecture/Backend
-	// Services.md).
+	// Round trip to *this server* in nanoseconds, which is the only latency anybody can measure
+	// before a match exists (02 Architecture/Backend Services.md).
 	rtt atomic.Int64
 }
 
@@ -71,9 +63,8 @@ type rooms struct {
 	waiting map[string]*client
 }
 
-// join registers c under code and returns the client already waiting there, if
-// there was one — in which case the code is freed again, since the pair now
-// talk to each other and not to the room.
+// join registers c under code and returns the client already waiting there, if there was one — in
+// which case the code is freed again.
 // ponytail: a code holds one waiting client, not a two-seat room.
 func (r *rooms) join(code string, c *client) *client {
 	r.mu.Lock()
@@ -97,15 +88,14 @@ func (r *rooms) leave(code string, c *client) {
 	}
 }
 
-// accept upgrades the request and reads the client's opening frame, which is
-// its token or an empty string.
+// accept upgrades the request and reads the client's opening frame, which is its token or an empty
+// string.
 func (s *hub) accept(w http.ResponseWriter, req *http.Request) (*websocket.Conn, *User, bool) {
 	conn, err := websocket.Accept(w, req, &websocket.AcceptOptions{
-		// Input packets are 20 bytes of bitfields and do not compress; agreeing
-		// on compression costs handshake and per-message work for nothing.
+		// Input packets are 20 bytes of bitfields and do not compress.
 		CompressionMode: websocket.CompressionDisabled,
-		// The credential is a frame rather than a cookie, so a page on another
-		// origin has nothing to borrow by opening this socket.
+		// The credential is a frame rather than a cookie, so a page on another origin has nothing
+		// to borrow by opening this socket.
 		OriginPatterns: []string{"*"},
 	})
 	if err != nil {
@@ -128,8 +118,7 @@ func (s *hub) accept(w http.ResponseWriter, req *http.Request) (*websocket.Conn,
 
 	u, err := s.auth.userOf(string(data))
 	if err != nil {
-		// D104: a private match by code needs an account exactly as a ranked
-		// one does.
+		// D104: a private match by code needs an account exactly as a ranked one does.
 		conn.Close(websocket.StatusPolicyViolation, "sign in first")
 		return nil, nil, false
 	}
@@ -162,8 +151,7 @@ func (s *hub) serveRoom(w http.ResponseWriter, req *http.Request) {
 	relay(conn, me)
 }
 
-// pair introduces two clients to each other: roles out first, then each is
-// handed the other's socket.
+// pair introduces two clients to each other.
 func pair(host, guest *client, matchID int64) bool {
 	suffix := ""
 	if matchID != 0 {
@@ -179,8 +167,8 @@ func pair(host, guest *client, matchID int64) bool {
 
 // relay copies every frame to the peer and reads none of them.
 func relay(conn *websocket.Conn, me *client) {
-	// Resolves the peer once, whether the pairing happened on this goroutine or
-	// arrived while we were waiting for somebody to join.
+	// Resolves the peer once, whether the pairing happened on this goroutine or arrived while we
+	// were waiting for somebody to join.
 	var peer *websocket.Conn
 	peerOf := func() *websocket.Conn {
 		if peer == nil {
@@ -200,8 +188,8 @@ func relay(conn *websocket.Conn, me *client) {
 		}
 	}()
 
-	// Not req.Context(): reads end when the socket does, which is the only
-	// signal that matters here.
+	// Not req.Context(): reads end when the socket does, which is the only signal that matters
+	// here.
 	ctx := context.Background()
 
 	for {
@@ -248,9 +236,7 @@ func main() {
 	}
 	if pool != nil {
 		defer pool.Close()
-		// Migrations run at startup, in the binary that needs them: a container
-		// that starts is a container that has its schema (02 Architecture/
-		// Database Schema.md).
+		// Migrations run at startup, in the binary that needs them.
 		n, err := migrate(ctx, pool, migrationFiles)
 		if err != nil {
 			log.Fatalf("migrating: %v", err)
@@ -265,8 +251,7 @@ func main() {
 		h.queue.matches = h.auth.matches
 		h.auth.routes(mux)
 
-		// Matchmaking exists only where accounts do: a queue is an ordering of
-		// ladder ratings, and there are none without a database (D104).
+		// Matchmaking exists only where accounts do (D104).
 		mux.HandleFunc("/ws/queue", h.serveQueue)
 		go h.queue.run(ctx)
 
@@ -281,9 +266,8 @@ func main() {
 		}
 		v := verifier{matches: *h.auth.matches, dataVersion: version}
 		v.run(ctx, verifyWorkers)
-		// A match only one side ever reported on is settled on that report, but
-		// not immediately: the grace period is what stops whichever packet
-		// arrived first from deciding the match (D52).
+		// A match only one side ever reported on is settled on that report, but not immediately
+		// (D52).
 		go v.runUnilateral(ctx)
 
 		log.Printf("accounts, matchmaking and verification enabled (data %08x)", version)
@@ -292,9 +276,7 @@ func main() {
 	}
 
 	if *static != "" {
-		// One origin for the page and the socket, which is what a remote
-		// session needs: a guest on https cannot open a ws:// socket to a
-		// separate port, and a tunnel or a host publishes one port.
+		// One origin for the page and the socket, which is what a remote session needs.
 		mux.Handle("/", http.FileServer(http.Dir(*static)))
 		log.Printf("serving %s at /", *static)
 	}

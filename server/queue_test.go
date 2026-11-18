@@ -41,8 +41,8 @@ func TestTheBandsAreTheOnesTheDesignSpecifies(t *testing.T) {
 		}
 	}
 
-	// Casual widens faster than ranked at every step, which is the difference
-	// between the two modes and not a coincidence of the numbers.
+	// Casual widens faster than ranked at every step, which is the difference between the two modes
+	// and not a coincidence of the numbers.
 	for _, waited := range []time.Duration{0, 15 * time.Second, 30 * time.Second} {
 		r, _ := bandFor("ranked", waited)
 		c, _ := bandFor("casual", waited)
@@ -65,9 +65,8 @@ func TestABandWidensUntilItMatches(t *testing.T) {
 		t.Error("still refused after 30 seconds, when the band is ±500")
 	}
 
-	// And everything matches eventually, which is the property that matters
-	// with a handful of testers: a band that never opened fully is a queue that
-	// never matches.
+	// And everything matches eventually, which is the property that matters with a handful of
+	// testers.
 	if !acceptable("ranked", now, at(0, 0, now), at(99999, 61*time.Second, now)) {
 		t.Error("a minute in, the band is still refusing somebody")
 	}
@@ -75,8 +74,7 @@ func TestABandWidensUntilItMatches(t *testing.T) {
 
 // --- the endpoints ---------------------------------------------------------
 
-// authedHub is a server with accounts, backed by the same fake store the auth
-// tests use.
+// authedHub is a server with accounts, backed by the same fake store the auth tests use.
 func authedHub(t *testing.T) (*hub, string) {
 	t.Helper()
 	h := &hub{
@@ -115,8 +113,8 @@ func TestBothSocketsRefuseAnUnsignedClient(t *testing.T) {
 			t.Errorf("%s accepted a client with no account", url)
 		}
 
-		// And the same socket with a real token is not refused, so the check is
-		// the token rather than the endpoint being broken.
+		// And the same socket with a real token is not refused, so the check is the token rather
+		// than the endpoint being broken.
 		ok := dialAs(t, url, token)
 		ctx, cancel = context.WithTimeout(context.Background(), 300*time.Millisecond)
 		_, _, err = ok.Read(ctx)
@@ -127,16 +125,16 @@ func TestBothSocketsRefuseAnUnsignedClient(t *testing.T) {
 	}
 }
 
-// Two people queueing is the whole of matchmaking at this scale, and it must
-// not wait for a sweep to notice.
+// Two people queueing is the whole of matchmaking at this scale, and it must not wait for a sweep
+// to notice.
 func TestTwoInAQueueArePairedAtOnce(t *testing.T) {
 	h, base := authedHub(t)
 	a := tokenFor(t, h, "a@example.com", "player-a")
 	b := tokenFor(t, h, "b@example.com", "player-b")
 
 	first := dialAs(t, base+"/ws/queue?mode=casual", a)
-	// Queued before the second dials, or which of them is the host is a race
-	// rather than the order they arrived in.
+	// Queued before the second dials, or which of them is the host is a race rather than the order
+	// they arrived in.
 	waitFor(t, func() bool { return h.queue.size("casual") == 1 })
 	second := dialAs(t, base+"/ws/queue?mode=casual", b)
 
@@ -154,10 +152,8 @@ func TestTwoInAQueueArePairedAtOnce(t *testing.T) {
 	}
 }
 
-// The ping band needs a number to work with, and the number is only ever
-// produced while somebody is reading the socket — the bug this test exists to
-// catch is a ping that is sent before the read loop and times out measuring
-// nothing, which looks from outside exactly like a fast connection.
+// The ping band needs a number to work with, and the number is only ever produced while somebody is
+// reading the socket.
 func TestTheRoundTripIsActuallyMeasured(t *testing.T) {
 	h, base := authedHub(t)
 	conn := dialAs(t, base+"/ws/queue?mode=casual", tokenFor(t, h, "a@example.com", "player-a"))

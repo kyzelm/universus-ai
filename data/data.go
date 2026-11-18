@@ -1,5 +1,5 @@
-// Package data owns the character and balance JSON and decodes it into the
-// sim's fixed-point structs.
+// Package data owns the character and balance JSON and decodes it into the sim's fixed-point
+// structs.
 package data
 
 import (

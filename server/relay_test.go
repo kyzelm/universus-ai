@@ -10,9 +10,7 @@ import (
 	"github.com/coder/websocket"
 )
 
-// A hub with no accounts, which is the configuration the room is specified in:
-// the relay reads nothing from a database and three of the five game modes need
-// no account at all.
+// A hub with no accounts, which is the configuration the room is specified in.
 func relayServer(t *testing.T) string {
 	t.Helper()
 	return serverFor(t, &hub{rooms: &rooms{waiting: map[string]*client{}}, queue: newMatchmaker()})
@@ -30,9 +28,7 @@ func serverFor(t *testing.T, h *hub) string {
 	return srv.URL
 }
 
-// dial opens a socket and sends the opening token frame every client sends,
-// signed in or not — see hub.accept for why the credential is a frame and not
-// a query parameter.
+// dial opens a socket and sends the opening token frame every client sends, signed in or not.
 func dial(t *testing.T, url string) *websocket.Conn {
 	return dialAs(t, url, "")
 }
@@ -76,8 +72,7 @@ func send(t *testing.T, conn *websocket.Conn, typ websocket.MessageType, data []
 	}
 }
 
-// The whole contract in one test: two clients on one code learn which is which,
-// and from then on whatever one sends the other reads, message type intact.
+// The whole contract in one test.
 func TestPairAndForward(t *testing.T) {
 	url := relayServer(t) + "/ws?room=abc-1"
 
@@ -107,8 +102,7 @@ func TestPairAndForward(t *testing.T) {
 	}
 }
 
-// Hanging up ends the match for both ends: the survivor's read fails instead of
-// waiting for input that is never coming.
+// Hanging up ends the match for both ends.
 func TestPeerLeaving(t *testing.T) {
 	url := relayServer(t) + "/ws?room=abc-1"
 

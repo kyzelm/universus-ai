@@ -13,9 +13,6 @@ import (
 )
 
 // The migration runner and the store against a real Postgres.
-//
-//	docker run --rm -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=universus -p 55432:5432 postgres:16-alpine
-//	TEST_DATABASE_URL=postgres://postgres:dev@localhost:55432/universus go test ./server/
 func testPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
@@ -30,8 +27,8 @@ func testPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	}
 	t.Cleanup(pool.Close)
 
-	// Every run starts from nothing, so a test can assert what migrating does
-	// rather than what migrating did the first time somebody ran it.
+	// Every run starts from nothing, so a test can assert what migrating does rather than what
+	// migrating did the first time somebody ran it.
 	if _, err := pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
 		t.Fatalf("resetting the schema: %v", err)
 	}
@@ -49,8 +46,7 @@ func TestMigrationsApplyAndAreNotAppliedTwice(t *testing.T) {
 		t.Fatal("a fresh database applied no migrations")
 	}
 
-	// The property the whole bookkeeping table exists for: a second startup is
-	// not a second schema.
+	// The property the whole bookkeeping table exists for.
 	again, err := migrate(ctx, p, migrationFiles)
 	if err != nil {
 		t.Fatalf("migrating again: %v", err)
@@ -172,8 +168,8 @@ func TestARankedResultMovesBothRatings(t *testing.T) {
 	}
 }
 
-// Casual is accepted as reported and changes nothing, which is what makes the
-// two modes different systems rather than two buttons (D19).
+// Casual is accepted as reported and changes nothing, which is what makes the two modes different
+// systems rather than two buttons (D19).
 func TestACasualResultChangesNoRating(t *testing.T) {
 	ctx, p := testPool(t)
 	users, matches, a, b := twoPlayers(t, ctx, p)
@@ -215,8 +211,7 @@ func TestADisagreementVoidsTheMatchAndFlagsBoth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// `other` is what the *first* player sent, so the comparison is this
-	// upload against theirs — which is exactly the comparison the handler makes.
+	// `other` is what the *first* player sent, so the comparison is this upload against theirs.
 	if agree(upload(2), *other) {
 		t.Fatal("two different winners agreed")
 	}
@@ -248,8 +243,7 @@ func TestADisagreementVoidsTheMatchAndFlagsBoth(t *testing.T) {
 
 // --- verification -----------------------------------------------------------
 
-// settled plays a real match, uploads it from both ends, and settles it — the
-// state a verification job is created in.
+// settled plays a real match, uploads it from both ends, and settles it.
 func settled(t *testing.T, ctx context.Context, p *pgxpool.Pool, tamper func(s *submission)) (
 	pgStore, matchStore, User, User, int64,
 ) {
@@ -269,8 +263,7 @@ func settled(t *testing.T, ctx context.Context, p *pgxpool.Pool, tamper func(s *
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Both ends upload the same thing, which is what got the match settled in
-	// the first place — the lie this catches is one both clients agree on.
+	// Both ends upload the same thing, which is what got the match settled in the first place.
 	if _, err := matches.record(ctx, id, a.ID, s); err != nil {
 		t.Fatal(err)
 	}
@@ -320,8 +313,8 @@ func TestAnHonestMatchSurvivesVerification(t *testing.T) {
 		}
 	}
 
-	// And the queue is empty afterwards, which is what says the job was claimed
-	// rather than left for the next poll to find again.
+	// And the queue is empty afterwards, which is what says the job was claimed rather than left
+	// for the next poll to find again.
 	if v.step(ctx) {
 		t.Error("the same job was claimed twice")
 	}
@@ -330,8 +323,8 @@ func TestAnHonestMatchSurvivesVerification(t *testing.T) {
 // The correction.
 func TestAMatchThatFailsResimulationIsReversed(t *testing.T) {
 	ctx, p := testPool(t)
-	// Both clients upload the same tampered checksum series, which is what
-	// collusion or a shared modified build looks like from here.
+	// Both clients upload the same tampered checksum series, which is what collusion or a shared
+	// modified build looks like from here.
 	users, matches, a, b, id := settled(t, ctx, p, func(s *submission) {
 		s.checksums[8] ^= 0xff
 	})
@@ -393,8 +386,7 @@ func TestALoneSubmissionWaitsBeforeItCounts(t *testing.T) {
 		t.Fatal("a submission seconds old was accepted on its own")
 	}
 
-	// Backdated rather than waited out: the rule is about elapsed time, and a
-	// test that spends thirty seconds proving it is a test nobody runs.
+	// Backdated rather than waited out.
 	if _, err := p.Exec(ctx,
 		`UPDATE match_submissions SET received_at = now() - interval '1 hour'`); err != nil {
 		t.Fatal(err)
@@ -403,8 +395,8 @@ func TestALoneSubmissionWaitsBeforeItCounts(t *testing.T) {
 		t.Fatal("a submission an hour old was still waiting")
 	}
 
-	// The survivor's claim stands: full win for them, full loss for the player
-	// who stopped reporting.
+	// The survivor's claim stands: full win for them, full loss for the player who stopped
+	// reporting.
 	if ra := users.rating(ctx, a.ID); ra.LP != lpBase || ra.Wins != 1 {
 		t.Errorf("the surviving player is %+v", ra)
 	}
@@ -421,8 +413,7 @@ func TestALoneSubmissionWaitsBeforeItCounts(t *testing.T) {
 	if !disconnected {
 		t.Error("the match is not marked as a disconnect")
 	}
-	// The conditions are recorded because the P2P-versus-relay figure is one
-	// that only exists if the match that produced it says which it was.
+	// The conditions are recorded.
 	if transport != "relay" || rtt != 84 || rollback != 1.75 {
 		t.Errorf("conditions recorded as %q, %d ms, %.2f", transport, rtt, rollback)
 	}
@@ -436,9 +427,8 @@ func TestALoneSubmissionWaitsBeforeItCounts(t *testing.T) {
 			disconnects, unilateral)
 	}
 
-	// And it is still verified: a fabricated log has to be a valid simulation
-	// that produces the claimed result, which is the whole constraint on a
-	// unilateral claim.
+	// And it is still verified: a fabricated log has to be a valid simulation that produces the
+	// claimed result, which is the whole constraint on a unilateral claim.
 	if !v.step(ctx) {
 		t.Fatal("a unilateral settle queued no verification job")
 	}
@@ -452,8 +442,7 @@ func TestAnImplausibleMatchIsFlaggedButStillCounts(t *testing.T) {
 	ctx, p := testPool(t)
 	users, matches, a, b := twoPlayers(t, ctx, p)
 
-	// A log whose seat 1 is a twenty-frame loop, played straight: it verifies,
-	// because it is a real simulation, and it looks nothing like a hand.
+	// A log whose seat 1 is a twenty-frame loop, played straight.
 	logBytes, checksums, frames := macroMatch(t)
 	s := submission{
 		outcome:  outcome{Winner: 1, EndFrame: frames, Chars: [2]int{0, 1}, Disconnect: true},
@@ -499,8 +488,8 @@ func TestAnImplausibleMatchIsFlaggedButStillCounts(t *testing.T) {
 		t.Error("the other player was flagged for their opponent's inputs")
 	}
 
-	// And the numbers are kept, because the signal is across matches rather
-	// than inside one of them.
+	// And the numbers are kept, because the signal is across matches rather than inside one of
+	// them.
 	var result map[string]any
 	if err := p.QueryRow(ctx, `SELECT result FROM verification_jobs WHERE match_id = $1`, id).
 		Scan(&result); err != nil {
@@ -511,8 +500,8 @@ func TestAnImplausibleMatchIsFlaggedButStillCounts(t *testing.T) {
 	}
 }
 
-// macroMatch plays a match where one seat loops a fixed input, which verifies
-// as a real simulation and reads as a script.
+// macroMatch plays a match where one seat loops a fixed input, which verifies as a real simulation
+// and reads as a script.
 func macroMatch(t *testing.T) (log, sums []byte, frames int) {
 	t.Helper()
 	version := loadRoster()

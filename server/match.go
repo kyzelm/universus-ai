@@ -1,8 +1,5 @@
-// Match results and what they do to the ladder (02 Architecture/Anti-Cheat and
-// Verification.md, 03 Game Design/Game Modes.md).
-//
-//	POST /api/match/{id}/result
-//	GET  /api/match/{id}/result
+// Match results and what they do to the ladder (02 Architecture/Anti-Cheat and Verification.md, 03
+// Game Design/Game Modes.md).
 package main
 
 import (
@@ -85,8 +82,8 @@ var (
 	errSettled     = errors.New("that match is already settled")
 )
 
-// record stores one player's upload and returns the other player's, or nil when
-// theirs has not arrived yet.
+// record stores one player's upload and returns the other player's, or nil when theirs has not
+// arrived yet.
 func (m matchStore) record(ctx context.Context, id, user int64, s submission) (*submission, error) {
 	_, err := m.pool.Exec(ctx,
 		`INSERT INTO match_submissions (match_id, user_id, input_log, checksums, result)
@@ -118,20 +115,16 @@ func (m matchStore) settle(ctx context.Context, r matchRow, s submission) error 
 	return pgx.BeginFunc(ctx, m.pool, func(tx pgx.Tx) error { return m.settleTx(ctx, tx, r, s) })
 }
 
-// settleTx is the same work inside a transaction somebody else owns — the
-// unilateral sweep claims its match and settles it in one.
+// settleTx is the same work inside a transaction somebody else owns.
 func (m matchStore) settleTx(ctx context.Context, tx pgx.Tx, r matchRow, s submission) error {
-	// Casual is accepted as reported, which is what "no verification" means —
-	// and it is what makes ranked and casual genuinely different systems rather
-	// than two buttons on a menu (D19).
+	// Casual is accepted as reported, which is what "no verification" means (D19).
 	verified := "ok"
 	if r.mode == "ranked" {
 		verified = "pending"
 	}
 
-	// nullable() rather than a zero: a match nobody measured and a match
-	// measured at zero milliseconds are different claims, and only one of them
-	// belongs in a results chapter.
+	// nullable() rather than a zero: a match nobody measured and a match measured at zero
+	// milliseconds are different claims, and only one of them belongs in a results chapter.
 	if _, err := tx.Exec(ctx,
 		`UPDATE matches SET winner = $2, end_frame = $3, p1_character = $4, p2_character = $5,
 		        verified = $6, disconnected = $7, transport = $8, avg_rtt_ms = $9,
@@ -144,9 +137,7 @@ func (m matchStore) settleTx(ctx context.Context, tx pgx.Tx, r matchRow, s submi
 	}
 
 	if r.mode == "ranked" {
-		// The amounts are recorded with the match, because the verification
-		// worker reverses exactly what was paid and cannot recompute it once
-		// the ratings have moved (migration 003).
+		// The amounts are recorded with the match.
 		p1Change, p2Change, err := applyLadder(ctx, tx, r, s.Winner)
 		if err != nil {
 			return err
@@ -201,8 +192,7 @@ func recordDisconnect(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int
 func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (int, int, error) {
 	winner, loser := r.players(winnerSeat)
 
-	// Locked in a fixed order — lowest id first — because two matches settling
-	// at once on overlapping players is exactly how a deadlock is written.
+	// Locked in a fixed order — lowest id first.
 	first, second := winner, loser
 	if second < first {
 		first, second = second, first
@@ -246,14 +236,12 @@ func applyLadder(ctx context.Context, tx pgx.Tx, r matchRow, winnerSeat int) (in
 		}
 	}
 
-	// Signed, per seat, and not the same magnitude: the loser's is floored at
-	// their tier boundary, so they may have paid less than the winner gained.
+	// Signed, per seat, and not the same magnitude.
 	changes := map[int64]int{winner: newWinner - lp[winner], loser: newLoser - lp[loser]}
 	return changes[r.p1], changes[r.p2], nil
 }
 
-// standing is what became of a match for one of its players: "waiting",
-// "mismatch" or "settled", and what the ladder paid them.
+// standing is what became of a match for one of its players.
 func (m matchStore) standing(ctx context.Context, id, user int64) (string, int, error) {
 	var p1, p2 int64
 	var winner, c1, c2 *int
@@ -298,8 +286,7 @@ func (a *auth) matchResult(w http.ResponseWriter, r *http.Request, u User) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": status, "lpChange": change})
 }
 
-// void is what a disagreement costs: no winner, no LP, and both accounts
-// flagged for a person to look at.
+// void is what a disagreement costs.
 func (m matchStore) void(ctx context.Context, r matchRow) error {
 	return pgx.BeginFunc(ctx, m.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `UPDATE matches SET verified = 'mismatch' WHERE id = $1`, r.id); err != nil {
@@ -330,9 +317,7 @@ func (a *auth) submitResult(w http.ResponseWriter, r *http.Request, u User) {
 	ctx := r.Context()
 	match, err := a.matches.byID(ctx, id)
 	if err != nil {
-		// A match that does not exist and one somebody else played are the same
-		// answer: otherwise this endpoint counts how many matches have been
-		// played, one probe at a time.
+		// A match that does not exist and one somebody else played are the same answer.
 		httpError(w, http.StatusNotFound, "no such match")
 		return
 	}

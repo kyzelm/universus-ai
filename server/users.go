@@ -15,13 +15,11 @@ type User struct {
 	DisplayName string `json:"displayName"`
 }
 
-// errNoUser is "there is no such account", and it is returned for a missing
-// email and never for a wrong password — telling those two apart is the caller's
-// job, and the login handler deliberately does not.
+// errNoUser is "there is no such account", and it is returned for a missing email and never for a
+// wrong password.
 var errNoUser = errors.New("no such user")
 
-// errTaken is a unique index saying no: the email or the display name is
-// already somebody's.
+// errTaken is a unique index saying no.
 var errTaken = errors.New("already taken")
 
 // store is what the handlers need from the database and nothing else.
@@ -31,9 +29,7 @@ type store interface {
 	// credentials returns the user and their password hash, or errNoUser.
 	credentials(ctx context.Context, email string) (User, string, error)
 	userByID(ctx context.Context, id int64) (User, error)
-	// ratingOf is the account's ladder points, and 0 for an account with no
-	// rating row — a new account's rating is zero either way, so there is
-	// nothing for the caller to tell apart.
+	// ratingOf is the account's ladder points, and 0 for an account with no rating row.
 	ratingOf(ctx context.Context, id int64) int
 	// rating is the profile view of it: points, tier, and the record.
 	rating(ctx context.Context, id int64) Rating
@@ -86,9 +82,7 @@ func (s pgStore) credentials(ctx context.Context, email string) (User, string, e
 
 func (s pgStore) ratingOf(ctx context.Context, id int64) int {
 	var lp int
-	// A rating that cannot be read is a match nobody gets rather than a player
-	// who queues at zero, unless it is read as zero — which is what a brand new
-	// account's is.
+	// No rating row reads as 0, which is what a brand new account has.
 	if err := s.pool.QueryRow(ctx, `SELECT lp FROM ratings WHERE user_id = $1`, id).Scan(&lp); err != nil {
 		return 0
 	}

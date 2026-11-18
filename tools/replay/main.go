@@ -1,8 +1,4 @@
 // Command replay is the headless replay harness.
-//
-//	replay gen <frames> <file>   write a deterministic input log
-//	replay bot <file>            write a whole match, the AI against itself
-//	replay run <file>            print "<frame> <checksum>" for every frame
 package main
 
 import (
@@ -97,8 +93,8 @@ func run(setup sim.Setup, in [][2]uint16, w io.Writer) error {
 }
 
 // gen builds a log from a fixed-seed LCG.
-// ponytail: both players change input on the same frame every 5 frames, which
-// is not how humans play.
+// ponytail: both players change input on the same frame every 5 frames, which is not how humans
+// play.
 func gen(frames int) [][2]uint16 {
 	const validBits = 0x077F // bits 0-6 and 8-10; 7 and 11-15 are reserved
 
@@ -119,8 +115,8 @@ func gen(frames int) [][2]uint16 {
 	return in
 }
 
-// bot plays the scripted opponent against itself until the match is decided,
-// so the log has knockouts, round resets and a match end in it.
+// bot plays the scripted opponent against itself until the match is decided, so the log has
+// knockouts, round resets and a match end in it.
 func bot(u sim.Setup) [][2]uint16 {
 	s := sim.NewSessionOf(u)
 	devs := [2]*sim.AIDevice{sim.NewAIDevice(1), sim.NewAIDevice(2)}

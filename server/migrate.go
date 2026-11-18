@@ -20,10 +20,8 @@ import (
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-// The filename is the version and the description, in that order, and the
-// loader refuses anything else — a file named `fix.sql` has no place in an
-// ordering, and a directory where some files are numbered and some are not is
-// one where the order depends on who looks.
+// The filename is the version and the description, in that order, and the loader refuses anything
+// else.
 var migrationName = regexp.MustCompile(`^(\d{3})_([a-z0-9_]+)\.sql$`)
 
 type migration struct {
@@ -73,9 +71,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool, dir fs.FS) (int, error) {
 		return 0, err
 	}
 
-	// The bookkeeping table is created outside the loop and not by a migration
-	// of its own: a migration runner that needs a migration to start is a
-	// chicken-and-egg problem with a manual step in it.
+	// The bookkeeping table is created outside the loop and not by a migration of its own.
 	if _, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version    INTEGER PRIMARY KEY,
 		name       TEXT NOT NULL,
@@ -136,8 +132,8 @@ func openDB(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("DATABASE_URL: %w", err)
 	}
-	// Single digits of concurrent users, and a free-tier Postgres with a
-	// connection cap measured in tens.
+	// Single digits of concurrent users, and a free-tier Postgres with a connection cap measured in
+	// tens.
 	cfg.MaxConns = 8
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

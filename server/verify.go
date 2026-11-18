@@ -1,5 +1,4 @@
-// Match verification by re-simulation (02 Architecture/Anti-Cheat and
-// Verification.md).
+// Match verification by re-simulation (02 Architecture/Anti-Cheat and Verification.md).
 package main
 
 import (
@@ -17,17 +16,14 @@ import (
 )
 
 const (
-	// Re-simulating a three-round match takes tens of milliseconds — the sim
-	// runs far faster than real time with nothing to render — so a couple of
-	// workers is ample for single-digit concurrency and leaves the request path
-	// alone.
+	// Re-simulating a three-round match takes tens of milliseconds.
 	verifyWorkers = 2
 
 	// How often an idle worker looks for work.
 	verifyPoll = 3 * time.Second
 
-	// A job that keeps failing is a bug in this code or a log this build cannot
-	// read, and either way retrying forever hides it.
+	// A job that keeps failing is a bug in this code or a log this build cannot read, and either
+	// way retrying forever hides it.
 	maxAttempts = 3
 )
 
@@ -55,8 +51,7 @@ func (v verifier) run(ctx context.Context, workers int) {
 			t := time.NewTicker(verifyPoll)
 			defer t.Stop()
 			for {
-				// Drain rather than one-per-tick: a burst of matches ending
-				// together should not take a tick each.
+				// Drain rather than one-per-tick.
 				for v.step(ctx) {
 					if ctx.Err() != nil {
 						return
@@ -81,9 +76,7 @@ func (v verifier) step(ctx context.Context) bool {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// FOR UPDATE SKIP LOCKED is the whole of the queue: two workers asking at
-	// once get different rows rather than one waiting on the other, and no
-	// message broker is involved (02 Architecture/Backend Services.md).
+	// FOR UPDATE SKIP LOCKED is the whole of the queue.
 	var matchID int64
 	var attempts int
 	err = tx.QueryRow(ctx,
@@ -122,11 +115,7 @@ func (v verifier) step(ctx context.Context) bool {
 		        result = $2 WHERE match_id = $1`,
 		matchID, map[string]any{
 			"ok": result.ok, "reason": result.reason, "frame": result.frame,
-			// Stored whether or not anything tripped, because the signal is
-			// across matches rather than inside one: an account that reads
-			// "median reaction 11 frames over 12 observations" once is noise
-			// and the same account forty times is not, and only the kept
-			// numbers can tell those apart.
+			// Stored whether or not anything tripped.
 			"anomalies": result.anomalies,
 		}); err != nil {
 		log.Printf("verify: recording match %d: %v", matchID, err)
@@ -158,8 +147,8 @@ func (v verifier) judge(ctx context.Context, tx pgx.Tx, matchID int64) (verdict,
 	}
 
 	var inputLog, checksums []byte
-	// Either submission will do: they were compared byte for byte before the
-	// match was settled, so agreeing is the reason this row exists at all.
+	// Either submission will do: they were compared byte for byte before the match was settled, so
+	// agreeing is the reason this row exists at all.
 	err = tx.QueryRow(ctx,
 		`SELECT input_log, checksums FROM match_submissions
 		 WHERE match_id = $1 ORDER BY user_id LIMIT 1`, matchID).Scan(&inputLog, &checksums)
@@ -199,9 +188,7 @@ func (v verifier) resimulate(inputLog, checksums []byte, winner, endFrame int, d
 		return verdict{reason: err.Error(), frame: -1}
 	}
 	if parsed.DataVersion != v.dataVersion {
-		// Not a verdict about the players: their client was built against
-		// different frame data, so it played a different game to the one this
-		// binary can replay.
+		// Not a verdict about the players.
 		return verdict{
 			reason: fmt.Sprintf("recorded against data version %08x, this build is %08x",
 				parsed.DataVersion, v.dataVersion),
@@ -218,8 +205,7 @@ func (v verifier) resimulate(inputLog, checksums []byte, winner, endFrame int, d
 			continue
 		}
 		if taken >= want {
-			// More checkpoints than were uploaded: the client stopped early, or
-			// sent somebody else's series.
+			// More checkpoints than were uploaded.
 			return verdict{reason: "more checkpoints than the client uploaded", frame: int(s.Frame())}
 		}
 		theirs := binary.LittleEndian.Uint32(checksums[taken*4:])
@@ -245,8 +231,7 @@ func (v verifier) resimulate(inputLog, checksums []byte, winner, endFrame int, d
 		return verdict{ok: true, frame: -1}
 	}
 
-	// The sim counts seats from 0 and reports -1 while a match is undecided;
-	// the server counts them from 1.
+	// The sim counts seats from 0 and reports -1 while a match is undecided.
 	if s.State().Winner == sim.RoundNobody {
 		return verdict{reason: "the log ends before the match does", frame: int(s.Frame())}
 	}
@@ -256,8 +241,7 @@ func (v verifier) resimulate(inputLog, checksums []byte, winner, endFrame int, d
 	return verdict{ok: true, frame: -1}
 }
 
-// The client takes a checkpoint every this many frames — CHECKSUM_EVERY in
-// client/src/net/netplay.ts, pinned by a test there that names this constant.
+// The client takes a checkpoint every this many frames.
 const checksumEvery = 30
 
 // flagImplausible runs check 3 and flags the accounts it names.
@@ -296,9 +280,7 @@ func reverseLadder(ctx context.Context, tx pgx.Tx, row matchRow, p1Change, p2Cha
 			`SELECT lp FROM ratings WHERE user_id = $1 FOR UPDATE`, u.id).Scan(&lp); err != nil {
 			return err
 		}
-		// Clamped at zero, which is the one case where the reversal cannot be
-		// exact: a player who lost to the floor and then lost again has fewer
-		// points to give back than were taken.
+		// Clamped at zero, which is the one case where the reversal cannot be exact.
 		lp = max(lp-u.change, 0)
 
 		won := 0

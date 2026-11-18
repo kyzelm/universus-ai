@@ -1,5 +1,4 @@
-// Measures the sim in WASM against the two M0 pass criteria: one frame under
-// 0.5 ms, and one frame plus a full-depth rollback under 4 ms.
+// Measures the sim in WASM against the two M0 pass criteria.
 import {execFileSync} from 'node:child_process'
 import {mkdtempSync, rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
@@ -10,8 +9,8 @@ import {loadSim} from './wasm-load.mjs'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const samples = Number(process.argv[2] ?? 200)
 
-// Build here rather than trusting client/public/main.wasm, which goes stale the
-// moment the sim changes and would quietly benchmark the wrong code.
+// Build here rather than trusting client/public/main.wasm, which goes stale the moment the sim
+// changes and would quietly benchmark the wrong code.
 const dir = mkdtempSync(join(tmpdir(), 'universus-bench-'))
 let sim
 try {
@@ -27,14 +26,13 @@ try {
   rmSync(dir, {recursive: true, force: true})
 }
 
-// quit() ends Go's main, but the runtime leaves a timer pending that resumes an
-// exited program and throws.
+// quit() ends Go's main, but the runtime leaves a timer pending that resumes an exited program and
+// throws.
 sim.quit()
 process.exit(process.exitCode ?? 0)
 
 function report(sim, samples) {
-  // A single call is far below timer resolution, so each sample times a batch
-  // and divides.
+  // A single call is far below timer resolution, so each sample times a batch and divides.
   const results = [
     measure('boundary crossing', null, 500, samples, () => sim.noop()),
     measure('sim step', 0.5, 500, samples, advanceOnly(sim)),
@@ -56,8 +54,7 @@ function report(sim, samples) {
   if (failed) process.exitCode = 1
 }
 
-// Function declarations, not consts: the top-level call above runs before any
-// const below it is initialised.
+// Function declarations, not consts.
 function ms(v) {
   return v.toFixed(4).padStart(9)
 }
@@ -75,10 +72,7 @@ function advanceOnly(sim) {
   }
 }
 
-/**
- * One frame plus a correction at maximum depth: 9 sim steps and 10 boundary
- * crossings, the worst case that still has to fit in 16.6 ms.
- */
+/** One frame plus a correction at maximum depth. */
 function advanceWithRollback(sim) {
   let frame = 0
   sim.reset()

@@ -47,8 +47,8 @@ func TestEmbeddedRosterLoads(t *testing.T) {
 		}
 	}
 
-	// Frame advantage is computed from the frame data, never authored, so this
-	// is a check on the numbers rather than on a field.
+	// Frame advantage is computed from the frame data, never authored, so this is a check on the
+	// numbers rather than on a field.
 	for m := int32(0); m < cs[0].NumMoves; m++ {
 		mv := &cs[0].Moves[m]
 		if adv := mv.OnBlock(); adv > 3 {
@@ -56,8 +56,7 @@ func TestEmbeddedRosterLoads(t *testing.T) {
 		}
 	}
 
-	// The strength variants are the data-driven claim in miniature: three moves
-	// that differ only in numbers, sharing one motion and one code path.
+	// The strength variants are the data-driven claim in miniature.
 	strengths := map[uint16]bool{}
 	for m := int32(0); m < cs[0].NumMoves; m++ {
 		if mv := &cs[0].Moves[m]; mv.Motion == sim.MotionQCF && mv.Meter == 0 {
@@ -148,8 +147,8 @@ func TestVersionCoversTheBalanceFile(t *testing.T) {
 		t.Fatal("setup: the version is the balance hash alone")
 	}
 
-	// Hashing the roster without it must give a different answer, or the file
-	// is embedded and unhashed.
+	// Hashing the roster without it must give a different answer, or the file is embedded and
+	// unhashed.
 	names, err := filenames()
 	if err != nil {
 		t.Fatal(err)
@@ -169,8 +168,8 @@ func TestVersionCoversTheBalanceFile(t *testing.T) {
 	}
 }
 
-// loadRoster installs the shipped roster and balance in the sim, for the tests
-// that play moves out rather than read them.
+// loadRoster installs the shipped roster and balance in the sim, for the tests that play moves out
+// rather than read them.
 func loadRoster(t *testing.T) []sim.Character {
 	t.Helper()
 	cs, err := Load()

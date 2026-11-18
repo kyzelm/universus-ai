@@ -1,6 +1,4 @@
 // Matchmaking (02 Architecture/Backend Services.md).
-//
-//	GET /ws/queue?mode=ranked|casual
 package main
 
 import (
@@ -55,9 +53,8 @@ type matchmaker struct {
 	mu    sync.Mutex
 	modes map[string][]*waiting
 
-	// Where a pairing is recorded, or nil on a server with no database — in
-	// which case there is no queue either, so this is nil only in tests that
-	// exercise the pairing rule without one.
+	// Where a pairing is recorded, or nil on a server with no database — in which case there is no
+	// queue either, so this is nil only in tests that exercise the pairing rule without one.
 	matches *matchStore
 }
 
@@ -65,8 +62,8 @@ func newMatchmaker() *matchmaker {
 	return &matchmaker{modes: map[string][]*waiting{}}
 }
 
-// run sweeps the queues until ctx ends, so a player whose band has widened is
-// matched without anybody else having to arrive.
+// run sweeps the queues until ctx ends, so a player whose band has widened is matched without
+// anybody else having to arrive.
 func (m *matchmaker) run(ctx context.Context) {
 	t := time.NewTicker(sweepEvery)
 	defer t.Stop()
@@ -204,9 +201,7 @@ func acceptable(mode string, now time.Time, a, b *waiting) bool {
 	if lp != unlimited && lpGap(a, b) > lp {
 		return false
 	}
-	// An unmeasured round trip passes: a client whose ping we never got back is
-	// not evidence of a bad connection, and refusing it would make a lost pong
-	// into an unmatchable player.
+	// An unmeasured round trip passes.
 	ra, rb := a.c.rtt.Load(), b.c.rtt.Load()
 	if ra > 0 && rb > 0 && time.Duration(ra+rb) > maxPing {
 		return false
@@ -221,8 +216,7 @@ func (s *hub) serveQueue(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Queueing needs an account, in both modes (D104, 03 Game Design/Game
-	// Modes.md).
+	// Queueing needs an account, in both modes (D104, 03 Game Design/Game Modes.md).
 	conn, user, ok := s.accept(w, req)
 	if !ok {
 		return

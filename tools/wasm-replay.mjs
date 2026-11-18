@@ -1,6 +1,4 @@
-// Runs an input log through the WASM build of the sim and prints "<frame>
-// <checksum>" per line — byte-identical output to `replay run`, which is what
-// tools/determinism.sh compares.
+// Runs an input log through the WASM build of the sim and prints "<frame> <checksum>" per line.
 import {readFileSync} from 'node:fs'
 import {loadSim} from './wasm-load.mjs'
 
@@ -32,9 +30,7 @@ if (log.length === 0 || log.length % 4 !== 0) {
   process.exit(1)
 }
 
-// The setup is applied before frame 0, which is the frame the gate compares
-// first: a mode read wrong shows up as a divergence at the very start rather
-// than wherever the two matches happened to drift apart.
+// The setup is applied before frame 0, which is the frame the gate compares first.
 sim.reset(file[5] !== 0, file[6], file[7], file[8])
 
 if (dumpFrame !== undefined) {

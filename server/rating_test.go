@@ -8,8 +8,7 @@ func TestAnEvenMatchIsWorthAboutThirty(t *testing.T) {
 	}
 }
 
-// The sentence the design note actually writes down: more for beating somebody
-// higher rated, less for beating somebody lower.
+// The sentence the design note actually writes down.
 func TestBeatingSomebodyBetterPaysMore(t *testing.T) {
 	even := lpChange(1000, 1000)
 	underdog := lpChange(1000, 1400)
@@ -60,8 +59,7 @@ func TestALossNeverLeavesTheTier(t *testing.T) {
 	if got := applyLoss(5, 30); got != 0 {
 		t.Errorf("5 LP lost 30 and landed on %d, want 0", got)
 	}
-	// And the floor is the tier held *before* the loss, not after it — the
-	// circular reading would let a player fall to the previous tier's floor.
+	// And the floor is the tier held *before* the loss, not after it.
 	if got := applyLoss(1000, 50); got != 1000 {
 		t.Errorf("exactly on a boundary, a loss took it to %d", got)
 	}

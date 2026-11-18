@@ -23,8 +23,7 @@ var loadRoster = sync.OnceValue(func() uint32 {
 	return v
 })
 
-// playedMatch runs a match to its end and returns exactly what an honest client
-// would upload: the log, the checkpoint hashes, the winner and the last frame.
+// playedMatch runs a match to its end and returns exactly what an honest client would upload.
 func playedMatch(t *testing.T) (logBytes, checksums []byte, winner, endFrame int) {
 	t.Helper()
 	version := loadRoster()
@@ -106,8 +105,8 @@ func TestAMisreportedOutcomeIsCaught(t *testing.T) {
 	}
 }
 
-// A log recorded against different frame data replays into a different match
-// through no fault of either player.
+// A log recorded against different frame data replays into a different match through no fault of
+// either player.
 func TestDataFromAnotherBuildIsNotAnAccusation(t *testing.T) {
 	logBytes, checksums, winner, endFrame := playedMatch(t)
 
@@ -121,8 +120,7 @@ func TestDataFromAnotherBuildIsNotAnAccusation(t *testing.T) {
 	}
 }
 
-// A disconnect match's log stops mid-match by definition: the winner was
-// decided by policy rather than by the simulation.
+// A disconnect match's log stops mid-match by definition.
 func TestADisconnectIsNotAskedWhoWon(t *testing.T) {
 	logBytes, checksums, _, endFrame := playedMatch(t)
 	v := verifier{dataVersion: loadRoster()}
@@ -140,14 +138,13 @@ func TestADisconnectIsNotAskedWhoWon(t *testing.T) {
 	if got := v.resimulate(short, shortSums, 1, half, true); !got.ok {
 		t.Errorf("an honest disconnect was rejected: %s (frame %d)", got.reason, got.frame)
 	}
-	// The same log judged as a completed match is refused, which is what says
-	// the flag is doing the work rather than the check being absent.
+	// The same log judged as a completed match is refused, which is what says the flag is doing the
+	// work rather than the check being absent.
 	if got := v.resimulate(short, shortSums, 1, half, false); got.ok {
 		t.Error("a half a match verified as a finished one")
 	}
 
-	// And a tampered disconnect log is still caught: the hashes are the check
-	// that survives having only one report.
+	// And a tampered disconnect log is still caught.
 	bad := append([]byte(nil), shortSums...)
 	bad[4] ^= 0xff
 	if got := v.resimulate(short, bad, 1, half, true); got.ok {

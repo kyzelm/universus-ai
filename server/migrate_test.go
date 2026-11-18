@@ -6,8 +6,7 @@ import (
 	"testing/fstest"
 )
 
-// The shipped migrations have to load, because the alternative is a server that
-// starts, connects, and fails on the one step it exists to do at startup.
+// The shipped migrations have to load.
 func TestTheEmbeddedMigrationsLoad(t *testing.T) {
 	ms, err := loadMigrations(migrationFiles)
 	if err != nil {
@@ -25,8 +24,7 @@ func TestTheEmbeddedMigrationsLoad(t *testing.T) {
 		}
 	}
 
-	// Every table the schema note specifies, because a migration that parses
-	// and creates nothing is the failure with no symptom.
+	// Every table the schema note specifies.
 	sql := ms[0].sql
 	for _, table := range []string{
 		"users", "ratings", "matches", "match_submissions", "verification_jobs",
@@ -47,8 +45,7 @@ func TestMigrationsAreOrderedByNumberNotByName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The case the filename numbering exists for: "010" sorts before "002" in
-	// no ordering anybody wants, and lexical order would apply them backwards.
+	// The case the filename numbering exists for.
 	var got []int
 	for _, m := range ms {
 		got = append(got, m.version)

@@ -7,8 +7,8 @@ import (
 	"universus/sim/replaylog"
 )
 
-// logOf packs a per-frame input pattern into a real log, so the checks are run
-// against exactly the bytes a client would upload.
+// logOf packs a per-frame input pattern into a real log, so the checks are run against exactly the
+// bytes a client would upload.
 func logOf(t *testing.T, frames int, press func(f int) [2]uint16) replaylog.Log {
 	t.Helper()
 	version := loadRoster()
@@ -34,9 +34,7 @@ func kinds(found []anomaly, seat int) map[string]anomaly {
 	return out
 }
 
-// An honest match must not be flagged, and this is the test that matters most:
-// every check here is probabilistic, and a false positive costs a real player a
-// place in a review queue they did not earn.
+// An honest match must not be flagged, and this is the test that matters most.
 func TestAPlayedMatchIsNotFlagged(t *testing.T) {
 	logBytes, _, _, _ := playedMatch(t)
 	parsed, err := replaylog.Decode("test", logBytes)
@@ -89,8 +87,7 @@ func TestMedianAndDeviation(t *testing.T) {
 	if stddev([]int{3, 9, 1, 12}) < 1 {
 		t.Error("scattered values reported as consistent")
 	}
-	// One observation cannot deviate from anything, and must not read as
-	// perfectly consistent.
+	// One observation cannot deviate from anything, and must not read as perfectly consistent.
 	if !isInf(stddev([]int{4})) {
 		t.Error("a single observation was called consistent")
 	}
@@ -98,8 +95,8 @@ func TestMedianAndDeviation(t *testing.T) {
 
 func isInf(f float64) bool { return f > 1e300 }
 
-// botLog plays a match where one seat is driven by a rule rather than a hand,
-// and returns the log a client would have uploaded.
+// botLog plays a match where one seat is driven by a rule rather than a hand, and returns the log a
+// client would have uploaded.
 func botLog(t *testing.T, frames int, decide func(st *sim.GameState, f int) [2]uint16) replaylog.Log {
 	t.Helper()
 	version := loadRoster()
@@ -122,14 +119,13 @@ func botLog(t *testing.T, frames int, decide func(st *sim.GameState, f int) [2]u
 
 // The check that catches something reading state rather than a screen.
 func TestABotThatBlocksFasterThanSightIsFlagged(t *testing.T) {
-	// Seat 1 attacks on a loop with a human-looking scatter; seat 2 blocks
-	// three frames after each attack starts and neutral otherwise.
+	// Seat 1 attacks on a loop with a human-looking scatter.
 	sawAttackAt, wasAttacking := -1, false
 	parsed := botLog(t, 6000, func(st *sim.GameState, f int) [2]uint16 {
 		attacker, defender := &st.Players[0], &st.Players[1]
 
-		// The attacker's pattern varies so the defender's reactions are
-		// separate observations rather than one repeated situation.
+		// The attacker's pattern varies so the defender's reactions are separate observations
+		// rather than one repeated situation.
 		p1 := uint16(sim.InRight)
 		if f%(37+f%11) < 2 {
 			p1 = sim.InRight | sim.InMP
@@ -165,8 +161,7 @@ func TestABotThatBlocksFasterThanSightIsFlagged(t *testing.T) {
 	}
 }
 
-// The check that catches a bot deliberately slow enough to pass the reaction
-// floor.
+// The check that catches a bot deliberately slow enough to pass the reaction floor.
 func TestAPerfectlyConsistentPressIsFlagged(t *testing.T) {
 	const offset = 5
 	actionableSince := -1
@@ -223,14 +218,12 @@ func TestWhatTheScriptedOpponentLooksLike(t *testing.T) {
 	found := kinds(plausibility(parsed), 2)
 	t.Logf("the scripted opponent: %+v", found)
 
-	// A real bot is caught, and it is the macro check that catches it — the one
-	// needing no simulation and no threshold judgement.
+	// A real bot is caught, and it is the macro check that catches it.
 	if _, ok := found["macro"]; !ok {
 		t.Errorf("nothing caught the project's own bot: %+v", found)
 	}
 
-	// The one thing that would be a bug rather than a finding: the idle seat,
-	// which pressed nothing at all, must never be flagged for it.
+	// The one thing that would be a bug rather than a finding.
 	if idle := kinds(plausibility(parsed), 1); len(idle) > 0 {
 		t.Errorf("the seat that pressed nothing was flagged: %+v", idle)
 	}

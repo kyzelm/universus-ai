@@ -21,12 +21,11 @@ type anomaly struct {
 	Note   string  `json:"note"`
 }
 
-// Thresholds. Every one of them is a judgement call rather than a derived
-// bound, and they are here in one block so the thesis can quote them.
+// Thresholds. Every one of them is a judgement call rather than a derived bound, and they are here
+// in one block so the thesis can quote them.
 const (
-	// Reaction. Human visual reaction to an unanticipated stimulus is ~200 ms
-	// at the fast end, which is 12 frames at 60 Hz, and that is before deciding
-	// what to do about it.
+	// Reaction. Human visual reaction to an unanticipated stimulus is ~200 ms at the fast end,
+	// which is 12 frames at 60 Hz, and that is before deciding what to do about it.
 	reactionFloor = 12
 	reactionMin   = 10 // observations before the median means anything
 
@@ -37,8 +36,7 @@ const (
 	// Macro. A window of inputs repeated byte for byte.
 	macroWindow  = 20
 	macroRepeats = 3
-	// A window has to contain actual play: a held direction repeats forever
-	// and means nothing.
+	// A window has to contain actual play.
 	macroDistinct = 3
 )
 
@@ -88,8 +86,7 @@ func macroAnomaly(inputs [][2]uint16, seat int) []anomaly {
 				attacked = true
 			}
 		}
-		// A held direction repeats forever and says nothing; a window worth
-		// counting has movement in it and at least one button.
+		// A held direction repeats forever and says nothing.
 		if len(distinct) < macroDistinct || !attacked {
 			continue
 		}
@@ -110,15 +107,14 @@ func macroAnomaly(inputs [][2]uint16, seat int) []anomaly {
 	}}
 }
 
-// replayAnomalies plays the match again and measures what each seat did in
-// response to what the other one was doing.
+// replayAnomalies plays the match again and measures what each seat did in response to what the
+// other one was doing.
 func replayAnomalies(parsed replaylog.Log) []anomaly {
 	s := sim.NewSessionOf(parsed.Setup)
 
 	var reactions [2][]int
 	var offsets [2][]int
-	// Frame the opponent's current attack started, and whether this seat has
-	// already answered it.
+	// Frame the opponent's current attack started, and whether this seat has already answered it.
 	var pending [2]int
 	var wasActionable, wasBlocking [2]bool
 	var actionableSince [2]int
@@ -134,9 +130,7 @@ func replayAnomalies(parsed replaylog.Log) []anomaly {
 			me, them := &st.Players[seat], &st.Players[1-seat]
 			blocking := holdingAway(in[seat], me.Facing)
 
-			// --- reaction ---------------------------------------------------
-			// The opponent started an attack this frame, and this seat was not
-			// already holding away.
+			// Reaction: the opponent started an attack this frame, and this seat was not holding away.
 			started := before.Players[1-seat].State != sim.StateAttack &&
 				them.State == sim.StateAttack
 			if started && sim.Actionable(me.State) && !wasBlocking[seat] {
@@ -146,15 +140,12 @@ func replayAnomalies(parsed replaylog.Log) []anomaly {
 				reactions[seat] = append(reactions[seat], f-pending[seat])
 				pending[seat] = -1
 			}
-			// An attack that ended without an answer is not an observation: a
-			// player who never blocked it did not react slowly, they chose
-			// something else.
+			// An attack that ended without an answer is not an observation.
 			if pending[seat] >= 0 && them.State != sim.StateAttack {
 				pending[seat] = -1
 			}
 
-			// --- consistency ------------------------------------------------
-			// How long after becoming able to act the next button arrives.
+			// Consistency: how long after becoming able to act the next button arrives.
 			actionable := sim.Actionable(me.State)
 			if actionable && !wasActionable[seat] {
 				actionableSince[seat] = f
@@ -197,8 +188,7 @@ func replayAnomalies(parsed replaylog.Log) []anomaly {
 	return out
 }
 
-// holdingAway is what blocking is: there is no block button, so the input and
-// the facing are the whole of it.
+// holdingAway is what blocking is.
 func holdingAway(bits uint16, facing int32) bool {
 	if facing > 0 {
 		return bits&inLeft != 0

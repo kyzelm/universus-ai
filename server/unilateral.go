@@ -1,7 +1,6 @@
 package main
 
-// A match only one side ever reported on (02 Architecture/Disconnect and Match
-// Integrity.md).
+// A match only one side ever reported on (02 Architecture/Disconnect and Match Integrity.md).
 
 import (
 	"context"
@@ -13,16 +12,14 @@ import (
 )
 
 const (
-	// How long a lone submission waits for its pair before it is accepted on
-	// its own.
+	// How long a lone submission waits for its pair before it is accepted on its own.
 	unilateralGrace = 30 * time.Second
 
 	// How often to look for one that has waited long enough.
 	unilateralPoll = 10 * time.Second
 )
 
-// sweepUnilateral settles every match whose single submission has outlived the
-// grace period.
+// sweepUnilateral settles every match whose single submission has outlived the grace period.
 func (v verifier) sweepUnilateral(ctx context.Context) bool {
 	tx, err := v.matches.pool.Begin(ctx)
 	if err != nil {
@@ -31,8 +28,7 @@ func (v verifier) sweepUnilateral(ctx context.Context) bool {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// One row, locked, skipping anything another worker is already holding —
-	// the same claim discipline the verification queue uses.
+	// One row, locked, skipping anything another worker is already holding.
 	var id int64
 	err = tx.QueryRow(ctx,
 		`SELECT m.id FROM matches m
@@ -50,8 +46,7 @@ func (v verifier) sweepUnilateral(ctx context.Context) bool {
 		return false
 	}
 
-	// Re-read under a row lock before acting: between the aggregate above and
-	// here, the other player's upload may have arrived and settled it.
+	// Re-read under a row lock before acting.
 	var row matchRow
 	var winner *int
 	if err := tx.QueryRow(ctx,

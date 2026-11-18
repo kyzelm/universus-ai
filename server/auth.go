@@ -1,9 +1,5 @@
-// Registration, login and the token that proves a request is somebody's (02
-// Architecture/Backend Services.md).
-//
-//	POST /api/auth/register  {email, password, displayName} -> {token, user}
-//	POST /api/auth/login     {email, password}              -> {token, user}
-//	GET  /api/profile                                       -> {user}
+// Registration, login and the token that proves a request is somebody's (02 Architecture/Backend
+// Services.md).
 package main
 
 import (
@@ -28,8 +24,7 @@ const (
 	// The cost the design note fixes.
 	bcryptCost = 12
 
-	// Passwords are bounded at 72 bytes because bcrypt silently truncates
-	// there.
+	// Passwords are bounded at 72 bytes because bcrypt silently truncates there.
 	minPassword = 8
 	maxPassword = 72
 
@@ -40,12 +35,11 @@ const (
 	maxBody = 4 << 10
 )
 
-// Display names are shown to other players and appear on a leaderboard, so the
-// set of characters is the small one rather than whatever arrived.
+// Display names are shown to other players and appear on a leaderboard, so the set of characters is
+// the small one rather than whatever arrived.
 var displayNameOK = regexp.MustCompile(`^[A-Za-z0-9_-]{3,24}$`)
 
-// auth holds what the handlers need: the store, and the key tokens are signed
-// with.
+// auth holds what the handlers need.
 type auth struct {
 	users  store
 	secret []byte
@@ -61,8 +55,8 @@ func jwtSecret(fromEnv string) []byte {
 
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
-		// The process cannot sign anything without this, and carrying on with
-		// a predictable key is the one outcome worse than not starting.
+		// The process cannot sign anything without this, and carrying on with a predictable key is
+		// the one outcome worse than not starting.
 		log.Fatalf("no UNIVERSUS_JWT_SECRET and no system randomness: %v", err)
 	}
 	log.Printf("UNIVERSUS_JWT_SECRET is unset: signing with a random key (%s…), "+
@@ -135,9 +129,7 @@ func (a *auth) register(w http.ResponseWriter, r *http.Request) {
 	a.issue(w, u)
 }
 
-// dummyHash is compared against when the email is unknown, so that a login for
-// an account that does not exist costs the same as one for an account that
-// does.
+// dummyHash is compared against when the email is unknown.
 var dummyHash = mustHash("not-a-password-this-is-a-timing-placeholder")
 
 func mustHash(s string) []byte {
@@ -156,8 +148,7 @@ func (a *auth) login(w http.ResponseWriter, r *http.Request) {
 
 	email, err := normalizeEmail(in.Email)
 	if err != nil {
-		// Same answer as a wrong password: a malformed email that is rejected
-		// differently is still an answer about the account.
+		// Same answer as a wrong password.
 		httpError(w, http.StatusUnauthorized, "wrong email or password")
 		return
 	}
@@ -175,8 +166,8 @@ func (a *auth) login(w http.ResponseWriter, r *http.Request) {
 
 	bcryptOK := bcrypt.CompareHashAndPassword([]byte(hash), []byte(in.Password)) == nil
 
-	// Both conditions folded into one branch without short-circuiting, so an
-	// unknown email takes the same path as a known one with a wrong password.
+	// Both conditions folded into one branch without short-circuiting, so an unknown email takes
+	// the same path as a known one with a wrong password.
 	if subtle.ConstantTimeByteEq(b2i(known), 1)&subtle.ConstantTimeByteEq(b2i(bcryptOK), 1) != 1 {
 		httpError(w, http.StatusUnauthorized, "wrong email or password")
 		return
@@ -217,8 +208,7 @@ func (a *auth) issue(w http.ResponseWriter, u User) {
 	writeJSON(w, http.StatusOK, session{Token: signed, User: u})
 }
 
-// requireUser is the middleware: a bearer token, verified, resolved to the user
-// it names.
+// requireUser is the middleware: a bearer token, verified, resolved to the user it names.
 func (a *auth) requireUser(h func(http.ResponseWriter, *http.Request, User)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := a.userID(r.Header.Get("Authorization"))
@@ -228,8 +218,7 @@ func (a *auth) requireUser(h func(http.ResponseWriter, *http.Request, User)) htt
 		}
 		u, err := a.users.userByID(r.Context(), id)
 		if err != nil {
-			// A token for an account that has since been deleted is not an
-			// error worth explaining; it is a request to sign in again.
+			// A token for an account that has since been deleted is not an error worth explaining.
 			httpError(w, http.StatusUnauthorized, "sign in first")
 			return
 		}
@@ -267,10 +256,9 @@ func (a *auth) subjectOf(raw string) (int64, error) {
 	return strconv.ParseInt(claims.Subject, 10, 64)
 }
 
-// normalizeEmail lowercases and trims, which is what makes the unique index
-// mean what people assume it means.
-// ponytail: the shape check is one @ with something either side and a dot in
-// the domain.
+// normalizeEmail lowercases and trims, which is what makes the unique index mean what people assume
+// it means.
+// ponytail: the shape check is one @ with something either side and a dot in the domain.
 func normalizeEmail(raw string) (string, error) {
 	email := strings.ToLower(strings.TrimSpace(raw))
 	if len(email) < 3 || len(email) > 254 {
@@ -300,16 +288,16 @@ func readJSON(w http.ResponseWriter, r *http.Request, into any) bool {
 	return decodeBody(w, r, into, maxBody)
 }
 
-// readBigJSON is the same for a match upload, which carries an input log and is
-// three orders of magnitude larger than a set of credentials.
+// readBigJSON is the same for a match upload, which carries an input log and is three orders of
+// magnitude larger than a set of credentials.
 func readBigJSON(w http.ResponseWriter, r *http.Request, into any) bool {
 	return decodeBody(w, r, into, maxUpload)
 }
 
 func decodeBody(w http.ResponseWriter, r *http.Request, into any, limit int64) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
-	// Unknown fields are refused: a client sending `passwrod` should be told,
-	// not silently registered with an empty password it thinks it set.
+	// Unknown fields are refused: a client sending `passwrod` should be told, not silently
+	// registered with an empty password it thinks it set.
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(into); err != nil {
 		httpError(w, http.StatusBadRequest, "expected a JSON object")

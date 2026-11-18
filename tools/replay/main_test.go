@@ -12,8 +12,8 @@ import (
 	"universus/sim"
 )
 
-// The roster and the balance data are part of the simulation's identity, and
-// main loads them before anything touches the sim.
+// The roster and the balance data are part of the simulation's identity, and main loads them before
+// anything touches the sim.
 func TestMain(m *testing.M) {
 	if err := data.Install(); err != nil {
 		fmt.Fprintln(os.Stderr, "replay:", err)
@@ -22,8 +22,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// The file half of the round trip: the tool writes a log and reads it back,
-// stamped with the data version this build was compiled against.
+// The file half of the round trip.
 func TestLogRoundTripThroughAFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.inputs")
 	want := gen(97)
@@ -54,8 +53,7 @@ func TestLogRoundTripThroughAFile(t *testing.T) {
 	}
 }
 
-// The whole reason the header exists: the same inputs replayed under a
-// different setup are a different match.
+// The whole reason the header exists.
 func TestSetupChangesWhatTheSameInputsReplayAs(t *testing.T) {
 	in := gen(240)
 

@@ -116,8 +116,8 @@ func TestRegisterThenLogIn(t *testing.T) {
 		t.Fatalf("register: %d %s", w.Code, w.Body)
 	}
 	got := decodeSession(t, w)
-	// Trimmed and lowercased on the way in, or the unique index does not mean
-	// what everybody assumes it means.
+	// Trimmed and lowercased on the way in, or the unique index does not mean what everybody
+	// assumes it means.
 	if got.User.Email != "player@example.com" {
 		t.Errorf("stored email %q, want it normalized", got.User.Email)
 	}
@@ -219,8 +219,7 @@ func TestAnExpiredTokenIsRefused(t *testing.T) {
 	}
 }
 
-// The hash actually protects the password: the stored value is not the password
-// and does verify against it.
+// The hash actually protects the password.
 func TestThePasswordIsStoredAsABcryptHash(t *testing.T) {
 	a, mux := testAuth()
 	post(t, mux, "/api/auth/register", goodRegister)
