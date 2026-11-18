@@ -1,5 +1,10 @@
 package sim
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Character data: frame data, damage, boxes and speeds.
 
 // Fixed caps. Static data, so generous is free — but bounded, because a loader
@@ -44,6 +49,24 @@ const (
 // feet, positive x forward, positive y up.
 type Box struct {
 	X, Y, W, H Fix
+}
+
+// UnmarshalJSON reads [x, y, w, h].
+func (b *Box) UnmarshalJSON(raw []byte) error {
+	parts := strings.Split(strings.Trim(strings.TrimSpace(string(raw)), "[]"), ",")
+	dst := [...]*Fix{&b.X, &b.Y, &b.W, &b.H}
+	if len(parts) != len(dst) {
+		return fmt.Errorf("sim: box %s wants [x, y, w, h]", raw)
+	}
+	for i, p := range parts {
+		if err := dst[i].UnmarshalJSON([]byte(strings.TrimSpace(p))); err != nil {
+			return err
+		}
+	}
+	if b.Empty() {
+		return fmt.Errorf("sim: box %s has no area", raw)
+	}
+	return nil
 }
 
 // Empty reports a box that should not participate in collision.

@@ -1,78 +1,57 @@
 {
-  "_comment": "Global tunables — 03 Game Design/Resource System.md and Round Flow.md.",
+  "_comment": "Global tunables — 03 Game Design/Resource System.md and Round Flow.md. Keys are sim.Balance field names.",
 
-  "round": {
-    "seconds": 99,
-    "roundsToWin": 2,
-    "maxRounds": 5,
-    "koFreeze": 60,
-    "roundEndHold": 120,
-    "intro": 90
-  },
+  "roundSeconds": 99,
+  "roundsToWin": 2,
+  "maxRounds": 5,
+  "koFreeze": 60,
+  "roundEndHold": 120,
+  "introFrames": 90,
 
-  "input": {
-    "pairFrames": 4
-  },
+  "pairFrames": 4,
 
-  "throw": {
-    "techFrames": 5,
-    "techRecovery": 20,
-    "techPush": 24
-  },
+  "throwTechFrames": 5,
+  "throwTechRecovery": 20,
+  "throwTechPush": 24,
 
-  "stage": {
-    "halfWidth": 320,
-    "cameraHalfWidth": 200,
-    "cameraMargin": 60
-  },
+  "stageHalfWidth": 320,
+  "cameraHalfWidth": 200,
+  "cameraMargin": 60,
 
-  "knockdown": {
-    "frames": 40
-  },
+  "knockdownFrames": 40,
 
-  "knockback": {
-    "hit": 2.0,
-    "block": 3.0,
-    "decayPercent": 80
-  },
+  "knockbackHit": 2.0,
+  "knockbackBlock": 3.0,
+  "knockbackDecay": 80,
 
-  "juggle": {
-    "limit": 3,
-    "gravityPercent": 15
-  },
+  "juggleLimit": 3,
+  "juggleGravityPercent": 15,
 
-  "damage": {
-    "comboScale": [100, 100, 80, 70, 60, 50, 40, 30, 20, 10],
-    "starterLight": 80,
-    "starterMedium": 90,
-    "starterHeavy": 100,
-    "minDamagePercent": 15,
-    "counterHitPercent": 125,
-    "counterHitstun": 4,
-    "punishHitstun": 8,
-    "chipPercent": 12,
-    "armorDamagePercent": 40
-  },
+  "comboScale": [100, 100, 80, 70, 60, 50, 40, 30, 20, 10],
+  "starterLight": 80,
+  "starterMedium": 90,
+  "starterHeavy": 100,
+  "minDamagePercent": 15,
+  "counterHitPercent": 125,
+  "counterHitstun": 4,
+  "punishHitstun": 8,
+  "chipPercent": 12,
+  "armorDamagePercent": 40,
 
-  "super": {
-    "max": 2000,
-    "dealtPercent": 30,
-    "takenPercent": 15,
-    "onSpecial": 100,
-    "freeze": 40
-  },
+  "superMax": 2000,
+  "superDealtPercent": 30,
+  "superTakenPercent": 15,
+  "superOnSpecial": 100,
+  "superFreeze": 40,
 
-  "ai": {
-    "_comment": "The scripted opponent.",
-    "decisionFrames": 8,
-    "closeRange": 40,
-    "midRange": 110,
-    "antiAirRange": 70,
-    "throwPercent": 25,
-    "projectilePercent": 55,
-    "reversalPercent": 30,
-    "reaction": 16,
-    "blockPercent": 70,
-    "randomPercent": 20
-  }
+  "aiDecisionFrames": 8,
+  "aiCloseRange": 40,
+  "aiMidRange": 110,
+  "aiAntiAirRange": 70,
+  "aiThrowPercent": 25,
+  "aiProjectilePercent": 55,
+  "aiReversalPercent": 30,
+  "aiReaction": 16,
+  "aiBlockPercent": 70,
+  "aiRandomPercent": 20
 }

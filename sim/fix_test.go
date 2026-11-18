@@ -137,3 +137,33 @@ func TestMulHoldsFullInt32Range(t *testing.T) {
 		}
 	}
 }
+
+// D68: the exact values the design notes quote, decoded with integers only.
+func TestFixDecodesDocumentedConstants(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want Fix
+	}{
+		{"1.5", 98304},     // WalkSpeed
+		{"8.0", 524288},    // JumpVelocity
+		{"-0.375", -24576}, // Gravity
+		{"0", 0},
+		{"1", 65536},
+		{"-1", -65536},
+		{"0.5", 32768},
+		{"-0.5", -32768},
+		{"40", 2621440},
+		{"0.0000152587890625", 1}, // exactly 1/65536
+	} {
+		var got Fix
+		if err := got.UnmarshalJSON([]byte(tc.in)); err != nil || got != tc.want {
+			t.Errorf("%q decodes to %d (%v), want %d", tc.in, got, err, tc.want)
+		}
+	}
+	for _, in := range []string{"", "abc", "1.2.3", "1.", "--1", "1e3", `"1"`, "999999999", "-999999999"} {
+		var got Fix
+		if err := got.UnmarshalJSON([]byte(in)); err == nil {
+			t.Errorf("%q decodes to %d, want an error", in, got)
+		}
+	}
+}

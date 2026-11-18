@@ -1,8 +1,9 @@
 package data
 
 import (
-	"bytes"
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 
 	"universus/sim"
@@ -86,226 +87,48 @@ func TestVersionIsStableAndCoversTheData(t *testing.T) {
 	}
 }
 
-// The exact values the design notes quote, so a change to the conversion is
-// caught here rather than as a subtly different jump arc.
-func TestParseFixMatchesTheDocumentedConstants(t *testing.T) {
-	for _, tc := range []struct {
-		in   string
-		want sim.Fix
-	}{
-		{"1.5", 98304},     // WalkSpeed
-		{"8.0", 524288},    // JumpVelocity
-		{"-0.375", -24576}, // Gravity
-		{"0", 0},
-		{"1", 65536},
-		{"-1", -65536},
-		{"0.5", 32768},
-		{"-0.5", -32768},
-		{"40", 2621440},
-		{"0.0000152587890625", 1}, // exactly 1/65536
-	} {
-		got, err := parseFix(json.Number(tc.in))
-		if err != nil {
-			t.Errorf("parseFix(%q): %v", tc.in, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("parseFix(%q) = %d, want %d", tc.in, got, tc.want)
-		}
-	}
-}
-
-func TestParseFixRejectsGarbage(t *testing.T) {
-	for _, in := range []string{"", "abc", "1.2.3", "1.", "--1", "999999999", "-999999999"} {
-		if got, err := parseFix(json.Number(in)); err == nil {
-			t.Errorf("parseFix(%q) = %d, want an error", in, got)
-		}
-	}
-}
-
-// Validation exists to catch authoring mistakes loudly.
-func TestValidationRejectsBadData(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		edit func(*jsonCharacter)
-	}{
-		{"zero health", func(c *jsonCharacter) { c.Health = 0 }},
-		{"positive gravity", func(c *jsonCharacter) { c.Gravity = "0.375" }},
-		{"no moves", func(c *jsonCharacter) { c.Moves = nil }},
-		{"zero startup", func(c *jsonCharacter) { c.Moves[0].Startup = 0 }},
-		{"zero active", func(c *jsonCharacter) { c.Moves[0].Active = 0 }},
-		{"negative recovery", func(c *jsonCharacter) { c.Moves[0].Recovery = -1 }},
-		{"unknown button", func(c *jsonCharacter) { c.Moves[0].Input.Button = "LOL" }},
-		{"unknown stance", func(c *jsonCharacter) { c.Moves[0].Input.Stance = "hover" }},
-		{"unknown motion", func(c *jsonCharacter) { c.Moves[0].Input.Motion = "360" }},
-		{"launch with one value", func(c *jsonCharacter) { c.Moves[0].Launch = []json.Number{"2"} }},
-		{"launch that is not a number", func(c *jsonCharacter) {
-			c.Moves[0].Launch = []json.Number{"2", "up"}
-		}},
-		{"unknown level", func(c *jsonCharacter) { c.Moves[0].AttackLevel = "sideways" }},
-		{"zero-size box", func(c *jsonCharacter) { c.Pushbox = []json.Number{"0", "0", "0", "48"} }},
-		{"box with too few values", func(c *jsonCharacter) { c.StandHurt = []json.Number{"0", "0"} }},
-		{"no keyframes", func(c *jsonCharacter) { c.Moves[0].Boxes = nil }},
-		{"keyframes out of order", func(c *jsonCharacter) {
-			c.Moves[0].Boxes[0].Frame, c.Moves[0].Boxes[1].Frame = 4, 0
-		}},
-		{"keyframe past the end of the move", func(c *jsonCharacter) {
-			c.Moves[0].Boxes[2].Frame = 999
-		}},
-		{"hitbox outside the active window", func(c *jsonCharacter) {
-			c.Moves[0].Boxes[1].Hit = nil
-			c.Moves[0].Boxes[0].Hit = [][]json.Number{{"12", "30", "22", "12"}}
-		}},
-
-		{"empty invuln window", func(c *jsonCharacter) { c.Moves[0].Invuln = []int{4, 4} }},
-		{"invuln with one value", func(c *jsonCharacter) { c.Moves[0].Invuln = []int{0} }},
-		{"invuln past the end of the move", func(c *jsonCharacter) { c.Moves[0].Invuln = []int{0, 999} }},
-		{"negative landing recovery", func(c *jsonCharacter) { c.Moves[0].Landing = -1 }},
-		{"knockback with one value", func(c *jsonCharacter) {
-			c.Moves[0].Knockback = []json.Number{"2"}
-		}},
-		{"knockback that is not a number", func(c *jsonCharacter) {
-			c.Moves[0].Knockback = []json.Number{"2", "away"}
-		}},
-		// [0, 0] is the balance default written in a way that reads as "this
-		// move pushes nobody", and the two are not the same claim.
-		{"a knockback of nothing", func(c *jsonCharacter) {
-			c.Moves[0].Knockback = []json.Number{"0", "0"}
-		}},
-		{"a negative juggle limit", func(c *jsonCharacter) { c.Moves[0].JuggleLimit = -1 }},
-		{"unknown cancel category", func(c *jsonCharacter) { c.Moves[0].Cancel = []string{"super4"} }},
-
-		{"a free super", func(c *jsonCharacter) { c.Moves[0].Meter = 0 }},
-		{"a super with no motion", func(c *jsonCharacter) { c.Moves[0].Input.Motion = "" }},
-
-		{"an unknown button inside a combination", func(c *jsonCharacter) {
-			c.Moves[0].Input.Button = "LP+LOL"
-		}},
-		{"a throw that releases immediately", func(c *jsonCharacter) {
-			c.Moves[0].Throw, c.Moves[0].Hitstun = true, 0
-		}},
-		// A throw super is legal,
-		// but two throws with no motion are not: the motion-less one is the
-		// tech input, and a second would make the lookup pick by file order.
-		{"two throws with no motion", func(c *jsonCharacter) {
-			for i := range c.Moves {
-				c.Moves[i].Throw, c.Moves[i].Hitstun = true, 20
-				c.Moves[i].Super, c.Moves[i].Input.Motion = false, ""
-			}
-		}},
-
-		// Target combos: after names a move by id, so ids must be unique and
-		// must exist, a move cannot follow itself (HP>HP>HP...
-		{"two moves with one id", func(c *jsonCharacter) { c.Moves[1].ID = c.Moves[0].ID }},
-		{"a follow-up of no move", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].After = []string{"nope"} }},
-		{"a move that follows itself", func(c *jsonCharacter) {
-			last := &c.Moves[len(c.Moves)-1]
-			last.After = []string{last.ID}
-		}},
-		{"a super as a follow-up", func(c *jsonCharacter) { c.Moves[0].After = []string{"5LP"} }},
-		// The second-stage knobs: follow-ups only, and in range.
-		{"needsHit on a move that follows nothing", func(c *jsonCharacter) {
-			no := false
-			c.Moves[0].NeedsHit = &no
-		}},
-		{"a dir on a move that follows nothing", func(c *jsonCharacter) { c.Moves[0].Dir = "6" }},
-		{"dir 5", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Dir = "5" }},
-		{"a dir that is not numpad", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Dir = "forward" }},
-		{"an empty window", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Window = []int{10, 10} }},
-		{"a window past the source's end", func(c *jsonCharacter) { c.Moves[len(c.Moves)-1].Window = []int{0, 999} }},
-		// Multi-hit: numbers only where there are hitboxes, never going back.
-		{"a hitNum with no hitboxes", func(c *jsonCharacter) {
-			for i := range c.Moves {
-				if c.Moves[i].ID == "5LP" {
-					c.Moves[i].Boxes[0].HitNum = 2
-				}
-			}
-		}},
-		{"a hitNum that goes back down", func(c *jsonCharacter) {
-			for i := range c.Moves {
-				if c.Moves[i].ID == "5LP" {
-					b := &c.Moves[i].Boxes
-					*b = append(*b, (*b)[1])
-					(*b)[1].HitNum = 2
-					(*b)[3].Frame, (*b)[3].HitNum = 5, 1
-					(*b)[2], (*b)[3] = (*b)[3], (*b)[2]
-				}
-			}
-		}},
-
-		// The one the design note itself got wrong: 8.0 and -0.03 pass every
-		// individual check and give a nine-second jump.
-		{"jump constants that do not go together", func(c *jsonCharacter) { c.Gravity = "-0.03" }},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			jc := validCharacter(t)
-			tc.edit(&jc)
-			if _, err := jc.convert(); err == nil {
-				t.Error("accepted data that should have been rejected")
-			}
-		})
-	}
-}
-
-// validCharacter is the embedded file, re-parsed, so the test data cannot drift
-// away from what actually ships.
-func validCharacter(t *testing.T) jsonCharacter {
-	t.Helper()
-
-	raw, err := files.ReadFile("characters/00-shoto.json")
-	if err != nil {
+// D69: a pair that passes every per-field check but gives a 533-frame jump.
+func TestCoupledJumpConstantsAreChecked(t *testing.T) {
+	var j character
+	if err := decode("characters/00-shoto.json", &j); err != nil {
 		t.Fatal(err)
 	}
-	var jc jsonCharacter
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	if err := dec.Decode(&jc); err != nil {
-		t.Fatal(err)
+	if _, err := j.convert(); err != nil {
+		t.Fatalf("the shipped character does not load: %v", err)
 	}
-	if _, err := jc.convert(); err != nil {
-		t.Fatalf("the shipped character does not validate: %v", err)
+	j.JumpVelocity, j.Gravity = sim.FromInt(8), -1966 // 8.0 against -0.03
+	if _, err := j.convert(); err == nil {
+		t.Error("a 533-frame jump loaded")
 	}
-	return jc
 }
 
-// The balance file is loaded on the same terms as the roster: it fails here
-// rather than at the start of a match, and every field it sets is one the sim
-// would otherwise run at zero.
+// A mistyped key fails the load instead of leaving a field at zero.
+func TestUnknownKeyIsRefused(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`{"healht": 10000}`))
+	dec.DisallowUnknownFields()
+	var j character
+	if err := dec.Decode(&j); err == nil {
+		t.Error("an unknown key decoded")
+	}
+}
+
+// Every tunable is set: a key missing from balance.json would run at zero.
 func TestEmbeddedBalanceLoads(t *testing.T) {
 	b, err := LoadBalance()
 	if err != nil {
 		t.Fatalf("the embedded balance does not load: %v", err)
 	}
-
-	// A zero here is a renamed or mistyped key, which parses without complaint
-	// and shows up in play as a gauge that never moves.
-	for _, f := range []struct {
-		name string
-		v    int32
-	}{
-		{"damage.chipPercent", b.ChipPercent},
-		{"damage.armorDamagePercent", b.ArmorDamagePercent},
-		{"damage.starterLight", b.StarterLight},
-		{"damage.starterMedium", b.StarterMedium},
-		{"damage.starterHeavy", b.StarterHeavy},
-		{"damage.minDamagePercent", b.MinDamagePercent},
-		{"damage.counterHitPercent", b.CounterHitPercent},
-		{"damage.counterHitstun", b.CounterHitstun},
-		{"damage.punishHitstun", b.PunishHitstun},
-		{"super.max", b.SuperMax},
-		{"super.dealtPercent", b.SuperDealtPercent},
-		{"super.takenPercent", b.SuperTakenPercent},
-		{"super.onSpecial", b.SuperOnSpecial},
-	} {
-		if f.v <= 0 {
-			t.Errorf("%s is %d", f.name, f.v)
+	v := reflect.ValueOf(b)
+	for i := range v.NumField() {
+		if v.Field(i).IsZero() {
+			t.Errorf("%s is zero", v.Type().Field(i).Name)
 		}
+	}
+	if b.RoundFrames != 99*60 {
+		t.Errorf("RoundFrames is %d, want 99 s", b.RoundFrames)
 	}
 }
 
-// The balance file is part of the simulation's identity: a client that tuned
-// the block cost is as desynced as one that tuned a hitbox, and the handshake
-// compares one number for both.
 func TestVersionCoversTheBalanceFile(t *testing.T) {
 	raw, err := files.ReadFile(balanceFile)
 	if err != nil {

@@ -161,7 +161,7 @@ What the refactor changed, so old notes and old habits do not bring it back:
   meter and take the motion plus any two punches or any two kicks; a move's press is a button set
   plus how many of it must be down. Chip damage and armour damage can kill.
 - **One super per character**, on any button of its kind (`236236P`, `236236K`), no levels (D123).
-  It freezes the match for `super.freeze` frames, counted in `GameState.Freeze` (D126).
+  It freezes the match for `superFreeze` frames, counted in `GameState.Freeze` (D126).
 - **One AI**, no tiers; `?ai` takes no value (D124). **No dummy recording** (D125).
 - **Options are client-side**: volume and keybinds in `localStorage`, read when the bitfield is
   packed (D127). URL flags are parsed once, in `client/src/flags.ts`.

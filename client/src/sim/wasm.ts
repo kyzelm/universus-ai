@@ -66,7 +66,7 @@ export const PHASE_MATCH_END = 4
 /** No winner: a draw round, or a match that is still being played. */
 export const NOBODY = -1
 
-/** The super meter, mirroring super.max in balance.json: a bar is a thousand units. */
+/** The super meter, mirroring superMax in balance.json: a bar is a thousand units. */
 export const SUPER_BARS = 2
 export const BAR_UNITS = 1000
 
