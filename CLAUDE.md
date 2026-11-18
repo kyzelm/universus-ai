@@ -8,10 +8,11 @@ version that works. The design vault is the source of truth for *what* to build 
 ```
 /home/kyzelm/Obsidian/Universus/
   Universus.md                  home map, locked stack
-  00 Meta/Decision Log.md       D1–D127, every locked decision + reason
+  00 Meta/Decision Log.md       D1–D128, every locked decision + reason
   01 Thesis/Implementation Log.md  dated problems and fixes — chapter 5 is written from it
   06 Roadmap/Refactor Plan.md   the plan since 2026-11-13: cut, simplify, add, then the hand-port
   06 Roadmap/Task Board.md      what was built (M0–M3) and the checklist of what is left
+  06 Roadmap/Port Guide.md      files per port stage, gate tests by name, the reference-diff check
   06 Roadmap/Build Roadmap.md   milestones, M0 pass criteria
   02 Architecture/*.md          sim, fixed-point, WASM boundary, rollback, transport, backend
   03 Game Design/*.md           combat, input, character data, resources, rounds, AI
@@ -153,7 +154,7 @@ results chapter and they are painful to retrofit.
 AI, bot-vs-bot harness, and the whole backend spine: auth, Postgres with embedded migrations, ranked
 and casual queues, match results, the ladder, disconnect handling, verification by re-simulation,
 all three anti-cheat checks, menus, character select, options and a result screen. Decision Log runs
-to **D127**.
+to **D128**.
 
 What the refactor changed, so old notes and old habits do not bring it back:
 
