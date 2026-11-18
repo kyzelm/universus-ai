@@ -19,9 +19,8 @@ const (
 	GroundY = Fix(0)
 )
 
-// The stage and screen widths are balance data (Balance.StageHalfWidth,
-// Balance.CameraHalfWidth), so the data hash covers them: two builds that
-// disagreed on where the walls are would otherwise handshake and desync.
+// The stage and screen widths are balance data (Balance.StageHalfWidth, Balance.CameraHalfWidth),
+// so the data hash covers them.
 
 // PlayerState is one fighter.
 type PlayerState struct {
@@ -39,10 +38,8 @@ type PlayerState struct {
 	// Super is the meter, in thousandths of a bar — see resource.go.
 	Super int32
 
-	// Combo is how many hits the player has taken without recovering, and
-	// ComboStarter the scaling multiplier captured from the move that began it
-	// — captured, because the starter scales the whole combo and the move that
-	// started it is gone by the third hit.
+	// Combo is how many hits the player has taken without recovering, and ComboStarter the scaling
+	// multiplier captured from the move that began it.
 	Combo        int32
 	ComboStarter int32
 	Counter      int32
@@ -54,9 +51,8 @@ type PlayerState struct {
 	// MoveIndex is the active move while State is StateAttack, else -1.
 	MoveIndex int32
 
-	// HasHit is the HitNum of the last hit the current move connected with, 0
-	// for none, so one hit cannot connect twice and a multi-hit move's next hit
-	// can.
+	// HasHit is the HitNum of the last hit the current move connected with, 0 for none, so one hit
+	// cannot connect twice and a multi-hit move's next hit can.
 	HasHit int32
 
 	// Armor is how many hits the current move has already absorbed.
@@ -65,24 +61,20 @@ type PlayerState struct {
 	// Stun is the remaining hitstun, blockstun or landing recovery.
 	Stun int32
 
-	// Landing is the recovery this player owes the moment they touch down — the
-	// debt of a move that ended while they were still in the air, carried
-	// because the move itself is gone by then.
+	// Landing is the recovery this player owes the moment they touch down.
 	Landing int32
 
-	// Down is 1 while this player owes a knockdown at the end of their current
-	// stun.
+	// Down is 1 while this player owes a knockdown at the end of their current stun.
 	Down int32
 
-	// Eaten is the newest frame whose button presses have already been spent,
-	// or -1.
+	// Eaten is the newest frame whose button presses have already been spent, or -1.
 	Eaten int32
 
 	// Events is this frame's effect flags — see events.go.
 	Events int32
 
-	// Juggle is how many times this player has been hit while already in the
-	// air, reset the moment they touch the ground.
+	// Juggle is how many times this player has been hit while already in the air, reset the moment
+	// they touch the ground.
 	Juggle int32
 
 	// JumpVX is the horizontal velocity committed at pre-jump.
@@ -91,13 +83,12 @@ type PlayerState struct {
 	// JumpHeld is 1 while the up that produced a jump is *still* being held.
 	JumpHeld int32
 
-	// AI is 1 when the scripted opponent drives this seat, and AIPlan the
-	// action its last decision picked — see ai.go.
+	// AI is 1 when the scripted opponent drives this seat, and AIPlan the action its last decision
+	// picked.
 	AI     int32
 	AIPlan int32
 
-	// Inputs is the input history ring: Inputs[f%InputHistory] is the bitfield
-	// that advanced frame f, widened to uint32 to keep GameState padding-free.
+	// Inputs is the input history ring.
 	Inputs [InputHistory]uint32
 }
 
@@ -117,23 +108,18 @@ type GameState struct {
 	Phase      int32
 	PhaseFrame int32
 
-	// Timer is the round clock, counted in frames because the sim has no other
-	// clock and is never allowed one.
+	// Timer is the round clock, counted in frames.
 	Timer int32
 
-	// Training is 1 in training mode (03 Game Design/Game Modes.md): resources
-	// refill, the clock does not run and the round never ends, so the lab stays
-	// a lab.
+	// Training is 1 in training mode (03 Game Design/Game Modes.md).
 	Training int32
 
-	// Round is the 1-based number of the round being played and Wins the rounds
-	// each player has taken.
+	// Round is the 1-based number of the round being played and Wins the rounds each player has
+	// taken.
 	Round int32
 	Wins  [2]int32
 
-	// RoundWinner is who took the round just decided, RoundNobody for a draw;
-	// Winner is the match winner once Phase is PhaseMatchEnd and RoundNobody
-	// until then.
+	// RoundWinner is who took the round just decided, RoundNobody for a draw.
 	RoundWinner int32
 	Winner      int32
 
@@ -152,25 +138,22 @@ type GameState struct {
 // New returns the starting state with both players on character 0.
 func New() GameState { return NewMatch(0, 0) }
 
-// NewTraining is New in training mode: the same match, with the clock stopped,
-// the round never ending and both fighters kept topped up.
+// NewTraining is New in training mode.
 func NewTraining() GameState {
 	s := New()
 	s.Training = 1
 	return s
 }
 
-// NewAIMatch is New with seat 2 played by the scripted opponent (03 Game
-// Design/AI Opponent.md).
+// NewAIMatch is New with seat 2 played by the scripted opponent (03 Game Design/AI Opponent.md).
 func NewAIMatch() GameState {
 	s := New()
 	s.Players[1].AI = 1
 	return s
 }
 
-// Setup is everything about a match that is chosen before frame 0 and cannot be
-// read back out of an input log: which characters, which mode, and whether seat
-// 2 is the scripted opponent.
+// Setup is everything about a match that is chosen before frame 0 and cannot be read back out of an
+// input log.
 type Setup struct {
 	Training bool
 	AI       bool
@@ -189,8 +172,7 @@ func NewStateOf(u Setup) GameState {
 	return s
 }
 
-// NewMatch starts a match between two roster entries: players apart, on the
-// ground, facing each other, at full health.
+// NewMatch starts a match between two roster entries.
 func NewMatch(c0, c1 int32) GameState {
 	s := GameState{RNG: seed, Players: [2]PlayerState{
 		{X: Fix(-60) << FracBits, Facing: 1, Char: c0, Health: CharacterAt(c0).Health},
@@ -212,14 +194,11 @@ func NewMatch(c0, c1 int32) GameState {
 
 // Advance runs one frame.
 func (s *GameState) Advance(in [2]uint16) {
-	// Effect flags describe *this* frame, so they are cleared before anything
-	// can set them — above the hitstop and phase returns below, or a hit's flag
-	// would survive the whole freeze and be fired once per frame of it.
+	// Effect flags describe *this* frame, so they are cleared before anything can set them.
 	s.clearEvents()
 
-	// A seat the AI is driving replaces whatever was passed for it, above
-	// everything else so its presses are recorded, buffered and read as motions
-	// exactly like a human's — the AI has no other way into the sim (ai.go).
+	// A seat the AI is driving replaces whatever was passed for it, above everything else so its
+	// presses are recorded, buffered and read as motions exactly like a human's.
 	for i := range s.Players {
 		if s.Players[i].AI != 0 {
 			in[i] = s.aiInput(i)
@@ -271,9 +250,9 @@ func (s *GameState) Advance(in [2]uint16) {
 	s.clampToStage()
 	s.updateFacing()
 
-	// 5. Projectiles: they move before hit detection reads their boxes, and
-	// after the players have been separated and clamped, so a fireball is
-	// tested against final positions like everything else.
+	// 5. Projectiles: they move before hit detection reads their boxes, and after the players have
+	// been separated and clamped, so a fireball is tested against final positions like everything
+	// else.
 	s.advanceProjectiles()
 
 	// 6. Hit detection: both players are read before either hit is applied.
@@ -293,9 +272,8 @@ func (s *GameState) Advance(in [2]uint16) {
 func (s *GameState) integrate(i int) {
 	p := &s.Players[i]
 
-	// Whether the player was in the air is decided before the position
-	// moves, and both the gravity and the landing below read that one
-	// answer.
+	// Whether the player was in the air is decided before the position moves, and both the gravity
+	// and the landing below read that one answer.
 	air := p.Airborne()
 	if air {
 		p.VY += p.gravity()
@@ -307,17 +285,14 @@ func (s *GameState) integrate(i int) {
 		p.Y = GroundY
 		p.VY = 0
 		if air {
-			// Landing kills horizontal momentum, so a move that came down
-			// does not slide through its recovery.
+			// Landing kills horizontal momentum, so a move that came down does not slide through
+			// its recovery.
 			p.VX = 0
 
-			// The floor is what ends a juggle, whoever was juggled and
-			// however they got up there.
+			// The floor is what ends a juggle, whoever was juggled and however they got up there.
 			p.Juggle = 0
 
-			// Landing ends a jump, and it ends an air normal with it: an
-			// air move's recovery is the fall, and it has no business
-			// continuing on the ground.
+			// Landing ends a jump, and it ends an air normal with it.
 			mv := p.move()
 			switch {
 			case mv != nil && mv.Stance == StanceAir:
@@ -339,8 +314,8 @@ type contact struct {
 	hit bool
 }
 
-// detectHits is step 6: player 1's hitboxes against player 2's hurtboxes, then
-// the reverse, so a trade resolves identically on both machines.
+// detectHits is step 6: player 1's hitboxes against player 2's hurtboxes, then the reverse, so a
+// trade resolves identically on both machines.
 func (s *GameState) detectHits() [2]contact {
 	var c [2]contact
 	for i := range c {
@@ -357,9 +332,8 @@ func (s *GameState) resolveHits(c [2]contact, in [2]uint16) {
 		}
 	}
 
-	// Projectiles resolve after both players, so a fireball and the punch that
-	// beat it to the same frame trade in a fixed order rather than in whichever
-	// order the loop happened to reach them.
+	// Projectiles resolve after both players, so a fireball and the punch that beat it to the same
+	// frame trade in a fixed order rather than in whichever order the loop happened to reach them.
 	s.resolveProjectiles(in)
 }
 
@@ -381,23 +355,19 @@ func (s *GameState) updateTimers() {
 	}
 	s.updateCamera()
 
-	// The round is resolved last of all, after the damage that might have ended
-	// it and after the combo bookkeeping: a KO is a fact about the health bar
-	// this frame left behind, not about the hit that was being applied.
+	// The round is resolved last of all, after the damage that might have ended it and after the
+	// combo bookkeeping.
 	s.updateRound()
 }
 
 // connects reports whether attacker's hitboxes overlap defender's hurtboxes.
 func (s *GameState) connects(attacker, defender int) bool {
 	// A throw refuses a defender it is not allowed to take, and it refuses them
-	// *here* rather than at resolution: a throw that whiffs has to actually
-	// whiff.
 	if mv := s.Players[attacker].move(); mv != nil && mv.IsThrow() && !s.throwable(defender) {
 		return false
 	}
 
-	// The juggle limit refuses the connect rather than softening it: a move
-	// that has run out of juggles whiffs, and whiffing is what ends the combo.
+	// The juggle limit refuses the connect rather than softening it.
 	if s.juggled(defender, s.Players[attacker].move()) {
 		return false
 	}
@@ -426,10 +396,7 @@ func (s *GameState) resolveHit(attacker, defender int, mv *Move, hit int32, defe
 	if mv == nil {
 		return
 	}
-	// A throw is resolved whole, by its own path: it cannot be blocked, cannot
-	// counter-hit, and may be escaped by a tech that ends the attacker's move
-	// too — which is why it marks the connect itself rather than being marked
-	// here and then possibly undone.
+	// A throw is resolved whole, by its own path.
 	if mv.IsThrow() {
 		s.applyThrow(attacker, defender, mv, s.Frame)
 		return
@@ -439,8 +406,7 @@ func (s *GameState) resolveHit(attacker, defender int, mv *Move, hit int32, defe
 	s.applyHit(attacker, defender, mv, defenderIn)
 }
 
-// hitNum is the HitNum of the hitboxes the player's move has on this frame, or
-// 0 when it has none.
+// hitNum is the HitNum of the hitboxes the player's move has on this frame, or 0 when it has none.
 func (s *GameState) hitNum(i int) int32 {
 	p := &s.Players[i]
 	if mv := p.move(); mv != nil {
@@ -451,15 +417,13 @@ func (s *GameState) hitNum(i int) int32 {
 	return 0
 }
 
-// applyHit is the half of a connect that lands on the defender: absorbed,
-// blocked or clean, then what all three share.
+// applyHit is the half of a connect that lands on the defender.
 func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16) {
 	ap, dp := &s.Players[attacker], &s.Players[defender]
 
-	// Damage dealt is measured off the health bar at the end of this function
-	// rather than taken from the formula, so the match total the round cap's
-	// tiebreak reads is what actually happened: a hit that overkills counts
-	// what was left.
+	// Damage dealt is measured off the health bar at the end of this function rather than taken
+	// from the formula, so the match total the round cap's tiebreak reads is what actually
+	// happened.
 	before := dp.Health
 
 	switch {
@@ -476,32 +440,28 @@ func (s *GameState) applyHit(attacker, defender int, mv *Move, defenderIn uint16
 		ap.gainSuper(balance.SuperOnSpecial)
 	}
 
-	// Hitstop is one value for the match, not one per player: both fighters
-	// freeze together, which is the whole effect.
+	// Hitstop is one value for the match, not one per player.
 	if mv.Hitstop > s.Hitstop {
 		s.Hitstop = mv.Hitstop
 	}
 
-	// One place, so every source of damage — hits, chip, projectiles, whatever
-	// comes next — is counted without anyone having to remember to.
+	// One place, so every source of damage.
 	s.Dealt[attacker] += before - dp.Health
 }
 
-// absorbHit is a hit eaten by armour: no hitstun, no knockback, no combo, no
-// counter — the defender's move carries on, which is what they paid for.
+// absorbHit is a hit eaten by armour.
 func (s *GameState) absorbHit(ap, dp *PlayerState, mv *Move) {
 	dp.Armor++
 	dp.hurt(mv.Damage * balance.ArmorDamagePercent / 100)
 	dp.Events |= EventBlock
 
-	// Meter still moves: a hit that was absorbed is a hit that landed, and both
-	// sides felt it.
+	// Meter still moves: a hit that was absorbed is a hit that landed, and both sides felt it.
 	ap.gainSuper(mv.Damage * balance.SuperDealtPercent / 100)
 	dp.gainSuper(mv.Damage * balance.SuperTakenPercent / 100)
 }
 
-// blockHit is a blocked hit: it ends no combo and starts none, and the counter
-// class of the last real hit stands until the next one.
+// blockHit is a blocked hit: it ends no combo and starts none, and the counter class of the last
+// real hit stands until the next one.
 func (s *GameState) blockHit(attacker, defender int, mv *Move) {
 	dp := &s.Players[defender]
 	dp.enter(StateBlockstun)
@@ -521,16 +481,14 @@ func (s *GameState) blockHit(attacker, defender int, mv *Move) {
 func (s *GameState) cleanHit(attacker, defender int, mv *Move) {
 	ap, dp := &s.Players[attacker], &s.Players[defender]
 
-	// Whether the defender was already off the ground, read before entering
-	// hitstun ends StateAir: it decides whether this hit counts as a juggle.
+	// Whether the defender was already off the ground, read before entering hitstun ends StateAir.
 	airborne := dp.Airborne()
 
-	// The counter class is read before anything is applied: it is a fact about
-	// the defender's own attack, and entering hitstun destroys it.
+	// The counter class is read before anything is applied.
 	counter := s.counterClass(defender)
 
-	// The starter scales the whole combo, so it is captured on the hit that
-	// begins one and never recomputed.
+	// The starter scales the whole combo, so it is captured on the hit that begins one and never
+	// recomputed.
 	if dp.Combo == 0 {
 		dp.ComboStarter = starterScale(mv)
 	}
@@ -541,8 +499,8 @@ func (s *GameState) cleanHit(attacker, defender int, mv *Move) {
 	dp.Stun = mv.Hitstun + counterHitstun(counter)
 	dp.Events |= EventHit
 
-	// Owed after the hitstun, not instead of it, and set after enter because
-	// entering a state is what clears the previous debt.
+	// Owed after the hitstun, not instead of it, and set after enter because entering a state is
+	// what clears the previous debt.
 	if mv.KnocksDown() {
 		dp.Down = 1
 	}
@@ -562,8 +520,8 @@ func (s *GameState) cleanHit(attacker, defender int, mv *Move) {
 	s.applyKnockback(attacker, defender, mv, false)
 }
 
-// separate pushes overlapping pushboxes apart, half the overlap each, then the
-// stage clamp runs after.
+// separate pushes overlapping pushboxes apart, half the overlap each, then the stage clamp runs
+// after.
 func (s *GameState) separate() {
 	a, b := s.Pushbox(0), s.Pushbox(1)
 
@@ -577,8 +535,8 @@ func (s *GameState) separate() {
 		return
 	}
 
-	// The tie at identical positions breaks by player index, which is the only
-	// property that matters: it breaks the same way on every machine.
+	// The tie at identical positions breaks by player index, which is the only property that
+	// matters.
 	push := overlap / 2
 	if s.Players[0].X <= s.Players[1].X {
 		s.Players[0].X -= push
@@ -601,18 +559,15 @@ func (s *GameState) clampToStage() {
 			continue
 		}
 
-		// The push has to go somewhere and the wall does not move, so the
-		// attacker takes it — and is clamped in turn, because a stage narrower
-		// than two fighters plus a push is a reason to stop, not a reason to
-		// leave someone outside the walls.
+		// The push has to go somewhere and the wall does not move, so the attacker takes it.
 		o := 1 - i
 		s.Players[o].X += d
 		s.Players[o].X += s.wallCorrection(o)
 	}
 }
 
-// wallCorrection is how far player i has to move to be inside the walls, or
-// zero if they already are.
+// wallCorrection is how far player i has to move to be inside the walls, or zero if they already
+// are.
 func (s *GameState) wallCorrection(i int) Fix {
 	box := s.Pushbox(i)
 	lo := max(-balance.StageHalfWidth, s.CamX-balance.CameraHalfWidth)
@@ -665,8 +620,8 @@ func (s *GameState) updateCamera() {
 	s.CamX = s.clampCamera(c)
 }
 
-// clampCamera keeps the screen inside the stage: never show past a wall, or
-// the corner does not look like a corner.
+// clampCamera keeps the screen inside the stage: never show past a wall, or the corner does not
+// look like a corner.
 func (s *GameState) clampCamera(c Fix) Fix {
 	return min(max(c, -balance.StageHalfWidth+balance.CameraHalfWidth),
 		balance.StageHalfWidth-balance.CameraHalfWidth)

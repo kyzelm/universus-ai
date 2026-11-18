@@ -15,8 +15,7 @@ var (
 	session = sim.NewSession()
 	snap    [sim.SnapshotSize]byte
 
-	// The scripted opponent played as a device, per seat, for the bot-vs-bot
-	// harness.
+	// The scripted opponent played as a device, per seat, for the bot-vs-bot harness.
 	devices [2]*sim.AIDevice
 )
 
@@ -31,8 +30,7 @@ func main() {
 
 	api := js.Global().Get("Object").New()
 
-	// advance(p1, p2) runs one frame from two input bitfields and refreshes the
-	// snapshot.
+	// advance(p1, p2) runs one frame from two input bitfields and refreshes the snapshot.
 	api.Set("advance", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		session.Advance([2]uint16{uint16(args[0].Int()), uint16(args[1].Int())})
 		session.State().WriteSnapshot(snap[:])
@@ -56,9 +54,7 @@ func main() {
 		return nil
 	}))
 
-	// aiPress(seat, seed) is the scripted opponent played as a *device*:
-	// it reads the state and returns a bitfield, and the caller feeds that in
-	// wherever a keyboard's would go.
+	// aiPress(seat, seed) is the scripted opponent played as a *device*.
 	api.Set("aiPress", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		seat := args[0].Int()
 		if seat < 0 || seat > 1 {
@@ -70,16 +66,14 @@ func main() {
 		return int(devices[seat].Press(session.State(), seat))
 	}))
 
-	// rewind(frame) restores the state at the start of frame; the caller then
-	// replays with advance().
+	// rewind(frame) restores the state at the start of frame.
 	api.Set("rewind", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		ok := session.Rewind(uint32(args[0].Int()))
 		session.State().WriteSnapshot(snap[:])
 		return ok
 	}))
 
-	// eventsAt(frame) is what happened on a frame — hit, block, throw,
-	// knockdown, super — packed with player 0 in the low 16 bits.
+	// eventsAt(frame) is what happened on a frame.
 	api.Set("eventsAt", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		return int(session.EventsAt(uint32(args[0].Int())))
 	}))
@@ -89,9 +83,8 @@ func main() {
 		return int(sim.NumCharacters())
 	}))
 
-	// stageHalfWidth() and cameraHalfWidth() are the walls and the screen, in
-	// whole units, so the view frames what the sim collides against rather
-	// than a copy of it.
+	// stageHalfWidth() and cameraHalfWidth() are the walls and the screen, in whole units, so the
+	// view frames what the sim collides against rather than a copy of it.
 	api.Set("stageHalfWidth", js.FuncOf(func(js.Value, []js.Value) any {
 		return sim.BalanceOf().StageHalfWidth.ToInt()
 	}))
@@ -99,8 +92,7 @@ func main() {
 		return sim.BalanceOf().CameraHalfWidth.ToInt()
 	}))
 
-	// characterName(i) is the roster entry's display name, for the character
-	// select.
+	// characterName(i) is the roster entry's display name, for the character select.
 	api.Set("characterName", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		i := int32(args[0].Int())
 		if i < 0 || i >= sim.NumCharacters() {
@@ -118,8 +110,7 @@ func main() {
 		return v
 	}))
 
-	// dump() is what it compares when the checksums already disagree: the whole
-	// state, one field per line, so the gate can report *which* field diverged.
+	// dump() is what it compares when the checksums already disagree.
 	api.Set("dump", js.FuncOf(func(js.Value, []js.Value) any {
 		return session.State().Dump()
 	}))
@@ -140,9 +131,7 @@ func main() {
 	api.Set("snapshotLen", js.FuncOf(func(js.Value, []js.Value) any {
 		return len(snap)
 	}))
-	// noop() exists only for the benchmark: it isolates the cost of crossing
-	// the JS/Go boundary from the cost of the sim, which turn out to differ by
-	// almost three orders of magnitude.
+	// noop() exists only for the benchmark.
 	api.Set("noop", js.FuncOf(func(js.Value, []js.Value) any {
 		return nil
 	}))

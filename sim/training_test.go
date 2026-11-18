@@ -25,9 +25,7 @@ func TestTrainingStopsTheClockAndTheRound(t *testing.T) {
 	}
 }
 
-// Off by default, and the flag is in the state, so the checksum covers it: two
-// clients that disagreed about the mode desync on frame 0 rather than playing a
-// match where one of them has infinite meter.
+// Off by default, and the flag is in the state, so the checksum covers it.
 func TestTrainingIsOffByDefaultAndCoveredByTheChecksum(t *testing.T) {
 	normal, lab := New(), NewTraining()
 	if normal.Training != 0 {

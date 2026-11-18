@@ -8,12 +8,11 @@ const (
 	throwInput = InLP | InLK
 )
 
-// away is what player 1 holds to block: they start facing left, so holding
-// right is holding away from the opponent.
+// away is what player 1 holds to block.
 const away = InRight
 
-// throwUntil starts player 0's throw and advances until stop says to halt or
-// the move is over, giving player 1 defenderIn every frame.
+// throwUntil starts player 0's throw and advances until stop says to halt or the move is over,
+// giving player 1 defenderIn every frame.
 func throwUntil(t *testing.T, gap int, defenderIn uint16, stop func(s *GameState) bool) GameState {
 	t.Helper()
 
@@ -71,8 +70,8 @@ func TestAThrowBeatsBlocking(t *testing.T) {
 	}
 }
 
-// …and loses to jumping, which is what makes the pre-jump frames being grounded
-// a rule rather than an animation detail: the throw beats the *attempt*.
+// …and loses to jumping, which is what makes the pre-jump frames being grounded a rule rather than
+// an animation detail.
 func TestAThrowMissesTheAirborneAndCatchesPreJump(t *testing.T) {
 	airborne := facing(30)
 	hold(&airborne, int(char().PreJumpFrames)+1, InUp)
@@ -88,8 +87,8 @@ func TestAThrowMissesTheAirborneAndCatchesPreJump(t *testing.T) {
 		}
 	}
 
-	// The jump attempt: the up press lands late enough that the throw's active
-	// frames arrive while the defender is still in pre-jump, which is grounded.
+	// The jump attempt: the up press lands late enough that the throw's active frames arrive while
+	// the defender is still in pre-jump, which is grounded.
 	mv := &char().Moves[throwIndex]
 	early := facing(30)
 	early.Advance([2]uint16{throwInput, 0})
@@ -125,8 +124,7 @@ func TestATechEscapesTheThrow(t *testing.T) {
 	gap := s.Players[1].X - s.Players[0].X
 	s.Advance([2]uint16{throwInput, 0})
 
-	// The defender's own throw press, two frames before the throw connects:
-	// inside the window, and a reaction rather than a frame-perfect answer.
+	// The defender's own throw press, two frames before the throw connects.
 	for s.Players[1].State != StateThrown && s.Players[0].State == StateAttack {
 		in := uint16(0)
 		if s.Players[0].StateFrame == mv.Startup-2 {
@@ -152,15 +150,13 @@ func TestATechEscapesTheThrow(t *testing.T) {
 	}
 }
 
-// The command throw: one button and a half-circle, and it is the fixture's move
-// 16.
+// The command throw: one button and a half-circle, and it is the fixture's move 16.
 const (
 	commandThrowIndex = int32(16)
 	commandThrowInput = InHP
 )
 
-// hcf walks player 1 through ← ↙ ↓ ↘ → and then presses the button, one frame
-// each.
+// hcf walks player 1 through ← ↙ ↓ ↘ → and then presses the button, one frame each.
 func hcf(s *GameState, button uint16) {
 	for _, in := range []uint16{InLeft, InLeft | InDown, InDown, InDown | InRight, InRight} {
 		s.Advance([2]uint16{in, 0})

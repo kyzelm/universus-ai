@@ -8,8 +8,7 @@ import (
 	"universus/sim"
 )
 
-// A roster of two, which is all these tests need from it: the decoder refuses a
-// character index the build does not have, and that check needs a size.
+// A roster of two, which is all these tests need from it.
 func TestMain(m *testing.M) {
 	if !sim.LoadCharacters([]sim.Character{{Name: "one"}, {Name: "two"}}) {
 		panic("the fixture roster was refused")
@@ -25,11 +24,10 @@ func inputs(n int) [][2]uint16 {
 	return out
 }
 
-// A mis-parsed log makes the determinism gate compare the wrong thing and pass,
-// which is worse than failing.
+// A mis-parsed log makes the determinism gate compare the wrong thing and pass, which is worse than
+// failing.
 func TestRoundTrip(t *testing.T) {
-	// Not the zero setup: a header that survives only because every field
-	// happens to be zero proves nothing.
+	// Not the zero setup: a header that survives only.
 	setup := sim.Setup{Training: true, AI: true, Chars: [2]int32{1, 0}}
 	want := inputs(97)
 

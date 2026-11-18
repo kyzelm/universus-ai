@@ -8,8 +8,8 @@ const (
 	launcherInput = InLK
 )
 
-// strike presses p0 until the move it selects lands on player 1, and returns
-// the state on the frame of the connect.
+// strike presses p0 until the move it selects lands on player 1, and returns the state on the frame
+// of the connect.
 func strike(t *testing.T, gap int, p0, p1 uint16) GameState {
 	t.Helper()
 
@@ -25,8 +25,8 @@ func strike(t *testing.T, gap int, p0, p1 uint16) GameState {
 	return GameState{}
 }
 
-// pushStep advances until player 1's position changes, and returns the state
-// and how far they moved.
+// pushStep advances until player 1's position changes, and returns the state and how far they
+// moved.
 func pushStep(t *testing.T, s *GameState) Fix {
 	t.Helper()
 
@@ -54,9 +54,7 @@ func TestAHitPushesTheDefenderAway(t *testing.T) {
 	}
 }
 
-// The corner rule, and the reason pushback is worth having at all: the wall
-// does not move, so the push the clamp would have eaten moves the attacker back
-// instead.
+// The corner rule, and the reason pushback is worth having at all.
 func TestTheCornerPushesTheAttackerBack(t *testing.T) {
 	s := facing(40)
 	// Player 1's pushbox is 12 wide either side, so this is exactly the wall.
@@ -91,8 +89,7 @@ func TestTheCornerPushesTheAttackerBack(t *testing.T) {
 	}
 }
 
-// A launcher is a knockback with a vertical component and nothing else — no
-// second field, no flag that could disagree with the velocity.
+// A launcher is a knockback with a vertical component and nothing else.
 func TestALauncherPutsTheDefenderInTheAir(t *testing.T) {
 	s := strike(t, 40, launcherInput, 0)
 	if s.Players[0].MoveIndex != launcherIndex {
@@ -116,8 +113,8 @@ func TestALauncherPutsTheDefenderInTheAir(t *testing.T) {
 	}
 }
 
-// airborne puts player 1 in the air with n juggle hits already on them, still
-// rising so they are still up there when the follow-up lands.
+// airborne puts player 1 in the air with n juggle hits already on them, still rising so they are
+// still up there when the follow-up lands.
 func airborne(n int32) GameState {
 	s := facing(40)
 	s.Players[1].enter(StateAir)

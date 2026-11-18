@@ -40,8 +40,7 @@ func TestALaunchingMoveRisesAndLands(t *testing.T) {
 	}
 }
 
-// A move that runs out while the character is still in the air hands over to
-// StateAir.
+// A move that runs out while the character is still in the air hands over to StateAir.
 func TestAMoveEndingInTheAirFallsOutIntoAJump(t *testing.T) {
 	s := New()
 	s.Advance([2]uint16{InHK, 0}) // total 6 frames, ~32 frames of airtime
@@ -58,8 +57,7 @@ func TestAMoveEndingInTheAirFallsOutIntoAJump(t *testing.T) {
 		t.Fatalf("state %d after the move ended in the air, want StateAir", p.State)
 	}
 
-	// Being in StateAir rather than idle is what keeps the ground options off:
-	// no second jump, no walking, no dash.
+	// Being in StateAir rather than idle is what keeps the ground options off.
 	s.Advance([2]uint16{pad[8], 0})
 	if got := s.Players[0].State; got != StateAir {
 		t.Errorf("holding up in mid-air put the player in state %d, want a second jump to be impossible", got)

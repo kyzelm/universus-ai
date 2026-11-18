@@ -120,8 +120,7 @@ func TestAbs(t *testing.T) {
 	}
 }
 
-// Mul's int64 intermediate is exact; the int32 result is where the format's
-// ±32768 limit bites.
+// Mul's int64 intermediate is exact.
 func TestMulHoldsFullInt32Range(t *testing.T) {
 	cases := []struct {
 		a, b, want Fix

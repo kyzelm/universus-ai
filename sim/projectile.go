@@ -28,8 +28,7 @@ func (s *GameState) spec(pr *Projectile) *ProjectileSpec {
 	return &c.Moves[pr.Move].Proj
 }
 
-// ProjectileBox is the world-space hitbox of slot i, or an empty box if the
-// slot is free.
+// ProjectileBox is the world-space hitbox of slot i, or an empty box if the slot is free.
 func (s *GameState) ProjectileBox(i int) Box {
 	pr := &s.Projectiles[i]
 	if pr.Active == 0 {
@@ -46,9 +45,8 @@ func (s *GameState) ProjectileBox(i int) Box {
 	return sp.Box.World(pr.X, pr.Y, facing)
 }
 
-// advanceProjectiles is step 5: move what is in flight, expire it, then spawn
-// what this frame's moves produce — in that order, so a fireball does not
-// travel on the frame it appears.
+// advanceProjectiles is step 5: move what is in flight, expire it, then spawn what this frame's
+// moves produce.
 func (s *GameState) advanceProjectiles() {
 	for i := range s.Projectiles {
 		pr := &s.Projectiles[i]
@@ -68,8 +66,7 @@ func (s *GameState) advanceProjectiles() {
 	for i := range s.Players {
 		p := &s.Players[i]
 		mv := p.move()
-		// The spawn frame is the move's first active frame, which is data the
-		// move already carries.
+		// The spawn frame is the move's first active frame, which is data the move already carries.
 		if mv == nil || !mv.Proj.Exists() || p.StateFrame != mv.Startup {
 			continue
 		}
@@ -123,10 +120,8 @@ func (s *GameState) resolveProjectiles(in [2]uint16) {
 			}
 			c := CharacterAt(s.Players[pr.Owner].Char)
 			mv := &c.Moves[pr.Move]
-			// A fireball obeys the juggle limit like anything else, and obeys
-			// it *before* it is spent: a projectile that has run out of juggles
-			// passes through and stays in flight, the same whiff the move
-			// itself would have.
+			// A fireball obeys the juggle limit like anything else, and obeys it *before* it is
+			// spent.
 			if s.juggled(defender, mv) {
 				break
 			}

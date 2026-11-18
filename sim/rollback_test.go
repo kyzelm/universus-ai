@@ -10,8 +10,8 @@ func inputSeq(n int) [][2]uint16 {
 	for f := range in {
 		p0 := uint16(f*7%13) & 0xF
 		p1 := uint16(f*11%17) & 0xF
-		// Often enough to collide and be interrupted, rarely enough that the
-		// players are not permanently mid-move.
+		// Often enough to collide and be interrupted, rarely enough that the players are not
+		// permanently mid-move.
 		if f%5 == 0 {
 			p0 |= buttons[f/5%len(buttons)]
 		}
@@ -55,8 +55,8 @@ func TestRollbackReplayMatchesStraightRun(t *testing.T) {
 	}
 }
 
-// A rollback that replays the same inputs is a no-op by design, so prove the
-// corrected input is actually the one replayed.
+// A rollback that replays the same inputs is a no-op by design, so prove the corrected input is
+// actually the one replayed.
 func TestAdjustReplaysTheCorrectedInput(t *testing.T) {
 	s := NewSession()
 	for range 20 {
@@ -100,8 +100,7 @@ func BenchmarkAdvance(b *testing.B) {
 	}
 }
 
-// One frame plus a full-depth correction — 9 sim steps, the worst case that
-// still has to fit in 16.6 ms.
+// One frame plus a full-depth correction.
 func BenchmarkAdvanceWithRollback8(b *testing.B) {
 	s, in := NewSession(), inputSeq(64)
 	for i := range MaxRollback * 2 {

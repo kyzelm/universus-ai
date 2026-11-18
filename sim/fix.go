@@ -1,5 +1,4 @@
-// Package sim is the deterministic core: 16.16 fixed-point, no floats, no math
-// package, no clock, no I/O, single-threaded.
+// Package sim is the deterministic core.
 package sim
 
 import (
@@ -7,8 +6,7 @@ import (
 	"strings"
 )
 
-// Fix is a 16.16 fixed-point number: 16 integer bits, 16 fractional bits,
-// stored in int32.
+// Fix is a 16.16 fixed-point number.
 type Fix int32
 
 const (
@@ -20,8 +18,7 @@ const (
 
 func FromInt(i int) Fix { return Fix(i) << FracBits }
 
-// ToInt floors, including for negatives: an arithmetic right shift makes
-// Fix(-1).ToInt() == -1, not 0.
+// ToInt floors, including for negatives.
 func (a Fix) ToInt() int { return int(a >> FracBits) }
 
 // Mul is exact via an int64 intermediate.

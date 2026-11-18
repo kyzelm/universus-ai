@@ -3,8 +3,7 @@ package sim
 // Deterministic randomness.
 // ponytail: not math/rand.
 
-// seed is any nonzero constant — the golden-ratio one, chosen only because it
-// has a well-mixed bit pattern.
+// seed is any nonzero constant.
 const seed uint32 = 0x9E3779B9
 
 // Rand returns the next value in the sequence and advances the state.

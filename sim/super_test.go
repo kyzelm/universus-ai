@@ -30,8 +30,7 @@ func TestSuperMotionsAreRecognised(t *testing.T) {
 	}
 }
 
-// The doubles must be scanned before DP, and this is the reason: read backward,
-// ↓↘→↓↘→ offers →, ↓, ↘ in exactly the order a dragon punch wants.
+// The doubles must be scanned before DP, and this is the reason.
 func TestSuperMotionBeatsDP(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3, 6, 2, 3, 6)
@@ -47,8 +46,8 @@ func TestSuperMotionBeatsDP(t *testing.T) {
 	}
 }
 
-// A double quarter-circle is a quarter-circle that kept going, so the same
-// input has to be able to produce the cheaper move.
+// A double quarter-circle is a quarter-circle that kept going, so the same input has to be able to
+// produce the cheaper move.
 func TestDoubleMotionSatisfiesTheSingle(t *testing.T) {
 	for _, tc := range []struct {
 		got, want Motion
@@ -130,9 +129,8 @@ func TestPerformingASuperSpendsItsBar(t *testing.T) {
 	}
 }
 
-// connect runs player 0's move until it has connected and the hitstop it caused
-// has run out, which is when the cancel window is open *and* inputs are being
-// read again.
+// connect runs player 0's move until it has connected and the hitstop it caused has run out, which
+// is when the cancel window is open *and* inputs are being read again.
 func connect(t *testing.T, s *GameState, in uint16) {
 	t.Helper()
 	s.Advance([2]uint16{in, 0})

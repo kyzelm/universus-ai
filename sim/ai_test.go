@@ -2,9 +2,7 @@ package sim
 
 import "testing"
 
-// The rule tests run with the imperfection roll switched off, because it exists
-// to make the AI *not* take the rule it found: with it on, "anti-airs a
-// jump-in" is a statement about a percentage rather than about the rule list.
+// The rule tests run with the imperfection roll switched off.
 func certain(t *testing.T) {
 	t.Helper()
 	b := testBalance()
@@ -13,9 +11,7 @@ func certain(t *testing.T) {
 	t.Cleanup(func() { LoadBalance(testBalance()) })
 }
 
-// The property the whole design rests on: the AI decides inside the sim, from
-// state, with the state's own generator — so the same match setup plays out
-// identically every time, and an AI match is a replayable one.
+// The property the whole design rests on.
 func TestAnAIMatchIsReproducible(t *testing.T) {
 	play := func() uint32 {
 		s := NewAIMatch()
@@ -30,9 +26,7 @@ func TestAnAIMatchIsReproducible(t *testing.T) {
 	}
 }
 
-// A rollback replays the AI's decisions rather than re-rolling them: its plan
-// and the generator it drew from are both in the state, so rewinding takes them
-// back together.
+// A rollback replays the AI's decisions rather than re-rolling them.
 func TestAIDecisionsRollBack(t *testing.T) {
 	s := NewAIMatch()
 	s.Players[0].AI = 1
@@ -55,9 +49,7 @@ func TestAIDecisionsRollBack(t *testing.T) {
 	}
 }
 
-// Non-degeneracy, the design note's own bar: two of these play for 10 000
-// frames without deadlocking, without stalling in a corner, and without failing
-// to end a round.
+// Non-degeneracy, the design note's own bar.
 func TestAIvsAIDoesNotDegenerate(t *testing.T) {
 	s := NewAIMatch()
 	s.Players[0].AI = 1
@@ -71,9 +63,8 @@ func TestAIvsAIDoesNotDegenerate(t *testing.T) {
 		if s.Players[0].Health < start[0] || s.Players[1].Health < start[1] {
 			hits = true
 		}
-		// Two fighters that never close and never separate are deadlocked,
-		// whatever their health bars say — a pair standing at opposite ends of
-		// the stage for the whole round passes every other check here.
+		// Two fighters that never close and never separate are deadlocked, whatever their health
+		// bars say.
 		if d := s.aiDistance(0); d <= balance.AICloseRange {
 			near = true
 		} else if d > balance.AIMidRange {
@@ -81,14 +72,13 @@ func TestAIvsAIDoesNotDegenerate(t *testing.T) {
 		}
 	}
 
-	// Rounds, not the match: a best-of-three of timeouts is longer than this,
-	// and it is ending *a round* that says the loop is not stuck.
+	// Rounds, not the match: a best-of-three of timeouts is longer than this, and it is ending *a
+	// round* that says the loop is not stuck.
 	if s.Round < 2 && s.Winner == RoundNobody {
 		t.Errorf("still on round %d after 10000 frames, wins %v", s.Round, s.Wins)
 	}
-	// A round decided entirely by the clock with nobody ever landing a hit is
-	// two opponents standing still, which is exactly the degenerate case the
-	// round check above would not notice.
+	// A round decided entirely by the clock with nobody ever landing a hit is two opponents
+	// standing still, which is exactly the degenerate case the round check above would not notice.
 	if !hits {
 		t.Error("neither player took a hit in 10000 frames")
 	}
@@ -97,9 +87,7 @@ func TestAIvsAIDoesNotDegenerate(t *testing.T) {
 	}
 }
 
-// Anti-air is first in the priority list, and it is the rule most worth having:
-// a jump-in beaten by a dragon punch is the exchange the whole list is built
-// around.
+// Anti-air is first in the priority list, and it is the rule most worth having.
 func TestAIAntiAirsAJumpIn(t *testing.T) {
 	certain(t)
 
@@ -115,10 +103,8 @@ func TestAIAntiAirsAJumpIn(t *testing.T) {
 	}
 }
 
-// The device is the same opponent played from outside the match, and the two
-// properties that make it usable as a test opponent are that it repeats and
-// that it leaves no trace: two ends running different devices must not be a
-// desync, which means a device may not touch the state it reads.
+// The device is the same opponent played from outside the match, and the two properties that make
+// it usable as a test opponent are that it repeats and that it leaves no trace.
 func TestTheAIDeviceDecidesWithoutTouchingTheMatch(t *testing.T) {
 	s := New()
 	for f := 0; f < 40; f++ {
@@ -146,8 +132,8 @@ func TestTheAIDeviceDecidesWithoutTouchingTheMatch(t *testing.T) {
 		}
 	}
 
-	// A different seed is a different opponent, or two bots in a harness play
-	// the same match twice and half the fuzz is wasted.
+	// A different seed is a different opponent, or two bots in a harness play the same match twice
+	// and half the fuzz is wasted.
 	other := NewAIDevice(99)
 	same := true
 	for _, want := range pressed {

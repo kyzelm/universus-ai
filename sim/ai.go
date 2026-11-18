@@ -2,9 +2,9 @@ package sim
 
 // The scripted opponent (03 Game Design/AI Opponent.md).
 
-// The plans. A decision picks one and it runs until the next decision, which is
-// what keeps the AI from re-deciding sixty times a second — a human cannot, and
-// an opponent that does reads as a machine.
+// The plans. A decision picks one and it runs until the next decision, which is what keeps the AI
+// from re-deciding sixty times a second — a human cannot, and an opponent that does reads as a
+// machine.
 const (
 	aiNeutral int32 = iota
 	aiApproach
@@ -29,8 +29,7 @@ type aiRandom interface {
 	RandN(n uint32) uint32
 }
 
-// AIDevice plays a seat from outside the simulation: the same rule list, its
-// own generator and its own plan, and nothing written to GameState.
+// AIDevice plays a seat from outside the simulation.
 type AIDevice struct {
 	plan int32
 	rng  uint32
@@ -44,8 +43,7 @@ func NewAIDevice(seed uint32) *AIDevice {
 	return &AIDevice{rng: seed}
 }
 
-// RandN is the device's own generator — the same xorshift the sim uses, kept
-// separate so a device draw never perturbs the match's sequence.
+// RandN is the device's own generator.
 func (d *AIDevice) RandN(n uint32) uint32 {
 	x := d.rng
 	x ^= x << 13
@@ -78,9 +76,7 @@ func (s *GameState) aiInput(i int) uint16 {
 		return 0
 	}
 
-	// Decisions are on a fixed cadence off the frame number rather than a
-	// countdown in state: one fewer field, and it rolls back for free because
-	// the frame number does.
+	// Decisions are on a fixed cadence off the frame number rather than a countdown in state.
 	every := balance.AIDecisionFrames
 	if every <= 0 {
 		return 0 // an unloaded balance is a still opponent, not a random one
@@ -103,8 +99,8 @@ func aiPress(plan, age int32, facing int32) uint16 {
 	case aiApproach:
 		return fwd
 	case aiRetreat, aiBlock:
-		// Blocking *is* holding away, so the plan that blocks and the plan that
-		// backs off are the same input.
+		// Blocking *is* holding away, so the plan that blocks and the plan that backs off are the
+		// same input.
 		return back
 	case aiJab:
 		return press(age, InLP)
@@ -115,12 +111,12 @@ func aiPress(plan, age int32, facing int32) uint16 {
 	case aiThrow:
 		return press(age, InLP|InLK)
 	case aiAntiAir:
-		// Crouching heavy punch: a hitbox rather than an invincible move, which
-		// is the trade a character without a reversal makes everywhere else too.
+		// Crouching heavy punch: a hitbox rather than an invincible move, which is the trade a
+		// character without a reversal makes everywhere else too.
 		return press(age, InDown|InHP)
 	case aiJump:
-		// Pressed, not held: holding up would jump again on every landing,
-		// which is a plan nobody chose.
+		// Pressed, not held: holding up would jump again on every landing, which is a plan nobody
+		// chose.
 		return press(age, InUp)
 	case aiDP:
 		// The shortcut motion, → ↓ →, and deliberately not the real → ↓ ↘.
@@ -145,8 +141,7 @@ func aiPress(plan, age int32, facing int32) uint16 {
 	return 0
 }
 
-// press is one frame of a button and then nothing: a held button is one press
-// to the sim, and a plan that kept holding would eat its own next decision.
+// press is one frame of a button and then nothing.
 func press(age int32, bits uint16) uint16 {
 	if age == 0 {
 		return bits
@@ -166,17 +161,15 @@ func aiDecide(s *GameState, i int, r aiRandom) int32 {
 	}
 
 	switch {
-	// Anti-air. The window is generous on purpose: a dragon punch that comes
-	// out late loses to the jump-in it was meant to beat, and that is the
-	// mistake a human makes too.
+	// Anti-air. The window is generous on purpose: a dragon punch that comes out late loses to the
+	// jump-in it was meant to beat, and that is the mistake a human makes too.
 	case o.Airborne() && dist <= balance.AIAntiAirRange && aiSeen(o, react):
 		if aiHasMotion(p.Char, MotionDP) {
 			return aiDP
 		}
 		return aiAntiAir
 
-	// Punish. A move in its recovery cannot block, and the AI's heaviest button
-	// is the answer.
+	// Punish. A move in its recovery cannot block, and the AI's heaviest button is the answer.
 	// ponytail: one button, not a combo.
 	case aiRecovering(o) && dist <= balance.AICloseRange && aiSeen(o, react):
 		return aiPunish
@@ -204,8 +197,7 @@ func aiDecide(s *GameState, i int, r aiRandom) int32 {
 	case o.State == StateBlockstun && aiRoll(r, balance.AIThrowPercent):
 		return aiThrow
 
-	// Close and nothing else applies: press something small, back off, or
-	// stand.
+	// Close and nothing else applies.
 	default:
 		switch r.RandN(4) {
 		case 0:
@@ -219,8 +211,8 @@ func aiDecide(s *GameState, i int, r aiRandom) int32 {
 	}
 }
 
-// aiHasMotion reports whether the character owns a move on this motion, and
-// aiHasProjectile whether any of its moves spawns one.
+// aiHasMotion reports whether the character owns a move on this motion, and aiHasProjectile whether
+// any of its moves spawns one.
 func aiHasMotion(char int32, m Motion) bool {
 	c := CharacterAt(char)
 	for i := int32(0); i < c.NumMoves; i++ {
@@ -249,16 +241,13 @@ func aiRoll(r aiRandom, percent int32) bool {
 	return int32(r.RandN(100)) < percent
 }
 
-// aiSeen models perception latency: the AI may not react to something until it
-// has been true for `reaction` frames.
+// aiSeen models perception latency.
 func aiSeen(o *PlayerState, reaction int32) bool { return o.StateFrame >= reaction }
 
-// aiIncoming is an attack that has not yet connected — something still worth
-// blocking.
+// aiIncoming is an attack that has not yet connected.
 func aiIncoming(o *PlayerState) bool { return o.State == StateAttack && o.HasHit == 0 }
 
-// aiRecovering is an attack past its active frames: the punish window, and the
-// only time an attacker cannot block.
+// aiRecovering is an attack past its active frames.
 func aiRecovering(o *PlayerState) bool {
 	if o.State != StateAttack {
 		return false

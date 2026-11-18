@@ -2,8 +2,8 @@ package sim
 
 import "testing"
 
-// betweenRounds advances until the fight resumes or the match is over, and
-// reports how many frames that took.
+// betweenRounds advances until the fight resumes or the match is over, and reports how many frames
+// that took.
 func betweenRounds(t *testing.T, s *GameState) int {
 	t.Helper()
 
@@ -78,8 +78,8 @@ func TestATimeoutIsDecidedOnPercentage(t *testing.T) {
 	}
 }
 
-// Both players reaching zero on the same frame is a draw, not a win for
-// whichever the loop happened to check first.
+// Both players reaching zero on the same frame is a draw, not a win for whichever the loop happened
+// to check first.
 func TestADoubleKOIsADraw(t *testing.T) {
 	s := New()
 	s.Players[0].Health = 0
@@ -147,9 +147,8 @@ func TestTwoRoundWinsTakeTheMatch(t *testing.T) {
 		t.Fatalf("phase %d winner %d, want the match won by player 0", s.Phase, s.Winner)
 	}
 
-	// Terminal: the frame still advances, so the network and the checksum keep
-	// moving, and the input history keeps being recorded — the ring may not
-	// grow a hole in it just because the match is over.
+	// Terminal: the frame still advances, so the network and the checksum keep moving, and the
+	// input history keeps being recorded.
 	before := s
 	for range 10 {
 		s.Advance([2]uint16{InLP, InLP})
@@ -170,8 +169,7 @@ func TestTwoRoundWinsTakeTheMatch(t *testing.T) {
 	}
 }
 
-// Draws are unbounded on their own: nobody is awarded a round, so draw and
-// replay is a loop with no exit.
+// Draws are unbounded on their own.
 func TestTheRoundCapResolvesByDamageDealt(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

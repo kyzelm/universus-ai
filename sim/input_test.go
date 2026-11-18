@@ -9,8 +9,7 @@ var pad = map[uint8]uint16{
 	7: InUp | InLeft, 8: InUp, 9: InUp | InRight,
 }
 
-// feed advances the state one frame per direction, giving player 0 the input
-// and player 1 neutral.
+// feed advances the state one frame per direction, giving player 0 the input and player 1 neutral.
 func feed(s *GameState, dirs ...uint8) {
 	for _, d := range dirs {
 		s.Advance([2]uint16{pad[d], 0})
@@ -25,9 +24,7 @@ func TestDirectionIsNumpad(t *testing.T) {
 	}
 }
 
-// The same physical input is a different numpad direction depending on which
-// way the player faces — that is the entire point of facing-relative notation,
-// and getting it wrong means P2 cannot throw a fireball.
+// The same physical input is a different numpad direction depending on which way the player faces.
 func TestDirectionMirrorsWithFacing(t *testing.T) {
 	mirror := map[uint8]uint8{1: 3, 2: 2, 3: 1, 4: 6, 5: 5, 6: 4, 7: 9, 8: 8, 9: 7}
 	for d, want := range mirror {
@@ -64,8 +61,8 @@ func TestMotionsAreRecognised(t *testing.T) {
 	}
 }
 
-// The classic bug in this system, and the reason the motion table is ordered
-// data rather than a chain of ifs.
+// The classic bug in this system, and the reason the motion table is ordered data rather than a
+// chain of ifs.
 func TestDPBeatsQCF(t *testing.T) {
 	s := New()
 	feed(&s, 6, 2, 3)
@@ -90,8 +87,7 @@ func TestDPBeatsQCF(t *testing.T) {
 	}
 }
 
-// The dragon punch people actually make on a keyboard: forward, down, forward,
-// with the final diagonal missing because it needs two keys held at once (D89).
+// The dragon punch people actually make on a keyboard (D89).
 func TestDPShortcut(t *testing.T) {
 	s := New()
 	feed(&s, 6, 2, 6)
@@ -99,8 +95,8 @@ func TestDPShortcut(t *testing.T) {
 		t.Errorf("→↓→ recognised as %d, want DP (%d)", got, MotionDP)
 	}
 
-	// Holding each element for a few frames is how anyone actually plays, and
-	// the tight rule has to allow a hold of what it has already taken.
+	// Holding each element for a few frames is how anyone actually plays, and the tight rule has to
+	// allow a hold of what it has already taken.
 	s = New()
 	feed(&s, 6, 6, 2, 2, 2, 6, 6)
 	if got := s.Motion(0); got != MotionDP {
@@ -130,9 +126,7 @@ func seqOf(t *testing.T, m Motion) []uint8 {
 	return nil
 }
 
-// Backward scanning buys leniency for free: a real player rolls through extra
-// directions and holds each for several frames, and none of that should matter
-// as long as the endpoints land in order inside the window.
+// Backward scanning buys leniency for free.
 func TestRecognitionIsLenient(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -160,8 +154,8 @@ func TestMotionExpiresWithItsWindow(t *testing.T) {
 		t.Fatal("QCF not recognised on the frame it completed")
 	}
 
-	// The window is 13 frames counting back from now, so the ↓ that started it
-	// falls out after enough neutral frames and the motion stops matching.
+	// The window is 13 frames counting back from now, so the ↓ that started it falls out after
+	// enough neutral frames and the motion stops matching.
 	for f := range 20 {
 		feed(&s, 5)
 		if s.Motion(0) == MotionNone {
@@ -189,8 +183,7 @@ func TestMotionIsFacingRelative(t *testing.T) {
 	}
 }
 
-// A history ring that is not in GameState reads as a rollback that replays a
-// fireball as a crouch.
+// A history ring that is not in GameState reads as a rollback that replays a fireball as a crouch.
 func TestInputHistoryRollsBack(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3)
@@ -248,8 +241,7 @@ func TestBufferedHoldsThePressBriefly(t *testing.T) {
 
 // ---- The pair window -------------------------------------------------------
 
-// Nothing makes a human press two keys on one frame, and a throw is a punch and
-// a kick.
+// Nothing makes a human press two keys on one frame, and a throw is a punch and a kick.
 func TestASecondButtonLandingLateStillMakesThePair(t *testing.T) {
 	window := BalanceOf().PairFrames
 

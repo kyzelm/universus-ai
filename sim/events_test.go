@@ -2,9 +2,8 @@ package sim
 
 import "testing"
 
-// events runs the fixture's jab into player 1 and returns the state on the
-// frame it connected, with p1 holding hold — which is what decides whether it
-// is a hit or a block.
+// events runs the fixture's jab into player 1 and returns the state on the frame it connected, with
+// p1 holding hold.
 func events(t *testing.T, hold uint16) GameState {
 	t.Helper()
 
@@ -20,8 +19,7 @@ func events(t *testing.T, hold uint16) GameState {
 	return GameState{}
 }
 
-// The flag is on the defender, because that is where the effect happens: a hit
-// spark is drawn on the fighter who was hit, not on the one who swung.
+// The flag is on the defender.
 func TestAHitFlagsTheDefender(t *testing.T) {
 	s := events(t, 0)
 
@@ -51,8 +49,8 @@ func TestAnEventLastsOneFrame(t *testing.T) {
 	}
 }
 
-// session is a Session with the players close enough to hit each other, which
-// New() deliberately is not: a match starts at a range where nothing connects.
+// session is a Session with the players close enough to hit each other, which New() deliberately is
+// not.
 func session() Session {
 	s := NewSession()
 	s.State().Players[0].X = FromInt(-20)
@@ -87,8 +85,7 @@ func TestACorrectedReplayReplacesTheEvents(t *testing.T) {
 		t.Fatalf("frame %d: events %#x, want a hit to correct away", hit, e)
 	}
 
-	// The packet arrives: the defender was holding back all along, so that
-	// frame was a block and not a hit.
+	// The packet arrives: the defender was holding back all along.
 	if !s.Adjust(hit, [2]uint16{InLP, InRight}) {
 		t.Fatal("the rollback was rejected")
 	}
@@ -115,8 +112,7 @@ func TestReplayingAFrameDoesNotRepeatItsEvents(t *testing.T) {
 	s := session()
 	for f, i := range in {
 		s.Advance(i)
-		// Roll back and replay the same eight frames, over and over: nine
-		// simulations of every frame in the window.
+		// Roll back and replay the same eight frames, over and over.
 		if f >= MaxRollback && f%3 == 0 {
 			target := s.Frame() - MaxRollback
 			if !s.Adjust(target, in[target]) {

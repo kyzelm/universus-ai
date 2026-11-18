@@ -8,8 +8,8 @@ const (
 	sweepInput = InDown | InHK
 )
 
-// sweep lands the fixture's knockdown strike on player 1 and returns the state
-// on the frame it connected.
+// sweep lands the fixture's knockdown strike on player 1 and returns the state on the frame it
+// connected.
 func sweep(t *testing.T) GameState {
 	t.Helper()
 
@@ -29,8 +29,8 @@ func sweep(t *testing.T) GameState {
 	return s
 }
 
-// knockedDown runs the sweep through its hitstun and returns the state on the
-// first frame player 1 is on the floor.
+// knockedDown runs the sweep through its hitstun and returns the state on the first frame player 1
+// is on the floor.
 func knockedDown(t *testing.T) GameState {
 	t.Helper()
 
@@ -47,8 +47,7 @@ func knockedDown(t *testing.T) GameState {
 	return s
 }
 
-// The knockdown is owed at the *end* of the hitstun, not instead of it: the
-// defender is struck, held for the move's frames, and only then goes down.
+// The knockdown is owed at the *end* of the hitstun, not instead of it.
 func TestASweepKnocksDownWhenItsHitstunEnds(t *testing.T) {
 	s := sweep(t)
 	if s.Players[1].State != StateHitstun {
@@ -64,8 +63,7 @@ func TestASweepKnocksDownWhenItsHitstunEnds(t *testing.T) {
 	}
 }
 
-// Invulnerable for the whole knockdown, and actionable on the frame the
-// invulnerability ends.
+// Invulnerable for the whole knockdown, and actionable on the frame the invulnerability ends.
 func TestVulnerableAndActionableBeginTogether(t *testing.T) {
 	s := knockedDown(t)
 

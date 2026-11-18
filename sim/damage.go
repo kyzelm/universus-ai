@@ -1,26 +1,16 @@
 package sim
 
 // Damage scaling.
-//
-//	final = base
-//	final = final * starterScale    / 100
-//	final = final * comboScale[n]   / 100
-//	final = max(final, minDamage)
-//	final = final * counterHitBonus / 100
 
-// ComboScaleSteps is the length of the scaling table: one entry per hit, and
-// the last entry is the floor every hit past it uses.
+// ComboScaleSteps is the length of the scaling table.
 const ComboScaleSteps = 10
 
-// Counter hit classes, stored on the defender and shown in the HUD — a counter
-// hit that is not visible is one nobody learns from.
+// Counter hit classes, stored on the defender and shown in the HUD.
 const (
 	CounterNone int32 = iota
-	// CounterHit is a hit landed during the opponent's startup or active
-	// frames: they were attacking and lost the exchange.
+	// CounterHit is a hit landed during the opponent's startup or active frames.
 	CounterHit
-	// CounterPunish is a hit landed during their recovery — the punish they
-	// left open.
+	// CounterPunish is a hit landed during their recovery.
 	CounterPunish
 )
 
@@ -37,8 +27,7 @@ func (s *GameState) counterClass(defender int) int32 {
 	return CounterPunish
 }
 
-// starterScale is the multiplier the move that *begins* a combo applies to the
-// whole of it.
+// starterScale is the multiplier the move that *begins* a combo applies to the whole of it.
 func starterScale(m *Move) int32 {
 	if m.Motion != MotionNone {
 		return balance.StarterHeavy
@@ -70,10 +59,8 @@ func scaledDamage(m *Move, starter, hit, counter int32) int32 {
 	d = d * starter / 100
 	d = d * comboScale(hit) / 100
 
-	// The floor is per-move and proportional: a scaled super doing forty damage
-	// reads as a bug to the player holding the controller.
-	// ponytail: one global percentage rather than a minDamage field on all
-	// twenty-four moves.
+	// The floor is per-move and proportional.
+	// ponytail: one global percentage rather than a minDamage field on all twenty-four moves.
 	if lo := m.Damage * balance.MinDamagePercent / 100; d < lo {
 		d = lo
 	}

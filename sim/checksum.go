@@ -2,8 +2,8 @@ package sim
 
 import "unsafe"
 
-// Save and load need no code: GameState is flat and comparable, so `saved := s`
-// and `s = saved` already are the memcpy.
+// Save and load need no code: GameState is flat and comparable, so `saved := s` and `s = saved`
+// already are the memcpy.
 
 const (
 	fnvOffset = 2166136261

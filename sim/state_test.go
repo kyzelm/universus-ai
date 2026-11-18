@@ -6,8 +6,7 @@ import (
 	"unsafe"
 )
 
-// The state must stay flat and fixed-size: saveState/loadState are memcpys and
-// the checksum is a hash over a byte range.
+// The state must stay flat and fixed-size.
 func TestGameStateIsFlatAndFixedSize(t *testing.T) {
 	// Comparable at all: a slice/map/func field would make this line not compile.
 	if New() == (GameState{}) {
@@ -21,10 +20,8 @@ func TestGameStateIsFlatAndFixedSize(t *testing.T) {
 	}
 }
 
-// Checksum hashes the struct's own memory, so a single byte of implicit padding
-// is a byte of uninitialised memory in the hash — two machines agree on every
-// field and still disagree on the checksum, which presents as a desync with no
-// cause visible anywhere in the gameplay code.
+// Checksum hashes the struct's own memory, so a single byte of implicit padding is a byte of
+// uninitialised memory in the hash.
 func TestGameStateHasNoImplicitPadding(t *testing.T) {
 	assertPacked(t, reflect.TypeOf(GameState{}), "GameState")
 }
@@ -49,8 +46,8 @@ func assertPacked(t *testing.T, typ reflect.Type, path string) {
 				path, typ.Size(), end, typ.Size()-end)
 		}
 
-	// Elements of a padding-free type are contiguous, so the element type is
-	// the whole question for an array.
+	// Elements of a padding-free type are contiguous, so the element type is the whole question for
+	// an array.
 	case reflect.Array:
 		assertPacked(t, typ.Elem(), path+"[]")
 
@@ -58,8 +55,7 @@ func assertPacked(t *testing.T, typ reflect.Type, path string) {
 		// The width the whole scheme depends on.
 
 	case reflect.Float32, reflect.Float64:
-		// CI greps for the type names; this catches one reached through an
-		// alias, where the grep would see a harmless-looking identifier.
+		// CI greps for the type names.
 		t.Errorf("%s is %s — the sim is fixed-point only", path, typ.Kind())
 
 	default:
@@ -113,8 +109,7 @@ func TestJumpRisesAndLands(t *testing.T) {
 		}
 	}
 
-	// Derived from the constants rather than pinned: a jump lasts about
-	// 2*v/|g| frames, and asserting the relationship survives tuning.
+	// Derived from the constants rather than pinned.
 	want := 2 * int(char().JumpVelocity/(-char().Gravity))
 	if airborne < want-3 || airborne > want+3 {
 		t.Errorf("jump lasted %d frames, want ~%d", airborne, want)
@@ -194,8 +189,7 @@ func TestDashRecognition(t *testing.T) {
 		{"forward, down-forward, forward", []uint8{F, 3, F}, StateWalkF},
 		{"down-forward twice is not a dash", []uint8{3, N, 3}, StateCrouch},
 
-		// Up in the middle is a jump, not a gap: pre-jump is not actionable, so
-		// the third input is correctly ignored.
+		// Up in the middle is a jump, not a gap.
 		{"back, up, back", []uint8{B, U, B}, StatePreJump},
 
 		{"back, forward, back", []uint8{B, F, B}, StateWalkB},
@@ -227,9 +221,8 @@ func TestOnePressFiresOneMove(t *testing.T) {
 		t.Fatal("the press did not start a move")
 	}
 
-	// Cut the move short so the player is actionable while its own press is
-	// still inside the buffer window — the only way to reach the case without
-	// waiting out a move longer than the buffer.
+	// Cut the move short so the player is actionable while its own press is still inside the buffer
+	// window.
 	s.Players[0].enter(StateIdle)
 	s.Advance([2]uint16{0, 0})
 
@@ -263,8 +256,7 @@ func TestEatenRollsBack(t *testing.T) {
 	}
 }
 
-// A special and the normal on the same button are told apart by the motion and
-// nothing else.
+// A special and the normal on the same button are told apart by the motion and nothing else.
 func TestMotionSelectsTheSpecial(t *testing.T) {
 	const jab, special = int32(0), int32(2)
 
@@ -282,9 +274,8 @@ func TestMotionSelectsTheSpecial(t *testing.T) {
 	}
 }
 
-// cancelWindow runs the jab into the opponent and returns the state on the
-// first frame after hitstop, with the cancel window open and the jab still
-// running.
+// cancelWindow runs the jab into the opponent and returns the state on the first frame after
+// hitstop, with the cancel window open and the jab still running.
 func cancelWindow(t *testing.T, gap int) GameState {
 	t.Helper()
 	s := facing(gap)
@@ -302,8 +293,7 @@ func cancelWindow(t *testing.T, gap int) GameState {
 	return s
 }
 
-// A cancelable normal that connected is not a commitment any more: the special
-// comes out of it instead of waiting for its recovery.
+// A cancelable normal that connected is not a commitment any more.
 func TestACancelableNormalCancelsIntoASpecial(t *testing.T) {
 	s := cancelWindow(t, 30)
 	jab := &char().Moves[0]
@@ -321,9 +311,7 @@ func TestACancelableNormalCancelsIntoASpecial(t *testing.T) {
 	}
 }
 
-// withTargetCombo adds a follow-up to the jab on the jab's own button — the
-// HP>HP shape, which is the hard case: the same press must be the jab from
-// neutral and the follow-up out of the jab.
+// withTargetCombo adds a follow-up to the jab on the jab's own button.
 func withTargetCombo(t *testing.T) int32 {
 	t.Helper()
 	c := char()
@@ -339,8 +327,8 @@ func withTargetCombo(t *testing.T) int32 {
 	return f
 }
 
-// The follow-up comes out of the jab's window, on the same button the jab
-// itself is on, and it does not loop: it names no follow-up of its own.
+// The follow-up comes out of the jab's window, on the same button the jab itself is on, and it does
+// not loop.
 func TestATargetComboComesOutOfItsSource(t *testing.T) {
 	f := withTargetCombo(t)
 	s := cancelWindow(t, 30)
@@ -363,9 +351,8 @@ func TestATargetComboComesOutOfItsSource(t *testing.T) {
 	}
 }
 
-// withSecondStage gives the fireball (move 2) a second stage on 6+LP, the
-// fireball again, the way a rekka is written: a follow-up that may come out
-// whether or not the first stage connected.
+// withSecondStage gives the fireball (move 2) a second stage on 6+LP, the fireball again, the way a
+// rekka is written.
 func withSecondStage(t *testing.T) int32 {
 	t.Helper()
 	c := char()
@@ -383,9 +370,8 @@ func withSecondStage(t *testing.T) int32 {
 	return f
 }
 
-// fireballRecovery throws the fireball and runs it to the first frame after
-// its active frames, which is where a whiffable second stage's default window
-// opens.
+// fireballRecovery throws the fireball and runs it to the first frame after its active frames,
+// which is where a whiffable second stage's default window opens.
 func fireballRecovery(t *testing.T) GameState {
 	t.Helper()
 	s := New()
@@ -410,8 +396,8 @@ func activeProjectiles(s *GameState) (n int) {
 	return n
 }
 
-// The second stage comes out of a fireball that hit nothing, on the direction
-// it was written for and on no other, and throws a second fireball.
+// The second stage comes out of a fireball that hit nothing, on the direction it was written for
+// and on no other, and throws a second fireball.
 func TestASecondStageComesOutOfAWhiff(t *testing.T) {
 	f := withSecondStage(t)
 	s := fireballRecovery(t)
@@ -437,8 +423,7 @@ func TestASecondStageComesOutOfAWhiff(t *testing.T) {
 	}
 }
 
-// A multi-hit move connects once per hit number: hit 2 re-arms a move hit 1
-// spent.
+// A multi-hit move connects once per hit number.
 func TestAMultiHitMoveHitsOncePerNumber(t *testing.T) {
 	c := char()
 	saved := *c

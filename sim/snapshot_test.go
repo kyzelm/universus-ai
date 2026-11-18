@@ -8,8 +8,7 @@ func u32(b []byte) uint32 {
 
 func i32(b []byte) int32 { return int32(u32(b)) }
 
-// The layout is a contract with the TypeScript reader, which has no way to
-// check it.
+// The layout is a contract with the TypeScript reader, which has no way to check it.
 func TestSnapshotLayout(t *testing.T) {
 	s := New()
 	s.Frame = 0x01020304
@@ -77,8 +76,8 @@ func TestSnapshotLayout(t *testing.T) {
 	}
 }
 
-// The buffer is reused every frame, so a frame with fewer boxes than the last
-// must not leave the previous frame's values behind for the view to find.
+// The buffer is reused every frame, so a frame with fewer boxes than the last must not leave the
+// previous frame's values behind for the view to find.
 func TestSnapshotLeavesNoStaleBoxes(t *testing.T) {
 	b := make([]byte, SnapshotSize)
 
@@ -109,9 +108,7 @@ func TestSnapshotLeavesNoStaleBoxes(t *testing.T) {
 	}
 }
 
-// The view draws projectiles from the snapshot like everything else, so they
-// have to be in it — and packed from the front, since the sim's slot numbers
-// mean nothing on the other side.
+// The view draws projectiles from the snapshot like everything else, so they have to be in it.
 func TestSnapshotCarriesProjectiles(t *testing.T) {
 	b := make([]byte, SnapshotSize)
 

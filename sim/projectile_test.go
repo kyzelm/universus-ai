@@ -2,8 +2,7 @@ package sim
 
 import "testing"
 
-// fireball puts player 0 through QCF+LP and returns the state on the frame the
-// projectile appears.
+// fireball puts player 0 through QCF+LP and returns the state on the frame the projectile appears.
 func fireball(t *testing.T) GameState {
 	t.Helper()
 	s := New()
@@ -30,8 +29,8 @@ func live(s *GameState) int {
 	return n
 }
 
-// mirror swaps left and right in a bitfield, so a test can give player 1 the
-// same facing-relative input as player 0.
+// mirror swaps left and right in a bitfield, so a test can give player 1 the same facing-relative
+// input as player 0.
 func mirror(bits uint16) uint16 {
 	out := bits &^ (InLeft | InRight)
 	if bits&InLeft != 0 {
@@ -43,9 +42,7 @@ func mirror(bits uint16) uint16 {
 	return out
 }
 
-// The spawn frame is the move's first active frame — data the move already
-// carries, so it cannot drift from the frame data the way a separate field
-// would.
+// The spawn frame is the move's first active frame.
 func TestFireballSpawnsOnTheActiveFrame(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3)
@@ -102,8 +99,7 @@ func TestFireballHitsOnceAndIsSpent(t *testing.T) {
 	}
 }
 
-// A projectile connects through applyHit, so blocking works as it does for any
-// special: it chips, and blocking spends it too.
+// A projectile connects through applyHit, so blocking works as it does for any special.
 func TestFireballCanBeBlocked(t *testing.T) {
 	s := fireball(t)
 	full := s.Players[1].Health
@@ -171,9 +167,7 @@ func TestProjectilesRollBack(t *testing.T) {
 	}
 }
 
-// Point blank, a projectile is born inside the defender and resolves on its
-// spawn frame — it is never alive at the end of a frame, and the view never
-// draws it.
+// Point blank, a projectile is born inside the defender and resolves on its spawn frame.
 func TestHitstopOnTheSpawnFrameCannotRespawn(t *testing.T) {
 	s := New()
 	s.Players[1].X = FromInt(-30) // inside where the fireball appears
@@ -208,8 +202,7 @@ func TestHitstopOnTheSpawnFrameCannotRespawn(t *testing.T) {
 		t.Fatal("the fireball survived a hit it landed on its own spawn frame")
 	}
 
-	// Through the hitstop and out the far side of the move: one input, one
-	// projectile, one hit.
+	// Through the hitstop and out the far side of the move.
 	after := s.Players[1].Health
 	for range mv.Total() + 30 {
 		s.Advance([2]uint16{0, 0})

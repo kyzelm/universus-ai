@@ -1,34 +1,9 @@
 package sim
 
-// The render snapshot: everything the view needs to draw a frame, and nothing
-// else.
-//
-//	 0  uint32  frame
-//	 4  int32   camera centre X (Fix)
-//	 8  int32   hitstop frames remaining
-//	12  int32   phase — fight, KO, result, intro, match end
-//	16  int32   round timer, in frames
-//	20  int32   round wins, player 0
-//	24  int32   round wins, player 1
-//	28  int32   winner of the round just decided, -1 for a draw
-//	32  int32   match winner, -1 while the match is still live
-//	36  player 0 block
-//	36+PlayerSnapshotSize    player 1 block
-//	36+2*PlayerSnapshotSize  uint32 projectile count, then MaxProjectiles boxes
-//	 0  int32   X (Fix)          20  int32  state frame
-//	 4  int32   Y (Fix)          24  int32  health
-//	 8  int32   facing           28  int32  super
-//	12  int32   move index       32  int32  combo hits
-//	16  int32   state            36  int32  counter class
-//	40  int32   actionable
-//	44  pushbox (4 x int32)
-//	60  uint32  hurt count       64  hurtboxes (MaxBoxes x 4 x int32)
-//	64+64 = 128  uint32 hit count
-//	132 hitboxes (MaxBoxes x 4 x int32)
+// The render snapshot: everything the view needs to draw a frame, and nothing else.
 const (
 	boxSize = 4 * 4
-	// headerSize covers the match-level fields above: the frame, the camera,
-	// hitstop and the round flow.
+	// headerSize covers the match-level fields above.
 	headerSize         = 9 * 4
 	PlayerSnapshotSize = 11*4 + boxSize + 2*(4+MaxBoxes*boxSize)
 	projOffset         = headerSize + 2*PlayerSnapshotSize
@@ -59,21 +34,19 @@ func putBox(b []byte, x Box) {
 	putI32(b[12:], int32(x.H))
 }
 
-// WriteSnapshot packs the render snapshot into b, which must be at least
-// SnapshotSize bytes.
+// WriteSnapshot packs the render snapshot into b, which must be at least SnapshotSize bytes.
 func (s *GameState) WriteSnapshot(b []byte) {
 	_ = b[SnapshotSize-1] // bounds check once, up front
 
-	// Unused box slots are not written below, so without this they keep last
-	// frame's values.
+	// Unused box slots are not written below, so without this they keep last frame's values.
 	clear(b[:SnapshotSize])
 
 	putU32(b, s.Frame)
 	putI32(b[4:], int32(s.CamX))
 	putI32(b[8:], s.Hitstop)
 
-	// The round. The timer crosses in frames, not seconds: the view divides,
-	// because the view is the only place allowed a number that is not exact.
+	// The round. The timer crosses in frames, not seconds: the view divides, because the view is
+	// the only place allowed a number that is not exact.
 	putI32(b[12:], s.Phase)
 	putI32(b[16:], s.Timer)
 	putI32(b[20:], s.Wins[0])
@@ -97,8 +70,8 @@ func (s *GameState) WriteSnapshot(b []byte) {
 		// The combo counter and the counter-hit class.
 		putI32(o[32:], p.Combo)
 		putI32(o[36:], p.Counter)
-		// Whether this player may act this frame, which is the sim's own
-		// predicate and not a state list the view keeps beside it.
+		// Whether this player may act this frame, which is the sim's own predicate and not a state
+		// list the view keeps beside it.
 		putI32(o[40:], b2i(Actionable(p.State)))
 		putBox(o[44:], s.Pushbox(i))
 
@@ -116,9 +89,7 @@ func (s *GameState) WriteSnapshot(b []byte) {
 		}
 	}
 
-	// Projectiles are packed from the front, not by slot: the view draws them,
-	// it never has to name one, and a count plus that many boxes is the least
-	// the reader has to know.
+	// Projectiles are packed from the front, not by slot.
 	live := 0
 	for i := range s.Projectiles {
 		pb := s.ProjectileBox(i)

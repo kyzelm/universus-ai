@@ -7,16 +7,15 @@ const BarUnits = 1000
 
 // Balance is the global tunables.
 type Balance struct {
-	// PairFrames is how late the second button of a two-button input may land
-	// and still be read as the pair.
+	// PairFrames is how late the second button of a two-button input may land and still be read as
+	// the pair.
 	PairFrames int32
 
-	// ArmorDamagePercent is how much of a move's damage an absorbed hit still
-	// deals to an armoured defender (see Move.Armor).
+	// ArmorDamagePercent is how much of a move's damage an absorbed hit still deals to an armoured
+	// defender (see Move.Armor).
 	ArmorDamagePercent int32
 
-	// ChipPercent is how much of its damage a blocked special, EX or super
-	// still deals.
+	// ChipPercent is how much of its damage a blocked special, EX or super still deals.
 	ChipPercent int32
 
 	// The damage pipeline (see damage.go).
@@ -26,9 +25,7 @@ type Balance struct {
 	StarterHeavy     int32
 	MinDamagePercent int32
 
-	// A counter hit pays more damage and more hitstun; a punish counter — a hit
-	// landed in the opponent's recovery — pays the same damage and more frames
-	// still.
+	// A counter hit pays more damage and more hitstun.
 	CounterHitPercent int32
 	CounterHitstun    int32
 	PunishHitstun     int32
@@ -51,18 +48,15 @@ type Balance struct {
 	KnockbackBlock Fix
 	KnockbackDecay int32
 
-	// Juggles. JuggleLimit is how many hits an airborne defender takes before
-	// moves stop connecting, standing in for every move that does not name its
-	// own; JuggleGravityPercent is how much heavier each juggle hit makes them
-	// fall, which is what makes an air combo self-terminate rather than merely
-	// hit a cap.
+	// Juggles. JuggleLimit is how many hits an airborne defender takes before moves stop
+	// connecting, standing in for every move that does not name its own; JuggleGravityPercent is
+	// how much heavier each juggle hit makes them fall, which is what makes an air combo
+	// self-terminate rather than merely hit a cap.
 	JuggleLimit          int32
 	JuggleGravityPercent int32
 
-	// KnockdownFrames is how long a knocked-down player is on the ground, and
-	// it is deliberately one number: the design note says wakeup timing stays
-	// identical for every knockdown type, because varying it is a balance
-	// rabbit hole that adds nothing the thesis needs.
+	// KnockdownFrames is how long a knocked-down player is on the ground, and it is deliberately
+	// one number.
 	KnockdownFrames int32
 
 	// Half the stage and half the screen, in units.
@@ -71,9 +65,6 @@ type Balance struct {
 	CameraMargin    Fix
 
 	// The scripted opponent (ai.go).
-	// AIReaction is how long the AI takes to notice something, AIBlockPercent
-	// how often it blocks what it noticed, and AIRandomPercent how often it
-	// throws the rule list away.
 	AIReaction          int32
 	AIBlockPercent      int32
 	AIRandomPercent     int32
@@ -85,8 +76,7 @@ type Balance struct {
 	AIProjectilePercent int32
 	AIReversalPercent   int32
 
-	// SuperMax is the full gauge; Super is built by dealing damage, by taking
-	// it, and by landing a special.
+	// SuperMax is the full gauge.
 	SuperMax          int32
 	SuperDealtPercent int32
 	SuperTakenPercent int32
@@ -106,8 +96,7 @@ func BalanceOf() Balance { return balance }
 
 // updateResources is the resource half of step 8.
 func (s *GameState) updateResources() {
-	// Training mode keeps both fighters topped up — infinite resources, per the
-	// mode's own list.
+	// Training mode keeps both fighters topped up.
 	if s.Training != 0 && !s.anyoneStunned() {
 		for i := range s.Players {
 			p := &s.Players[i]
@@ -117,8 +106,7 @@ func (s *GameState) updateResources() {
 	}
 }
 
-// anyoneStunned reports whether either fighter is mid-consequence: hitstun,
-// blockstun, a knockdown or a throw.
+// anyoneStunned reports whether either fighter is mid-consequence.
 func (s *GameState) anyoneStunned() bool {
 	return stunned(s.Players[0].State) || stunned(s.Players[1].State) ||
 		s.Players[0].Combo > 0 || s.Players[1].Combo > 0

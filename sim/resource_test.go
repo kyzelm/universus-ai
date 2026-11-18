@@ -4,8 +4,8 @@ import "testing"
 
 // The super meter.
 
-// blocked runs player 0's jab into a player 1 who is holding away, and stops on
-// the frame the block lands.
+// blocked runs player 0's jab into a player 1 who is holding away, and stops on the frame the block
+// lands.
 func blocked(t *testing.T, s *GameState) {
 	t.Helper()
 	s.Advance([2]uint16{InLP, InRight})
@@ -66,8 +66,7 @@ func TestChipCanKill(t *testing.T) {
 	}
 }
 
-// Both fighters build Super from the same hit, at different rates: the one
-// landing it is rewarded, the one eating it is compensated.
+// Both fighters build Super from the same hit, at different rates.
 func TestSuperBuildsForBothFightersOnAHit(t *testing.T) {
 	s := facing(30)
 	mv := &char().Moves[0]

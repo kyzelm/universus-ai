@@ -7,15 +7,10 @@ import "math/bits"
 // InputHistory is the ring length, in frames.
 const InputHistory = 32
 
-// InputBuffer is how long a button press stays live looking for a state that
-// can act on it.
+// InputBuffer is how long a button press stays live looking for a state that can act on it.
 const InputBuffer = 6
 
 // Direction in numpad notation, relative to the player's facing.
-//
-//	7 8 9
-//	4 5 6      6 is forward, 4 is back, 5 is neutral
-//	1 2 3
 const (
 	DirDownBack = 1 + iota
 	DirDown
@@ -43,8 +38,7 @@ const (
 	MotionHCF // ← ↙ ↓ ↘ → — the grappler's command throw
 )
 
-// satisfies reports whether a recognised motion also counts as a simpler one it
-// contains.
+// satisfies reports whether a recognised motion also counts as a simpler one it contains.
 func (m Motion) satisfies(want Motion) bool {
 	if m == want {
 		return true
@@ -53,9 +47,8 @@ func (m Motion) satisfies(want Motion) bool {
 	case MotionQCFx2:
 		return want == MotionQCF
 	case MotionHCF:
-		// A half-circle forward ends in a quarter-circle forward, and this line
-		// is what keeps the table's new row from changing anything for a
-		// character that has no half-circle move.
+		// A half-circle forward ends in a quarter-circle forward, and this line is what keeps the
+		// table's new row from changing anything for a character that has no half-circle move.
 		return want == MotionQCF
 	}
 	return false
@@ -95,8 +88,7 @@ func direction(bits uint16, facing int32) uint8 {
 	return uint8(5 + h + 3*v)
 }
 
-// at returns the bitfield from frame now-back, or 0 when that frame predates
-// the history.
+// at returns the bitfield from frame now-back, or 0 when that frame predates the history.
 func (p *PlayerState) at(now, back uint32) uint16 {
 	if back > now || back >= InputHistory {
 		return 0
@@ -124,8 +116,7 @@ func (s *GameState) DirectionAt(player int, now uint32) uint8 {
 	return direction(p.at(now, 0), p.Facing)
 }
 
-// Motion returns the highest-priority motion the player has just completed, or
-// MotionNone.
+// Motion returns the highest-priority motion the player has just completed, or MotionNone.
 func (s *GameState) Motion(player int) Motion {
 	return s.MotionAt(player, s.latest())
 }
@@ -157,9 +148,8 @@ func (p *PlayerState) scan(now uint32, seq []uint8, window uint32, tight bool) b
 			continue
 		}
 
-		// k+1 == len(seq) is "nothing taken yet", so the element the row ends on
-		// has to be the newest input that is not neutral: a tight shortcut reads
-		// the motion the player just made, not one they made and then left.
+		// k+1 == len(seq) is "nothing taken yet", so the element the row ends on has to be the
+		// newest input that is not neutral.
 		if tight && dir != DirNeutral && (k+1 == len(seq) || dir != seq[k+1]) {
 			return false
 		}
@@ -190,8 +180,8 @@ func pressed(mask uint16, need int32, now, before uint16) bool {
 	return held(mask, need, now) && now&^before&mask != 0
 }
 
-// pressFrame is the newest frame within the buffer window on which need of
-// mask's buttons were freshly pressed, or -1.
+// pressFrame is the newest frame within the buffer window on which need of mask's buttons were
+// freshly pressed, or -1.
 func (p *PlayerState) pressFrame(now uint32, mask uint16, need int32) int32 {
 	return p.pressWithin(now, mask, need, InputBuffer)
 }
@@ -206,9 +196,8 @@ func (p *PlayerState) pressWithin(now uint32, mask uint16, need int32, window ui
 	return -1
 }
 
-// Buffered reports a press edge within the last InputBuffer frames, which is
-// what makes cancels and links feel responsive instead of punishing: the press
-// stays live briefly, looking for a state that can act on it.
+// Buffered reports a press edge within the last InputBuffer frames, which is what makes cancels and
+// links feel responsive instead of punishing.
 func (s *GameState) Buffered(player int, button uint16) bool {
 	return s.BufferedAt(player, button, s.latest())
 }

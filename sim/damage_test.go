@@ -2,9 +2,7 @@ package sim
 
 import "testing"
 
-// The damage pipeline is a formula, so most of it is tested as one: the order
-// of operations is the part that must never move, and an integration test that
-// happens to agree with a reordered formula would not notice.
+// The damage pipeline is a formula, so most of it is tested as one.
 
 func TestScalingFollowsTheTable(t *testing.T) {
 	m := Move{Damage: 1000, Button: InHP} // heavy, so the starter is 100%
@@ -31,8 +29,8 @@ func TestScalingNeverReachesZero(t *testing.T) {
 	}
 }
 
-// Minimum damage is a floor under the scaling, so a super deep in a combo does
-// not arrive as forty points.
+// Minimum damage is a floor under the scaling, so a super deep in a combo does not arrive as forty
+// points.
 func TestMinimumDamageHoldsUnderTheScaling(t *testing.T) {
 	m := Move{Damage: 3600, Button: InHP} // a super
 	want := m.Damage * BalanceOf().MinDamagePercent / 100
@@ -52,8 +50,7 @@ func TestCounterBonusIsAppliedAfterTheFloor(t *testing.T) {
 	}
 }
 
-// The starter is derived from the move, never authored: a light is a light
-// because of its button, a special because of its motion.
+// The starter is derived from the move, never authored.
 func TestStarterScaleIsDerived(t *testing.T) {
 	b := BalanceOf()
 	for _, tc := range []struct {
@@ -67,8 +64,8 @@ func TestStarterScaleIsDerived(t *testing.T) {
 		{"medium kick", Move{Button: InMK}, b.StarterMedium},
 		{"heavy punch", Move{Button: InHP}, b.StarterHeavy},
 		{"heavy kick", Move{Button: InHK}, b.StarterHeavy},
-		// A special is a heavy starter whatever button carries it, and a super
-		// is one whatever else it is.
+		// A special is a heavy starter whatever button carries it, and a super is one whatever else
+		// it is.
 		{"a light-button special", Move{Button: InLP, Motion: MotionQCF}, b.StarterHeavy},
 		{"a light-button super", Move{Button: InLP, Motion: MotionQCFx2, Super: 1}, b.StarterHeavy},
 	} {
@@ -80,8 +77,7 @@ func TestStarterScaleIsDerived(t *testing.T) {
 	}
 }
 
-// A counter hit is a hit landed while the opponent's own attack is in its
-// startup or active frames; a punish counter is one landed in the recovery.
+// A counter hit is a hit landed while the opponent's own attack is in its startup or active frames.
 func TestCounterClassReadsTheDefendersMove(t *testing.T) {
 	mv := &char().Moves[0] // 4 startup, 3 active, 6 recovery
 
@@ -112,9 +108,7 @@ func TestCounterClassReadsTheDefendersMove(t *testing.T) {
 	}
 }
 
-// A counter hit has to pay in frames as well as damage: the extra hitstun is
-// what opens a combo that is otherwise impossible, and the damage on its own
-// would just be a bigger number.
+// A counter hit has to pay in frames as well as damage.
 func TestACounterHitPaysDamageAndFrames(t *testing.T) {
 	clean := facing(30)
 	clean.Advance([2]uint16{InLP, 0})
@@ -180,14 +174,13 @@ func TestTheComboEndsWithTheHitstun(t *testing.T) {
 	}
 }
 
-// The second hit of a combo is the one that proves the counter is doing
-// anything: it scales, and it scales by the starter the *first* move set.
+// The second hit of a combo is the one that proves the counter is doing anything.
 func TestTheSecondHitOfACombo(t *testing.T) {
 	s := facing(30)
 	dp := &s.Players[1]
 
-	// Land the jab, then cancel it into the super while the defender is still
-	// in hitstun, so a two-hit combo is built without a second character.
+	// Land the jab, then cancel it into the super while the defender is still in hitstun, so a
+	// two-hit combo is built without a second character.
 	s.Players[0].Super = 2 * BarUnits
 	connect(t, &s, InLP)
 	if dp.Combo != 1 {

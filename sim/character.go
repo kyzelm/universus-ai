@@ -7,8 +7,8 @@ import (
 
 // Character data: frame data, damage, boxes and speeds.
 
-// Fixed caps. Static data, so generous is free — but bounded, because a loader
-// that can grow these is a loader that can produce two different sims.
+// Fixed caps. Static data, so generous is free — but bounded, because a loader that can grow these
+// is a loader that can produce two different sims.
 const (
 	MaxCharacters = 4
 	MaxMoves      = 32
@@ -23,15 +23,14 @@ const (
 	LevelLow
 )
 
-// Cancel categories — the bitmask a move carries saying what it may be
-// cancelled into once it has connected (03 Game Design/Combat System.md, D34).
+// Cancel categories — the bitmask a move carries saying what it may be cancelled into once it has
+// connected (03 Game Design/Combat System.md, D34).
 const (
 	CancelChain   uint16 = 1 << 0 // another normal
 	CancelSpecial uint16 = 1 << 1
 	CancelSuper   uint16 = 1 << 2
 
-	// CancelTarget is a target combo: the one follow-up written for this exact
-	// move (Move.After).
+	// CancelTarget is a target combo.
 	CancelTarget uint16 = 1 << 3
 )
 
@@ -45,8 +44,7 @@ const (
 	StanceAir
 )
 
-// Box is an axis-aligned rectangle in character-local space: origin at the
-// feet, positive x forward, positive y up.
+// Box is an axis-aligned rectangle in character-local space.
 type Box struct {
 	X, Y, W, H Fix
 }
@@ -96,8 +94,8 @@ type Keyframe struct {
 	NumHurt int32
 	NumHit  int32
 
-	// HitNum is which hit of a multi-hit move these hitboxes are, 1-based and
-	// non-decreasing through the move.
+	// HitNum is which hit of a multi-hit move these hitboxes are, 1-based and non-decreasing
+	// through the move.
 	HitNum int32
 	Hurt   [MaxBoxes]Box
 	Hit    [MaxBoxes]Box
@@ -108,13 +106,11 @@ func (k *Keyframe) HitNumber() int32 { return max(k.HitNum, 1) }
 
 // ProjectileSpec is the projectile a move fires, if it fires one.
 type ProjectileSpec struct {
-	// Speed is forward units per frame; Life is how many frames it lives if it
-	// hits nothing.
+	// Speed is forward units per frame.
 	Speed Fix
 	Life  int32
 
-	// Spawn is where it appears, relative to the owner's origin and mirrored by
-	// their facing.
+	// Spawn is where it appears, relative to the owner's origin and mirrored by their facing.
 	SpawnX, SpawnY Fix
 	Box            Box
 }
@@ -136,76 +132,66 @@ type Move struct {
 	Level  int32
 	Stance int32
 
-	// Button is the set of buttons the move reads and Need how many of them
-	// must be down, 0 for all: one exact button, any one of a kind, any two.
+	// Button is the set of buttons the move reads and Need how many of them must be down, 0 for
+	// all.
 	Button uint16
 	Need   int32
 
-	// Motion is the directional sequence the move requires, or MotionNone for a
-	// normal.
+	// Motion is the directional sequence the move requires, or MotionNone for a normal.
 	Motion Motion
 
-	// LaunchVX and LaunchVY are the velocity the move gives the character on
-	// its first frame, forward-relative.
+	// LaunchVX and LaunchVY are the velocity the move gives the character on its first frame,
+	// forward-relative.
 	// ponytail: one impulse per move, not per keyframe.
 	LaunchVX, LaunchVY Fix
 
 	// KnockbackVX and KnockbackVY are the velocity the move gives the
-	// *defender* on a clean hit, directed away from the attacker.
 	KnockbackVX, KnockbackVY Fix
 
-	// JuggleLimit is the juggle count at or above which this move refuses to
-	// connect with an airborne defender: the knob that designates a move a
-	// combo ender.
+	// JuggleLimit is the juggle count at or above which this move refuses to connect with an
+	// airborne defender.
 	JuggleLimit int32
 
-	// Landing is the recovery owed on touchdown by a move that was still in the
-	// air when it ended.
+	// Landing is the recovery owed on touchdown by a move that was still in the air when it ended.
 	Landing int32
 
-	// InvulnStart and InvulnEnd bound the frames on which the move has no
-	// hurtboxes at all, in the move's own frames and half-open: [start, end).
+	// InvulnStart and InvulnEnd bound the frames on which the move has no hurtboxes at all, in the
+	// move's own frames and half-open.
 	// ponytail: one window, whole-body.
 	InvulnStart, InvulnEnd int32
 
-	// Knockdown marks a move that puts the defender on the floor when its
-	// hitstun runs out — a sweep, a throw.
+	// Knockdown marks a move that puts the defender on the floor when its hitstun runs out.
 	Knockdown int32
 
-	// Throw marks a throw: unblockable, refused against anyone airborne or in
-	// stun, and escapable by teching (03 Game Design/Movement and Defense.md).
+	// Throw marks a throw: unblockable, refused against anyone airborne or in stun, and escapable
+	// by teching (03 Game Design/Movement and Defense.md).
 	Throw int32
 
 	// Meter is the move's cost in super meter units: an EX special or a super.
 	Meter int32
 
 	// Armor is how many hits the move absorbs while it is coming out.
-	// ponytail: armour covers startup and the active frames, and the recovery
-	// is exposed.
+	// ponytail: armour covers startup and the active frames, and the recovery is exposed.
 	Armor int32
 
 	// Super is 1 for the character's super.
 	Super int32
 
-	// CancelInto is the set of categories this move may be cancelled into once
-	// it has connected — zero for the moves that do not cancel, which is the
-	// default and the majority.
+	// CancelInto is the set of categories this move may be cancelled into once it has connected —
+	// zero for the moves that do not cancel, which is the default and the majority.
 	CancelInto uint16
 
-	// After makes the move a follow-up — a target combo step or the second
-	// stage of a special: the set of move indices it may come out of, one bit
-	// per index, and nowhere else.
+	// After makes the move a follow-up.
 	After uint32
 
 	// Whiff lets the follow-up come out whether or not the source connected.
 	Whiff int32
 
-	// WindowStart and WindowEnd bound the source frames the follow-up may come
-	// out on, half-open.
+	// WindowStart and WindowEnd bound the source frames the follow-up may come out on, half-open.
 	WindowStart, WindowEnd int32
 
-	// Dir is the facing-relative numpad direction the follow-up's button must
-	// be pressed with, or 0 for none.
+	// Dir is the facing-relative numpad direction the follow-up's button must be pressed with, or 0
+	// for none.
 	// ponytail: follow-ups only.
 	Dir uint8
 
@@ -233,8 +219,7 @@ func (m *Move) presses() int32 {
 // Armored reports a move that absorbs hits on the way out.
 func (m *Move) Armored() bool { return m.Armor > 0 }
 
-// Category is the cancel category the move *is*, as opposed to the ones it
-// cancels into.
+// Category is the cancel category the move *is*, as opposed to the ones it cancels into.
 func (m *Move) Category() uint16 {
 	if m.After != 0 {
 		return CancelTarget
@@ -251,8 +236,7 @@ func (m *Move) Category() uint16 {
 // Launches reports whether the move sets its own velocity.
 func (m *Move) Launches() bool { return m.LaunchVX != 0 || m.LaunchVY != 0 }
 
-// Invulnerable reports whether the move is invulnerable on the given frame of
-// itself.
+// Invulnerable reports whether the move is invulnerable on the given frame of itself.
 func (m *Move) Invulnerable(frame int32) bool {
 	return frame >= m.InvulnStart && frame < m.InvulnEnd
 }
@@ -327,8 +311,7 @@ func LoadCharacters(cs []Character) bool {
 	return true
 }
 
-// CharacterAt returns a roster entry, or the zero character for an out-of-range
-// index.
+// CharacterAt returns a roster entry, or the zero character for an out-of-range index.
 func CharacterAt(i int32) *Character {
 	if i < 0 || i >= numCharacters {
 		return &zeroCharacter

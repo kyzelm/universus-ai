@@ -10,12 +10,9 @@ func TestMain(m *testing.M) {
 	// Two entries, the second identical bar a smaller health pool.
 	small := testCharacter()
 	small.Health /= 2
-	// It is also the entry without a dragon punch — the last move, dropped by
-	// shortening the list.
+	// It is also the entry without a dragon punch.
 	small.NumMoves--
-	// And the entry without a projectile, for the same reason: the rule that
-	// throws a fireball at range must be told by what the character owns, or a
-	// grappler stands at full screen pressing a motion it does not have.
+	// And the entry without a projectile, for the same reason.
 	small.Moves[2].Proj = ProjectileSpec{}
 
 	if !LoadCharacters([]Character{testCharacter(), small}) {
@@ -25,8 +22,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// The balance fixture, in round numbers for the same reason as the character
-// one: a test must not fail because someone tuned a number.
+// The balance fixture, in round numbers for the same reason as the character one.
 func testBalance() Balance {
 	return Balance{
 		SuperMax: 2 * BarUnits,
@@ -34,61 +30,56 @@ func testBalance() Balance {
 		// The pair window, in frames.
 		PairFrames: 4,
 
-		// Wider than the screen, so the screen-edge walls are reachable
-		// without the stage ends getting there first.
+		// Wider than the screen, so the screen-edge walls are reachable without the stage ends
+		// getting there first.
 		StageHalfWidth:  FromInt(320),
 		CameraHalfWidth: FromInt(200),
 		CameraMargin:    FromInt(60),
 
 		ChipPercent: 10,
 
-		// The scaling table is the shipped shape; the numbers are round enough
-		// to check by hand either way.
+		// The scaling table is the shipped shape.
 		ComboScale:       [ComboScaleSteps]int32{100, 100, 80, 70, 60, 50, 40, 30, 20, 10},
 		StarterLight:     80,
 		StarterMedium:    90,
 		StarterHeavy:     100,
 		MinDamagePercent: 10,
 
-		// Deliberately not the shipped 125: a test that passes on the fixture
-		// and on the live balance is a test that is reading neither.
+		// Deliberately not the shipped 125.
 		CounterHitPercent: 150,
 		CounterHitstun:    5,
 		PunishHitstun:     10,
 
-		// Half: a 200-damage move absorbed deals exactly 100, which is checkable
-		// without running the formula the code runs.
+		// Half: a 200-damage move absorbed deals exactly 100, which is checkable without running
+		// the formula the code runs.
 		ArmorDamagePercent: 50,
 
 		SuperDealtPercent: 50,
 		SuperTakenPercent: 25,
 		SuperOnSpecial:    200,
 
-		// The design's own five-frame tech window; a tech that costs 15 frames
-		// and pushes 20 units is easy to check by hand.
+		// The design's own five-frame tech window.
 		ThrowTechFrames:   5,
 		ThrowTechRecovery: 15,
 		ThrowTechPush:     20,
 
-		// A knockdown of 30 frames: long enough to be an oki window, short
-		// enough that a test can sit through one.
+		// A knockdown of 30 frames: long enough to be an oki window, short enough that a test can
+		// sit through one.
 		KnockdownFrames: 30,
 
-		// Knockback in round numbers: a unit a frame on hit, two on block, and
-		// half of it left every frame, so the whole slide is exactly twice the
-		// initial push and the arithmetic is checkable by hand.
+		// Knockback in round numbers: a unit a frame on hit, two on block, and half of it left
+		// every frame, so the whole slide is exactly twice the initial push and the arithmetic is
+		// checkable by hand.
 		KnockbackHit:   One,
 		KnockbackBlock: FromInt(2),
 		KnockbackDecay: 50,
 
-		// Two juggle hits, and half as much gravity again for each of them:
-		// the fixture's 0.5 becomes 0.75 after one juggle hit.
+		// Two juggle hits, and half as much gravity again for each of them.
 		JuggleLimit:          2,
 		JuggleGravityPercent: 50,
 
-		// Round flow in round numbers again, and a round long enough that no
-		// other test in the package can time one out by accident: the longest
-		// of them runs 2000 frames.
+		// Round flow in round numbers again, and a round long enough that no other test in the
+		// package can time one out by accident.
 		RoundFrames:  3600,
 		RoundsToWin:  2,
 		MaxRounds:    5,
@@ -96,10 +87,7 @@ func testBalance() Balance {
 		RoundEndHold: 20,
 		IntroFrames:  30,
 
-		// The scripted opponent, at the shipped shape and round distances: the
-		// fixture's fighters start 120 units apart, so they begin outside mid
-		// range and have to walk in, which is the state most of the rule tests
-		// want to start from.
+		// The scripted opponent, at the shipped shape and round distances.
 		AIDecisionFrames:    8,
 		AICloseRange:        FromInt(40),
 		AIMidRange:          FromInt(110),
@@ -153,8 +141,7 @@ func testCharacter() Character {
 	c.Moves[0].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
 	c.Moves[0].Keys[2].Hurt[0] = c.StandHurt
 
-	// A crouching low, so the block-level tests have something that must be
-	// blocked crouching.
+	// A crouching low, so the block-level tests have something that must be blocked crouching.
 	c.Moves[1] = Move{
 		Startup: 5, Active: 2, Recovery: 9,
 		Damage: 80, Hitstun: 12, Blockstun: 9, Hitstop: 5,
@@ -168,8 +155,7 @@ func testCharacter() Character {
 	c.Moves[1].Keys[1].Hurt[0] = c.CrouchHurt
 	c.Moves[1].Keys[1].Hit[0] = Box{X: FromInt(12), Y: FromInt(2), W: FromInt(28), H: FromInt(10)}
 
-	// A special on the same button as the jab, which is the case that matters:
-	// QCF+LP and LP are told apart by the motion and nothing else.
+	// A special on the same button as the jab, which is the case that matters.
 	c.Moves[2] = Move{
 		Startup: 6, Active: 3, Recovery: 10,
 		Damage: 200, Hitstun: 20, Blockstun: 14, Hitstop: 8,
@@ -181,8 +167,7 @@ func testCharacter() Character {
 	c.Moves[2].Keys[1] = Keyframe{Frame: 6, NumHurt: 1}
 	c.Moves[2].Keys[1].Hurt[0] = c.StandHurt
 
-	// Everything that hits is the projectile; the move itself has no hitbox,
-	// like the shipped fireball.
+	// Everything that hits is the projectile.
 	c.Moves[2].Proj = ProjectileSpec{
 		Speed:  FromInt(4),
 		Life:   60,
@@ -205,8 +190,7 @@ func testCharacter() Character {
 	c.Moves[3].Keys[1].Hurt[0] = c.AirHurt
 	c.Moves[3].Keys[1].Hit[0] = Box{X: FromInt(4), Y: FromInt(28), W: FromInt(26), H: FromInt(30)}
 
-	// The same, but far too short to land in: it exists to exercise a move that
-	// runs out while the character is still in the air.
+	// The same, but far too short to land in.
 	c.Moves[4] = Move{
 		Startup: 2, Active: 2, Recovery: 2,
 		Damage: 100, Hitstun: 12, Blockstun: 9, Hitstop: 5,
@@ -243,9 +227,8 @@ func testCharacter() Character {
 	c.Moves[6].Keys[1].Hurt[0] = c.AirHurt
 	c.Moves[6].Keys[1].Hit[0] = Box{X: FromInt(10), Y: FromInt(16), W: FromInt(26), H: FromInt(20)}
 
-	// An invincible reversal: no hurtboxes at all for its startup and the first
-	// two active frames, so an attack that would beat it on frames alone loses
-	// to it anyway.
+	// An invincible reversal: no hurtboxes at all for its startup and the first two active frames,
+	// so an attack that would beat it on frames alone loses to it anyway.
 	c.Moves[7] = Move{
 		Startup: 5, Active: 4, Recovery: 20,
 		Damage: 250, Hitstun: 20, Blockstun: 14, Hitstop: 8,
@@ -258,9 +241,7 @@ func testCharacter() Character {
 	c.Moves[7].Keys[1] = Keyframe{Frame: 5, NumHurt: 1, NumHit: 1}
 	c.Moves[7].Keys[1].Hurt[0] = c.StandHurt
 	c.Moves[7].Keys[1].Hit[0] = Box{X: FromInt(12), Y: FromInt(30), W: FromInt(28), H: FromInt(12)}
-	// The hitbox goes away when the active window does: a keyframe persists
-	// until the next one, so a move with nothing after its active frames keeps
-	// swinging through its own recovery.
+	// The hitbox goes away when the active window does.
 	c.Moves[7].Keys[2] = Keyframe{Frame: 9, NumHurt: 1}
 	c.Moves[7].Keys[2].Hurt[0] = c.StandHurt
 
@@ -312,10 +293,8 @@ func testCharacter() Character {
 	c.Moves[11].Keys[1].Hurt[0] = c.CrouchHurt
 	c.Moves[11].Keys[1].Hit[0] = Box{X: FromInt(12), Y: FromInt(2), W: FromInt(28), H: FromInt(10)}
 
-	// The anti-air launcher: it throws the *defender* into the air and stays on
-	// the ground itself, which is the only shape a juggle can be tested from —
-	// a move that launches its own owner (move 3) leaves nobody in a position
-	// to follow up.
+	// The anti-air launcher: it throws the *defender* into the air and stays on the ground itself,
+	// which is the only shape a juggle can be tested from.
 	c.Moves[12] = Move{
 		Startup: 4, Active: 3, Recovery: 8,
 		Damage: 200, Hitstun: 16, Blockstun: 12, Hitstop: 6,
@@ -328,8 +307,7 @@ func testCharacter() Character {
 	c.Moves[12].Keys[1] = Keyframe{Frame: 4, NumHurt: 1, NumHit: 1}
 	c.Moves[12].Keys[1].Hurt[0] = c.StandHurt
 	c.Moves[12].Keys[1].Hit[0] = Box{X: FromInt(12), Y: FromInt(10), W: FromInt(28), H: FromInt(40)}
-	// The hitbox ends with the active window: a keyframe persists until the
-	// next one, so a move without this keeps swinging through its recovery.
+	// The hitbox ends with the active window.
 	c.Moves[12].Keys[2] = Keyframe{Frame: 7, NumHurt: 1}
 	c.Moves[12].Keys[2].Hurt[0] = c.StandHurt
 
@@ -370,8 +348,7 @@ func testCharacter() Character {
 
 	// Slot 15 is empty.
 
-	// A dragon punch: the invincible reversal, and the move the AI's anti-air
-	// rule reaches for.
+	// A dragon punch: the invincible reversal, and the move the AI's anti-air rule reaches for.
 	c.Moves[17] = Move{
 		Startup: 4, Active: 8, Recovery: 30,
 		Damage: 200, Hitstun: 20, Blockstun: 14, Hitstop: 10,
@@ -407,9 +384,7 @@ func testCharacter() Character {
 	return c
 }
 
-// jabFirstHit is what move 0 actually deals as the clean opening hit of a
-// combo: 100 base, scaled by the light starter's 80% and by the first hit's
-// 100%.
+// jabFirstHit is what move 0 actually deals as the clean opening hit of a combo.
 const jabFirstHit = 80
 
 // char is the fixture as the sim sees it, for tests that need its numbers.

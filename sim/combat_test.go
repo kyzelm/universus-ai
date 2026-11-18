@@ -2,8 +2,8 @@ package sim
 
 import "testing"
 
-// facing puts the two players at a distance where move 0 reaches, both on the
-// ground, facing each other.
+// facing puts the two players at a distance where move 0 reaches, both on the ground, facing each
+// other.
 func facing(gap int) GameState {
 	s := New()
 	s.Players[0].X = FromInt(-gap / 2)
@@ -40,8 +40,8 @@ func TestBoxOverlapEdges(t *testing.T) {
 		{"identical", b, true},
 		{"contained", Box{X: FromInt(2), Y: FromInt(2), W: FromInt(2), H: FromInt(2)}, true},
 		{"overlapping corner", Box{X: FromInt(9), Y: FromInt(9), W: FromInt(5), H: FromInt(5)}, true},
-		// Touching edges are a miss: a hit must not depend on the last bit of
-		// a position, and "exactly adjacent" is the case that would.
+		// Touching edges are a miss: a hit must not depend on the last bit of a position, and
+		// "exactly adjacent" is the case that would.
 		{"touching right edge", Box{X: FromInt(10), Y: 0, W: FromInt(5), H: FromInt(5)}, false},
 		{"touching top edge", Box{X: 0, Y: FromInt(10), W: FromInt(5), H: FromInt(5)}, false},
 		{"one unit apart", Box{X: FromInt(11), Y: 0, W: FromInt(5), H: FromInt(5)}, false},
@@ -99,8 +99,7 @@ func TestAttackConnectsAndDealsDamage(t *testing.T) {
 		s.Advance([2]uint16{0, 0})
 	}
 
-	// The jab is a light, so its 100 base arrives as 80 — the starter scaling
-	// applies to the opening hit of a combo as much as to the rest of it.
+	// The jab is a light, so its 100 base arrives as 80.
 	if got := s.Players[1].Health; got != full-jabFirstHit {
 		t.Errorf("health = %d, want %d after the jab", got, full-jabFirstHit)
 	}
@@ -203,8 +202,7 @@ func TestSimultaneousHitsTrade(t *testing.T) {
 		s.Advance([2]uint16{0, 0})
 	}
 
-	// Both were attacking when they were hit, so both hits are counter hits:
-	// the jab's 80 at the fixture's 150%.
+	// Both were attacking when they were hit, so both hits are counter hits.
 	const traded = jabFirstHit * 150 / 100
 	for i := range s.Players {
 		if got := full[i] - s.Players[i].Health; got != traded {
@@ -213,8 +211,7 @@ func TestSimultaneousHitsTrade(t *testing.T) {
 	}
 }
 
-// Detection is separated from resolution so both directions see the same
-// positions.
+// Detection is separated from resolution so both directions see the same positions.
 func TestTradeDoesNotDependOnPlayerOrder(t *testing.T) {
 	mirror := func(s GameState) GameState {
 		s.Players[0], s.Players[1] = s.Players[1], s.Players[0]
@@ -235,8 +232,8 @@ func TestTradeDoesNotDependOnPlayerOrder(t *testing.T) {
 	}
 }
 
-// Invincible frames are the absence of hurtboxes, and Hurtboxes is the one
-// funnel every attack and every projectile asks.
+// Invincible frames are the absence of hurtboxes, and Hurtboxes is the one funnel every attack and
+// every projectile asks.
 func TestInvulnerableFramesHaveNoHurtboxes(t *testing.T) {
 	s := New()
 	mv := &char().Moves[7]

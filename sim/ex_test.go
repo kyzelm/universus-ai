@@ -9,15 +9,14 @@ const (
 	moveEX      = 14
 )
 
-// qcf inputs a quarter-circle and presses the buttons on the final frame, the
-// way every other motion test in this package does.
+// qcf inputs a quarter-circle and presses the buttons on the final frame, the way every other
+// motion test in this package does.
 func qcf(s *GameState, button uint16) {
 	feed(s, 2, 3)
 	s.Advance([2]uint16{pad[6] | button, 0})
 }
 
-// The price is checked at selection: the EX wins the press it shares with the
-// plain special, on any two punches, and the meter is gone afterwards.
+// The price is checked at selection.
 func TestEXTakesAnyTwoPunchesAndCostsMeter(t *testing.T) {
 	for _, pair := range []uint16{InLP | InMP, InLP | InHP, InMP | InHP} {
 		s := New()
@@ -76,9 +75,8 @@ func TestAnUnaffordableEXComesOutAsThePlainSpecial(t *testing.T) {
 	}
 }
 
-// armored starts the armoured move on player 1 and returns the state on the
-// frame after it came out, with the two players close enough for move 0 to
-// reach.
+// armored starts the armoured move on player 1 and returns the state on the frame after it came
+// out, with the two players close enough for move 0 to reach.
 func armored(t *testing.T, gap int) GameState {
 	t.Helper()
 	s := facing(gap)

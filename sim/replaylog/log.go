@@ -1,14 +1,4 @@
 // Package replaylog reads and writes the input log format.
-//
-//	0  [4] magic "UNIV"
-//	4  u8  format version
-//	5  u8  training mode
-//	6  u8  scripted AI in seat 2
-//	7  u8  character, player 1
-//	8  u8  character, player 2
-//	9  [3] reserved, zero
-//	12 u32 data version (hash of the embedded character and balance files)
-//	16 ..  little-endian uint16 pairs, player 1 then player 2, one per frame
 package replaylog
 
 import (
@@ -18,8 +8,8 @@ import (
 )
 
 const (
-	// Sixteen so the input pairs stay 4-byte aligned, and so a mode added later
-	// has somewhere to live.
+	// Sixteen so the input pairs stay 4-byte aligned, and so a mode added later has somewhere to
+	// live.
 	HeaderSize = 16
 	Version    = 1
 )

@@ -1,7 +1,6 @@
 package sim
 
-// Rollback parameters, GGPO-standard: 2 frames of input delay (the net layer's
-// concern), 8 frames of maximum rollback.
+// Rollback parameters, GGPO-standard.
 const (
 	MaxRollback = 8
 	ringSize    = 12
@@ -25,8 +24,7 @@ type Session struct {
 
 func NewSession() Session { return Session{state: New()} }
 
-// NewSessionOf starts a session from a setup — the lab, the scripted opponent
-// in seat 2, the characters (see Setup).
+// NewSessionOf starts a session from a setup.
 func NewSessionOf(u Setup) Session { return Session{state: NewStateOf(u)} }
 
 func (s *Session) State() *GameState { return &s.state }
@@ -42,8 +40,8 @@ func (s *Session) Advance(in [2]uint16) {
 	f := s.state.Frame
 	s.state.Advance(in)
 
-	// Recorded after the frame ran and keyed by the frame it belongs to, so a
-	// replay of frame f writes the same slot again rather than a new one.
+	// Recorded after the frame ran and keyed by the frame it belongs to, so a replay of frame f
+	// writes the same slot again rather than a new one.
 	e := &s.events[f%eventRing]
 	e.frame, e.bits = f, s.state.packEvents()
 }
@@ -67,8 +65,7 @@ func (s *Session) Rewind(frame uint32) bool {
 	return true
 }
 
-// Adjust is the single-frame case: the real input for frame turned out to be
-// in, so rewind and replay from the inputs already recorded.
+// Adjust is the single-frame case.
 func (s *Session) Adjust(frame uint32, in [2]uint16) bool {
 	now := s.state.Frame
 	if !s.Rewind(frame) {

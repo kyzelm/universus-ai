@@ -2,8 +2,7 @@ package sim
 
 import "testing"
 
-// jump puts player 0 in the air and returns the state on the first airborne
-// frame.
+// jump puts player 0 in the air and returns the state on the first airborne frame.
 func jump(t *testing.T, dir uint8) GameState {
 	t.Helper()
 	s := New()
@@ -18,9 +17,8 @@ func jump(t *testing.T, dir uint8) GameState {
 func TestLandingEndsAnAirNormal(t *testing.T) {
 	s := jump(t, 8)
 
-	// Press it on the way down and close to the ground, so the move is still
-	// running when the jump ends — pressed at the apex it would simply expire
-	// in mid-air and prove nothing about landing.
+	// Press it on the way down and close to the ground, so the move is still running when the jump
+	// ends.
 	for s.Players[0].VY > 0 || s.Players[0].Y > FromInt(20) {
 		s.Advance([2]uint16{0, 0})
 	}
@@ -39,8 +37,7 @@ func TestLandingEndsAnAirNormal(t *testing.T) {
 	if p.MoveIndex != -1 || p.State == StateAttack {
 		t.Errorf("state %d move %d on the ground: the air normal outlived the jump", p.State, p.MoveIndex)
 	}
-	// The move is over, but the landing is not free: the air normal's own data
-	// says what coming down out of it costs.
+	// The move is over, but the landing is not free.
 	if p.State != StateLanding || p.Stun != char().Moves[6].Landing {
 		t.Errorf("state %d stun %d on the ground, want %d frames of landing recovery",
 			p.State, p.Stun, char().Moves[6].Landing)
@@ -56,8 +53,7 @@ func TestLandingEndsAnAirNormal(t *testing.T) {
 	}
 }
 
-// The quarter-circle is still on the stick when the character leaves the
-// ground.
+// The quarter-circle is still on the stick when the character leaves the ground.
 func TestAGroundSpecialCannotComeOutInTheAir(t *testing.T) {
 	s := New()
 	feed(&s, 2, 3, 6) // the motion, then jump before the button
@@ -81,8 +77,7 @@ func TestAGroundSpecialCannotComeOutInTheAir(t *testing.T) {
 func TestHoldingUpJumpsOnce(t *testing.T) {
 	s := New()
 
-	// Up, held for long enough to cover the jump, the landing and a good while
-	// after it.
+	// Up, held for long enough to cover the jump, the landing and a good while after it.
 	landings := 0
 	airborne := false
 	for range 120 {
@@ -98,8 +93,7 @@ func TestHoldingUpJumpsOnce(t *testing.T) {
 		t.Fatalf("%d jumps while up was held for 120 frames, want 1", landings)
 	}
 
-	// Letting go arms the next one, whatever the player was doing when they
-	// let go: the release is read from the raw input, not from a state.
+	// Letting go arms the next one, whatever the player was doing when they let go.
 	s.Advance([2]uint16{0, 0})
 	s.Advance([2]uint16{InUp, 0})
 	for range 10 {

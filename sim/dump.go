@@ -28,9 +28,8 @@ func dumpValue(b *strings.Builder, path string, v reflect.Value) {
 		}
 
 	case reflect.Array:
-		// Zero runs are collapsed: the input history is 32 entries per player
-		// and is mostly zero, and 60 lines of "0" per dump buries the two that
-		// matter.
+		// Zero runs are collapsed: the input history is 32 entries per player and is mostly zero,
+		// and 60 lines of "0" per dump buries the two that matter.
 		n := v.Len()
 		for i := 0; i < n; {
 			if !isZero(v.Index(i)) {

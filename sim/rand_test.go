@@ -2,8 +2,7 @@ package sim
 
 import "testing"
 
-// The property the architecture needs: the sequence is a function of the state,
-// so two machines at the same state draw the same numbers.
+// The property the architecture needs.
 func TestSameSeedSameSequence(t *testing.T) {
 	a, b := New(), New()
 	for i := range 1000 {
