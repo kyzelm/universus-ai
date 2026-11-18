@@ -1,6 +1,4 @@
-/**
- * The account, as the client needs it (02 Architecture/Backend Services.md).
- */
+/** The account, as the client needs it (02 Architecture/Backend Services.md). */
 
 const KEY = 'universus.session'
 
@@ -25,9 +23,7 @@ function read(): Stored | null {
   }
 }
 
-/**
- * The bearer token, or '' — which is exactly what an anonymous client sends.
- */
+/** The bearer token, or '' — which is exactly what an anonymous client sends. */
 export function token(): string {
   return read()?.token ?? ''
 }
@@ -63,8 +59,8 @@ export async function signIn(
     throw new Error('no server to sign in to')
   }
 
-  // A server with no database does not register these routes at all, which
-  // arrives here as a 404 and means something specific worth saying.
+  // A server with no database does not register these routes at all, which arrives here as a 404
+  // and means something specific worth saying.
   if (res.status === 404) {
     throw new Error('this server has no accounts, so online play is not available')
   }

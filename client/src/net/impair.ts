@@ -1,9 +1,6 @@
 import {createSamples, type Samples} from '../game/stats'
 
-/**
- * The artificial network condition layer — added latency, jitter and packet
- * loss, applied in software (02 Architecture/Transport and Connectivity.md).
- */
+/** The artificial network condition layer. */
 export interface Impairment {
   /** Delay added to every arriving packet, in milliseconds, one way. */
   delayMs: number
@@ -13,9 +10,7 @@ export interface Impairment {
   lossPercent: number
 }
 
-/**
- * No impairment: the packet goes straight through, with no timer in the way.
- */
+/** No impairment: the packet goes straight through, with no timer in the way. */
 export const CLEAN: Impairment = {delayMs: 0, jitterMs: 0, lossPercent: 0}
 
 export interface LinkStats {
@@ -35,13 +30,7 @@ export interface Link {
   dispose(): void
 }
 
-/**
- * @param deliver where a packet goes once the link is done with it.
- * @param seed the impairment PRNG's seed. Seeded on purpose: a measurement run
- * that cannot be repeated is an anecdote, and "5% loss" has to mean the same
- * 5% twice. It is deliberately **not** the sim's generator — nothing here may
- * ever touch simulation state.
- */
+/** @param deliver where a packet goes once the link is done with it. */
 export function createLink(
   deliver: (data: ArrayBuffer) => void,
   cfg: Impairment = CLEAN,
@@ -62,17 +51,14 @@ export function createLink(
 
     set(next) {
       current = {...next}
-      // A new condition is a new measurement: counters from the previous cell
-      // of the matrix would otherwise be read as belonging to this one.
+      // A new condition is a new measurement.
       stats.arrived = 0
       stats.dropped = 0
       stats.delay = createSamples()
     },
 
     receive(data) {
-      // The clean path is synchronous and allocates nothing: with the layer off
-      // the link is not in the way at all, so a real match is measured through
-      // the same code that plays it.
+      // The clean path is synchronous and allocates nothing.
       if (current.delayMs <= 0 && current.jitterMs <= 0 && current.lossPercent <= 0) {
         stats.arrived++
         deliver(data)
@@ -84,10 +70,8 @@ export function createLink(
         return
       }
 
-      // Every packet already carries the last few frames of inputs, so a
-      // dropped one costs nothing as long as its successor arrives — that
-      // redundancy is what replaces retransmission, and this layer is how it
-      // gets tested.
+      // Every packet already carries the last few frames of inputs, so a dropped one costs nothing
+      // as long as its successor arrives.
       const ms = Math.max(0, current.delayMs + (rand() * 2 - 1) * current.jitterMs)
       stats.delay.push(ms)
 
@@ -106,10 +90,7 @@ export function createLink(
   }
 }
 
-/**
- * xorshift32, the same generator the sim uses, for the same reason: small,
- * seedable and identical everywhere.
- */
+/** xorshift32, the same generator the sim uses, for the same reason. */
 function createRng(seed: number): () => number {
   let x = seed >>> 0 || 1
   return () => {

@@ -2,17 +2,12 @@ import {MAX_ROLLBACK} from '../net/netplay'
 import {createBot} from './bot'
 import {createSamples} from './stats'
 
-/**
- * M-A, measured deliberately rather than waited for: frame time at forced
- * rollback depths 0 through 8 (01 Thesis/Measurement Methodology.md).
- */
+/** M-A, measured deliberately rather than waited for. */
 export interface SweepSim {
   /** Restarts the match. */
   reset(): void
   advance(p1: number, p2: number): void
-  /**
-   * Restores the state at the start of `frame`; false is outside the window.
-   */
+  /** Restores the state at the start of `frame`. */
   rewind(frame: number): boolean
 }
 
@@ -46,25 +41,21 @@ const DEFAULTS: Required<SweepOptions> = {
   stepsPerBatch: 500,
   maxDepth: MAX_ROLLBACK,
   warmup: 5,
-  // A round is 99 seconds and a match is best of three, so a long run would
-  // otherwise spend most of itself timing a sim sitting in the match-end phase,
-  // which simulates nothing and is cheap for the wrong reason.
+  // A round is 99 seconds and a match is best of three, so a long run would otherwise spend most of
+  // itself timing a sim sitting in the match-end phase, which simulates nothing and is cheap for
+  // the wrong reason.
   resetEvery: 3600,
 }
 
 /**
- * One frame at depth `d` costs `d + 1` sim steps, so a fixed frame count per
- * batch would do nine times the work at depth 8 that it does at depth 0 — and
- * the depths would then be timed against different amounts of clock noise.
+ * One frame at depth `d` costs `d + 1` sim steps, so a fixed frame count per batch would do nine
+ * times the work at depth 8 that it does at depth 0.
  */
 export function batchFor(depth: number, stepsPerBatch: number): number {
   return Math.max(1, Math.round(stepsPerBatch / (depth + 1)))
 }
 
-/**
- * Runs the sweep, yielding to the event loop often enough that a page can draw
- * its progress.
- */
+/** Runs the sweep, yielding to the event loop often enough that a page can draw its progress. */
 export async function runSweep(
   sim: SweepSim,
   opts: SweepOptions = {},
@@ -85,8 +76,7 @@ async function measureDepth(
   depth: number,
   cfg: Required<SweepOptions>,
 ): Promise<SweepRow> {
-  // The same stream every depth sees, and the same one twice if the sweep is
-  // re-run: a measurement that cannot be repeated is an anecdote.
+  // The same stream every depth sees, and the same one twice if the sweep is re-run.
   const p1 = createBot(1)
   const p2 = createBot(2)
   const bits: number[] = []
@@ -95,8 +85,7 @@ async function measureDepth(
   function step(): void {
     const a = p1.poll()
     const b = p2.poll()
-    // Kept because the replay has to feed the sim what it fed it the first
-    // time.
+    // Kept because the replay has to feed the sim what it fed it the first time.
     bits[frame * 2] = a
     bits[frame * 2 + 1] = b
     sim.advance(a, b)
@@ -136,8 +125,8 @@ async function measureDepth(
     const ms = (performance.now() - t0) / batch
 
     if (b >= cfg.warmup) per.push(ms)
-    // Long enough between yields that their overhead is noise, often enough
-    // that the page repaints while a nine-depth sweep runs.
+    // Long enough between yields that their overhead is noise, often enough that the page repaints
+    // while a nine-depth sweep runs.
     if (b % 20 === 19) await yieldNow()
   }
 

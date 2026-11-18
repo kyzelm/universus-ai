@@ -27,8 +27,8 @@ const SCALE = 2
 const GROUND_PX = 380
 
 /**
- * Zoom is framing, not gameplay: the sim's camera (and the screen-edge walls
- * that cap separation) always use the full screen width.
+ * Zoom is framing, not gameplay: the sim's camera (and the screen-edge walls that cap separation)
+ * always use the full screen width.
  */
 const ZOOM_CLOSE_HALF = 160
 const ZOOM_START = 240
@@ -38,10 +38,7 @@ const ZOOM_SMOOTH = 0.08
 /** How close to the side of a zoomed frame a player gets before it shifts. */
 const ZOOM_EDGE = 40
 
-/**
- * Debug box colours, the convention every fighting game debug view uses: blue
- * pushbox, green hurtbox, red hitbox.
- */
+/** Debug box colours, the convention every fighting game debug view uses. */
 const PUSH_COLOR = 0x4a8ce0
 const HURT_COLOR = 0x4ae08c
 const HIT_COLOR = 0xe0574a
@@ -117,9 +114,7 @@ export function createScene(
     return s
   })
 
-  // Projectiles have no sprite yet, so they are drawn as the hitbox they are —
-  // on their own layer, because that hitbox is the only thing on screen saying
-  // a fireball exists.
+  // Projectiles have no sprite yet, so they are drawn as the hitbox they are.
   const projectiles = new Graphics()
   world.addChild(projectiles)
 
@@ -127,8 +122,7 @@ export function createScene(
   boxes.visible = showBoxes
   world.addChild(boxes)
 
-  // Sparks live in the world, not on the stage: an effect at a fighter's feet
-  // has to scroll with the fighter.
+  // Sparks live in the world, not on the stage.
   const sparkLayer = new Graphics()
   world.addChild(sparkLayer)
 
@@ -163,14 +157,12 @@ export function createScene(
   const stripKey = addText(STRIP_X, STRIP_Y + STRIP_H + 2, 0, 0, 10)
   const hud = addText(8, 66, 0, 0, 12)
 
-  // The lab overlay.
-  // One column per seat, at the edges the fighters spend least time against.
+  // The lab overlay. One column per seat, at the edges the fighters spend least time against.
   const inputCols = training ? [addText(8, 190, 0, 0, 11), addText(VIEW_W - 8, 190, 1, 0, 11)] : null
-  // Over the column for the seat it drives, so what the dummy is doing and what
-  // it is pressing read as one thing.
+  // Over the column for the seat it drives, so what the dummy is doing and what it is pressing read
+  // as one thing.
   const dummyText = training ? addText(VIEW_W - 8, 176, 1, 0, 11) : null
-  // Named for the frame advantage on screen, not the netplay one: net.advantage
-  // is how far ahead of the other machine this one is running.
+  // Named for the frame advantage on screen, not the netplay one.
   const advText = training ? addText(VIEW_W / 2, 38, 0.5, 0, 16) : null
 
   const sparks: {x: number; y: number; life: number; color: number}[] = []
@@ -179,8 +171,7 @@ export function createScene(
     spark(snap, seat, bits) {
       const p = snap.players[seat]
       for (const [bit, color] of EVENT_COLORS) {
-        // ponytail: drawn where the fighter is now, not where they were on the
-        // event's own frame.
+        // ponytail: drawn where the fighter is now, not where they were on the event's own frame.
         if (bits & bit) sparks.push({x: p.x, y: p.y, life: SPARK_FRAMES, color})
       }
       if (bits & EVENT_SUPER) flashLife = FLASH_FRAMES
@@ -196,8 +187,7 @@ export function createScene(
     },
 
     draw(snap, {net, banner, lab}) {
-      // The camera is sim state, not a view decision — corner position is
-      // gameplay, so both machines must agree on where the corner is.
+      // The camera is sim state, not a view decision.
       const [a, b] = snap.players
       const gap = Math.abs(a.x - b.x)
       const t = Math.min(1, Math.max(0, (ZOOM_START - gap) / (ZOOM_START - ZOOM_FULL)))
@@ -222,17 +212,13 @@ export function createScene(
         if (--s.life <= 0) sparks.splice(i, 1)
       }
 
-      // The animation is a pure function of the snapshot — state, how many frames
-      // it has been in it, and which move — so a frame resimulated eight times
-      // during a rollback picks the same texture eight times.
+      // The animation is a pure function of the snapshot.
       for (let i = 0; i < fighters.length; i++) {
         const p = snap.players[i]
         const f = fighters[i]
         f.texture = sheets[i].texture(p.state, p.stateFrame, p.moveIndex)
         f.position.set(p.x * SCALE, GROUND_PX - p.y * SCALE)
-        // Facing is the sim's, and it flips the sprite rather than the data:
-        // boxes are authored facing right and mirrored when placed, and the art
-        // is drawn once for the same reason.
+        // Facing is the sim's, and it flips the sprite rather than the data.
         f.scale.set(p.facing, 1)
       }
 
@@ -246,8 +232,7 @@ export function createScene(
 
       for (let i = 0; i < bars.length; i++) {
         drawBars(bars[i], snap.players[i], i, snap.wins[i])
-        // The combo belongs to the player taking it; it is shown on the side of
-        // the player landing it, which is where every game in the genre puts it.
+        // The combo belongs to the player taking it.
         setCombo(combos[1 - i], snap.players[i])
       }
 
@@ -260,8 +245,8 @@ export function createScene(
         setText(stripKey, '')
       }
 
-      // Every frame, unlike the HUD: an input display that refreshed twice a
-      // second would not show the input it exists to show.
+      // Every frame, unlike the HUD: an input display that refreshed twice a second would not show
+      // the input it exists to show.
       if (lab && inputCols && advText && dummyText) {
         for (let seat = 0; seat < inputCols.length; seat++) setText(inputCols[seat], lab.inputs[seat])
         setText(advText, lab.advantage)
@@ -271,11 +256,7 @@ export function createScene(
   }
 }
 
-/**
- * Three seconds of frames, oldest on the left, coloured by what each was
- * simulated from — and a white tick wherever a correction landed, as tall as
- * the rollback was deep.
- */
+/** Three seconds of frames, oldest on the left, coloured by what each was simulated from. */
 function drawTimeline(g: Graphics, net: Netplay): void {
   g.clear()
   const end = net.frame - 1
@@ -304,8 +285,7 @@ function drawTimeline(g: Graphics, net: Netplay): void {
       runKind = kind
     }
 
-    // Ticks are drawn per frame rather than per run: two corrections a frame
-    // apart are two events, and merging them would report one.
+    // Ticks are drawn per frame rather than per run.
     const depth = packed < 0 ? 0 : packed >> 2
     if (depth > 0) {
       const h = (depth / MAX_ROLLBACK) * STRIP_DEPTH_H
@@ -314,8 +294,8 @@ function drawTimeline(g: Graphics, net: Netplay): void {
   }
   flush(TIMELINE)
 
-  // The confirmed line: everything to its right is a prediction that can still
-  // be taken back, which is also the line effects are fired up to.
+  // The confirmed line: everything to its right is a prediction that can still be taken back, which
+  // is also the line effects are fired up to.
   const c = net.confirmed - first
   if (c >= 0 && c < TIMELINE) {
     g.rect(STRIP_X + c * STRIP_COL, STRIP_Y - 3, 1, STRIP_H + 6).fill(0xe8ecf2)
@@ -418,10 +398,8 @@ function setCombo(t: Text, defender: PlayerSnapshot): void {
 }
 
 /**
- * Centre of a frame `half` wide that starts at the sim's camera and moves only
- * to keep both players `ZOOM_EDGE` inside it — the same dead zone the sim's
- * camera uses, so a zoomed frame does not start sliding a standing player
- * either.
+ * Centre of a frame `half` wide that starts at the sim's camera and moves only to keep both players
+ * `ZOOM_EDGE` inside it.
  */
 function frame(camX: number, lo: number, hi: number, half: number, stageHalf: number): number {
   const reach = half - ZOOM_EDGE

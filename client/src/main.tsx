@@ -6,10 +6,8 @@ import App from './App.tsx'
 import Sweep from './game/Sweep.tsx'
 import {flags} from './flags'
 
-// ?sweep is the M-A harness (01 Thesis/Measurement Methodology.md) and it
-// drives the sim itself, so it replaces the game rather than running beside it:
-// a render loop advancing frames underneath it would time something else
-// entirely.
+// ?sweep is the M-A harness (01 Thesis/Measurement Methodology.md) and it drives the sim itself, so
+// it replaces the game rather than running beside it.
 const page = flags.sweep ? <Sweep /> : <App />
 
 createRoot(document.getElementById('root')!).render(<StrictMode>{page}</StrictMode>)

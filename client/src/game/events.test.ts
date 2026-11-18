@@ -40,9 +40,8 @@ test('draining again fires nothing new', () => {
 })
 
 /**
- * The other half: a predicted frame can still be rolled back and its events
- * replaced, so nothing fires until the frame is settled — and what fires then
- * is the corrected value, not the guess.
+ * The other half: a predicted frame can still be rolled back and its events replaced, so nothing
+ * fires until the frame is settled.
  */
 test('a predicted frame fires only once it is settled, and only its final value', () => {
   const entries: Record<number, [number, number]> = {4: [0, EVENT_HIT]}
@@ -66,10 +65,7 @@ test('nothing fires before anything is confirmed', () => {
   expect(fired).toEqual([])
 })
 
-/**
- * A backgrounded tab confirms hundreds of frames at once, and the sim kept none
- * of them.
- */
+/** A backgrounded tab confirms hundreds of frames at once, and the sim kept none of them. */
 test('catching up stops at the end of the sim ring', () => {
   const reads: number[] = []
   const events = createEvents((f) => {

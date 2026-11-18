@@ -34,21 +34,19 @@ test('frame 0 is readable before the first advance', () => {
     [-60, 0, 1],
     [60, 0, -1],
   ])
-  // Health comes from the embedded character file; a zero here means the
-  // roster did not load inside the WASM binary.
+  // Health comes from the embedded character file.
   expect(s.players[0].health).toBeGreaterThan(0)
 })
 
-// The meter is read from the same block as health and one field further
-// along.
+// The meter is read from the same block as health and one field further along.
 test('the super meter crosses the boundary', () => {
   reset()
   const start = readSnapshot()
 
   expect(start.players.map((p) => p.super)).toEqual([0, 0])
 
-  // Same walk-in as the hit test: they start out of range of everything, and
-  // holding away walks the defender back out of it again.
+  // Same walk-in as the hit test: they start out of range of everything, and holding away walks the
+  // defender back out of it again.
   const walkIn = () => {
     for (let i = 0; i < 60; i++) advance(RIGHT, LEFT)
   }
@@ -72,8 +70,8 @@ test('the super meter crosses the boundary', () => {
   expect(hit.players[0].super).toBeGreaterThan(hit.players[1].super)
   expect(hit.players[0].super).toBeLessThanOrEqual(SUPER_BARS * BAR_UNITS)
 
-  // The combo readout is read from two fields further along the same block, so
-  // a wrong offset here would draw the pushbox width as a hit count.
+  // The combo readout is read from two fields further along the same block, so a wrong offset here
+  // would draw the pushbox width as a hit count.
   expect(hit.players[1].combo).toBe(1)
   expect(hit.players[1].counter).toBe(0) // an idle defender is no counter hit
   expect(hit.players[0].combo).toBe(0)
@@ -103,8 +101,7 @@ test('a connecting hit costs health and freezes both fighters', () => {
   reset()
   const full = readSnapshot().players[1].health
 
-  // They start 120 units apart and the jab reaches 34, so walk in first —
-  // the pushboxes stop them at touching distance.
+  // They start 120 units apart and the jab reaches 34, so walk in first.
   for (let i = 0; i < 60; i++) advance(RIGHT, LEFT)
 
   let sawHitstop = false
@@ -147,9 +144,8 @@ test('the same inputs produce the same snapshot bytes', () => {
 })
 
 /**
- * The lab's frame advantage readout is measured off this field, so it has to be
- * the sim's answer and not a state list kept on this side — the whole point of
- * the readout is to check the frame data against what the game does.
+ * The lab's frame advantage readout is measured off this field, so it has to be the sim's answer
+ * and not a state list kept on this side.
  */
 test('actionability crosses the boundary', () => {
   reset()
@@ -158,8 +154,7 @@ test('actionability crosses the boundary', () => {
   advance(LP, 0)
   expect(readSnapshot().players.map((p) => p.actionable)).toEqual([0, 1])
 
-  // The jab runs out and hands back control; nothing else is pressed, so the
-  // frame it does is the frame the readout would count.
+  // The jab runs out and hands back control.
   let free = 0
   for (free = 1; free < 60; free++) {
     advance(0, 0)
@@ -169,10 +164,8 @@ test('actionability crosses the boundary', () => {
 })
 
 /**
- * Vs-AI is the mode that demos with no network and no second machine, so the
- * one thing worth checking across the boundary is that asking for it produces
- * an opponent: the AI's presses are generated inside the sim, and nothing out
- * here could tell the difference between a quiet opponent and a missing one.
+ * Vs-AI is the mode that demos with no network and no second machine, so the one thing worth
+ * checking across the boundary is that asking for it produces an opponent.
  */
 test('an AI seat plays without anybody pressing anything', () => {
   reset(false, true)
@@ -190,19 +183,16 @@ test('an AI seat plays without anybody pressing anything', () => {
   expect(moved).toBe(true)
   expect(attacked).toBe(true)
 
-  // And a match with no AI stays still, which is what says the two are the
-  // same sim in different modes rather than two behaviours of one.
+  // And a match with no AI stays still, which is what says the two are the same sim in different
+  // modes rather than two behaviours of one.
   reset()
   for (let f = 0; f < 600; f++) advance(0, 0)
   expect(readSnapshot().players[1].moveIndex).toBe(-1)
 })
 
 /**
- * The characters cross the boundary as a pair of indices and land in
- * `GameState`, which is why they have to be right before frame 0 rather than
- * applied afterwards: an online match adopts the host's pair (02
- * Architecture/Transport and Connectivity.md) and every frame either end
- * simulates depends on it.
+ * The characters cross the boundary as a pair of indices and land in `GameState`, which is why they
+ * have to be right before frame 0 rather than applied afterwards.
  */
 test('a run plays the characters it was reset with', () => {
   const health = (chars: [number, number]) => {
@@ -219,7 +209,6 @@ test('a run plays the characters it was reset with', () => {
   expect(health([0, 1])).toEqual([shoto, grappler])
   expect(health([1, 0])).toEqual([grappler, shoto])
 
-  // A roster the sim does not have is the first entry, not a fighter who
-  // cannot move — the clamp startGame applies, checked where the bound is.
+  // A roster the sim does not have is the first entry, not a fighter who cannot move.
   expect(numCharacters()).toBe(2)
 })

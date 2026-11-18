@@ -139,34 +139,27 @@ export default function App() {
   useEffect(() => {
     if (setup === null) return
 
-    // ?bench leaves the sim untouched so a measurement harness can drive it
-    // without the render loop advancing frames underneath it.
+    // ?bench leaves the sim untouched so a measurement harness can drive it without the render loop
+    // advancing frames underneath it.
     if (flags.bench) return
 
-    // ?bot hands the local player to a seeded input device, which is what a
-    // measurement run needs: rollback only happens when a prediction is wrong,
-    // and nobody pressing anything is a prediction that is always right.
+    // ?bot hands the local player to a seeded input device, which is what a measurement run needs.
     const bot = flags.bot ? createBot() : undefined
-    // Training is the lab (03 Game Design/Game Modes.md): infinite resources,
-    // no clock, no round end, and no netplay — the mode is sim state, so a
-    // match cannot be half in it.
+    // Training is the lab (03 Game Design/Game Modes.md).
     const training = setup.mode === 'training'
-    // The box overlay is the lab's whole job (03 Game Design/Game Modes.md),
-    // so training gets it without asking; ?boxes turns it on anywhere else,
-    // which is what debugging a netplay session needs.
+    // The box overlay is the lab's whole job (03 Game Design/Game Modes.md), so training gets it
+    // without asking.
     const showBoxes = training || flags.boxes
     const {ai, chars} = setup
 
-    // StrictMode mounts twice in dev, and startGame is async: the first run can
-    // still be in flight when the cleanup fires.
+    // StrictMode mounts twice in dev, and startGame is async.
     let started: Game | undefined
     let cancelled = false
 
     const onKey = (e: KeyboardEvent) => {
       if (!training) return
       if (e.code === 'KeyR') started?.restart()
-      // Number row picks what the dummy does; 0 hands seat 2 back to its
-      // keyboard.
+      // Number row picks what the dummy does; 0 hands seat 2 back to its keyboard.
       const n = /^Digit([0-5])$/.exec(e.code)
       if (n) started?.setDummy(DUMMY_MODES[Number(n[1])])
     }

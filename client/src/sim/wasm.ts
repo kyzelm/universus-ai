@@ -26,10 +26,7 @@ declare global {
 /** 16.16 fixed-point scale. */
 const ONE = 65536
 
-/**
- * Snapshot layout — the contract with sim/snapshot.go, which cannot check it
- * from its side.
- */
+/** Snapshot layout — the contract with sim/snapshot.go, which cannot check it from its side. */
 const MAX_BOXES = 4
 const MAX_PROJECTILES = 4
 const BOX = 4 * 4
@@ -131,10 +128,7 @@ export interface Snapshot {
   /** Match winner once the phase is PHASE_MATCH_END, NOBODY until then. */
   winner: number
   players: PlayerSnapshot[]
-  /**
-   * Live projectiles, packed from the front — the sim's slot numbers do not
-   * cross, because nothing over here needs to name one.
-   */
+  /** Live projectiles, packed from the front. */
   projectiles: Box[]
 }
 
@@ -185,9 +179,7 @@ export function advance(p1: number, p2: number): void {
   sim.advance(p1, p2)
 }
 
-/**
- * Restores the state at the start of `frame`; the caller replays with advance.
- */
+/** Restores the state at the start of `frame`. */
 export function rewind(frame: number): boolean {
   return sim.rewind(frame)
 }
@@ -198,11 +190,7 @@ export function eventsAt(frame: number): [number, number] {
   return [packed & 0xffff, (packed >>> 16) & 0xffff]
 }
 
-/**
- * Everything about a match that is chosen before frame 0 and cannot be read
- * back out of its input log: which characters, which mode, whether seat 2 is
- * the scripted opponent.
- */
+/** Everything about a match that is chosen before frame 0 and cannot be read back out of its input log. */
 export interface Setup {
   training: boolean
   ai: boolean
@@ -214,10 +202,7 @@ export function reset(training = false, ai = false, chars: [number, number] = [0
   sim.reset(training, ai, chars[0], chars[1])
 }
 
-/**
- * The roster, as the character select needs it: index and display name, in the
- * order the sim holds them.
- */
+/** The roster, as the character select needs it. */
 export function roster(): {index: number; name: string}[] {
   return Array.from({length: numCharacters()}, (_, index) => ({
     index,

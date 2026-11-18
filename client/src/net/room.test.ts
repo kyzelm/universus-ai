@@ -113,8 +113,7 @@ describe('room negotiation', () => {
 
     expect(s.kind).toBe('relay')
     expect(sig.sent).toEqual(['local-blob', 'relay 1,0'])
-    // The socket is the transport now, so it stays open and the peer connection
-    // does not.
+    // The socket is the transport now, so it stays open and the peer connection does not.
     expect(sig.state.closed).toBe(false)
     expect(rtc.state.closed).toBe(true)
 
@@ -149,10 +148,7 @@ describe('room negotiation', () => {
     expect(s.seat).toBe(1)
   })
 
-  /**
-   * The host decides for both, and a guest whose own channel did open still
-   * plays over the relay.
-   */
+  /** The host decides for both, and a guest whose own channel did open still plays over the relay. */
   it('joins: follows the relay verdict even with a working channel', async () => {
     const sig = fakeSignal()
     const rtc = fakeConnectors()
@@ -186,9 +182,7 @@ describe('room negotiation', () => {
     await failed
   })
 
-  /**
-   * The host picks the fighters for both ends, the way it picks the transport.
-   */
+  /** The host picks the fighters for both ends, the way it picks the transport. */
   it('joins: plays the host\'s pair rather than its own', async () => {
     const sig = fakeSignal()
     const rtc = fakeConnectors()
@@ -223,9 +217,8 @@ describe('room negotiation', () => {
     expect((await session).chars).toEqual(PICKED)
   })
 
-  // A verdict that parses as a transport and not as a pair is a peer running a
-  // different build, and the match it would start is one that desyncs on frame
-  // 0 with nothing to point at.
+  // A verdict that parses as a transport and not as a pair is a peer running a different build, and
+  // the match it would start is one that desyncs on frame 0 with nothing to point at.
   it('joins: refuses a verdict with no pair in it', async () => {
     const sig = fakeSignal()
     const rtc = fakeConnectors()
@@ -241,11 +234,7 @@ describe('room negotiation', () => {
     await expect(session).rejects.toThrow(/where a character pair belongs/)
   })
 
-  /**
-   * A queued match is recorded server-side and its id rides on the role frame;
-   * a private match by code has none, and 0 is what tells the client there is
-   * nowhere to upload a result to.
-   */
+  /** A queued match is recorded server-side and its id rides on the role frame. */
   it('carries the match id when the pairing was recorded', async () => {
     for (const [opening, want] of [
       ['guest 42', 42],
@@ -278,8 +267,8 @@ describe('room negotiation', () => {
 })
 
 describe('relayURL', () => {
-  // A page on https may not open a ws:// socket, which is exactly the case a remote
-  // session runs in — so the scheme follows the page's rather than being written down.
+  // A page on https may not open a ws:// socket, which is exactly the case a remote session runs
+  // in.
   it('takes scheme and address from the page, and lets ?relay override', () => {
     expect(relayURL('AB', new URL('http://box:5173/'))).toBe('ws://box:5173/ws?room=AB')
     expect(relayURL('AB', new URL('https://tunnel.test/'))).toBe('wss://tunnel.test/ws?room=AB')

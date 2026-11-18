@@ -1,14 +1,6 @@
 import {flags} from '../flags'
 
-/**
- * WebRTC DataChannel with manual signalling: the offer and answer blobs are
- * carried between the two ends by hand (copy, paste).
- *
- *   host                              guest
- *   host() -> localBlob  ─────────────> guest(blob) -> localBlob
- *   accept(blob)         <─────────────┘
- *   ready                              ready
- */
+/** WebRTC DataChannel with manual signalling. */
 
 const CHANNEL = 'inputs'
 
@@ -16,14 +8,14 @@ const CHANNEL = 'inputs'
 const CHANNEL_INIT: RTCDataChannelInit = {ordered: false, maxRetransmits: 0}
 
 /**
- * STUN only, no TURN — a relay costs bandwidth and adds a hop, and the fallback
- * for peers that cannot hole-punch is the WebSocket relay we run ourselves.
+ * STUN only, no TURN — a relay costs bandwidth and adds a hop, and the fallback for peers that
+ * cannot hole-punch is the WebSocket relay we run ourselves.
  */
 const ICE: RTCConfiguration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]}
 
 /**
- * `?ice=off` makes ICE genuinely unable to connect, so the relay fallback can
- * be exercised (Decision Log D15, D88).
+ * `?ice=off` makes ICE genuinely unable to connect, so the relay fallback can be exercised
+ * (Decision Log D15, D88).
  */
 function iceConfig(): RTCConfiguration {
   if (flags.iceOff) {
@@ -104,9 +96,8 @@ function wire(ch: RTCDataChannel, onMessage: (data: ArrayBuffer) => void): Promi
 }
 
 /**
- * Waits for ICE candidates to stop arriving, so the blob carries all of them
- * and there is nothing left to trickle — which is what makes copy-paste
- * signalling possible at all.
+ * Waits for ICE candidates to stop arriving, so the blob carries all of them and there is nothing
+ * left to trickle.
  */
 function gathered(pc: RTCPeerConnection, quietMs = 1000, capMs = 5000): Promise<void> {
   if (pc.iceGatheringState === 'complete') return Promise.resolve()

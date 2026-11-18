@@ -8,8 +8,8 @@ import {roster} from '../sim/wasm'
 import {flags} from '../flags'
 
 /**
- * The measurement matrix, as buttons (01 Thesis/Measurement Methodology.md,
- * M-B): 0/50/100/150/200 ms against 0/2/5% loss.
+ * The measurement matrix, as buttons (01 Thesis/Measurement Methodology.md, M-B): 0/50/100/150/200
+ * ms against 0/2/5% loss.
  */
 const RTT_PRESETS = [0, 50, 100, 150, 200]
 const LOSS_PRESETS = [0, 2, 5]
@@ -19,8 +19,8 @@ function urlImpairment(): Impairment | null {
   const {rtt, loss, jitter} = flags
   if (rtt === null && loss === null && jitter === null) return null
 
-  // The presets are round-trip figures and the layer delays arrivals in one
-  // direction, so it is given half — the same halving the buttons do.
+  // The presets are round-trip figures and the layer delays arrivals in one direction, so it is
+  // given half.
   return {delayMs: (rtt ?? 0) / 2, jitterMs: jitter ?? 0, lossPercent: loss ?? 0}
 }
 
@@ -45,11 +45,7 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
   const autoJoined = useRef(false)
   useEffect(() => () => room.current?.close(), [])
 
-  /**
-   * A queue and a room code differ only in who decided the two of you should
-   * meet; the negotiation after it is the same, and comes back with a peer and
-   * which seat this end has.
-   */
+  /** A queue and a room code differ only in who decided the two of you should meet. */
   async function enter(waiting: string, join: (g: Game) => Promise<Session>) {
     if (!game) return
     try {
@@ -61,8 +57,7 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
       setSession(s)
       onFound(s.chars)
 
-      // Applied after connecting, not before: connect() builds the link, so a
-      // condition set earlier would be replaced by the clean one.
+      // Applied after connecting, not before.
       const condition = urlImpairment()
       if (condition) impair(condition)
     } catch (e) {
@@ -88,11 +83,7 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game])
 
-  /**
-   * Conditions are pushed into the game rather than held there: the panel is
-   * the only thing that knows what was asked for, and the game is the only
-   * thing that can apply it.
-   */
+  /** Conditions are pushed into the game rather than held there. */
   function impair(next: Impairment) {
     setCfg(next)
     game?.impair(next)
@@ -132,8 +123,8 @@ export default function NetPanel({game, onFound}: {game: Game | null; onFound(ch
           <input
             placeholder="room code"
             value={code}
-            // The server takes [A-Za-z0-9-]{1,32} and refuses the rest, so a
-            // typed space becomes no character rather than a failed connection.
+            // The server takes [A-Za-z0-9-]{1,32} and refuses the rest, so a typed space becomes no
+            // character rather than a failed connection.
             onChange={(e) => setCode(e.target.value.replace(/[^A-Za-z0-9-]/g, '').slice(0, 32))}
           />
           <button disabled={!code || !game} onClick={() => void connectRoom()}>

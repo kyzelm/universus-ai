@@ -11,18 +11,15 @@ const CONDITIONS = {delayMs: 50, jitterMs: 15, lossPercent: 5}
 
 const STEP_MS = 1000 / 60
 
-/**
- * Long enough to cross a round boundary, which is 99 seconds of play plus its
- * transitions.
- */
+/** Long enough to cross a round boundary, which is 99 seconds of play plus its transitions. */
 const FRAMES = Number(process.env.BOT_FRAMES) || 7200
 
 /** How many seed pairs to play. */
 const MATCHES = Number(process.env.BOT_SEEDS) || 1
 
 /**
- * The only test here whose runtime is a variable, so it is the only one that
- * cannot live with vitest's fixed 5 s default.
+ * The only test here whose runtime is a variable, so it is the only one that cannot live with
+ * vitest's fixed 5 s default.
  */
 const TIMEOUT_MS = Math.max(30_000, MATCHES * 10_000)
 
@@ -40,8 +37,8 @@ interface End extends SimBridge {
 }
 
 /**
- * One headless client: its own instance of the WASM module, and therefore its
- * own sim, its own memory and its own devices.
+ * One headless client: its own instance of the WASM module, and therefore its own sim, its own
+ * memory and its own devices.
  */
 async function client(seed: number, corruptAt = -1): Promise<End> {
   const go = new Go()
@@ -49,17 +46,15 @@ async function client(seed: number, corruptAt = -1): Promise<End> {
     readFileSync('public/main.wasm'),
     go.importObject,
   )
-  // Resolves only when the sim quits, so deliberately not awaited; the API is
-  // published by the time run returns.
+  // Resolves only when the sim quits, so deliberately not awaited.
   void go.run(instance)
 
   const api = (globalThis as {sim?: Record<string, (...a: number[]) => number>}).sim
   if (!api) throw new Error('the WASM module published no API')
 
   return {
-    // corruptAt flips one bit of one frame's remote input on this end only,
-    // which is what a desync looks like from the inside: one bad frame, and
-    // every state after it diverges.
+    // corruptAt flips one bit of one frame's remote input on this end only, which is what a desync
+    // looks like from the inside.
     advance: (p1, p2) => void api.advance(p1, api.frame() === corruptAt ? p2 ^ 1 : p2),
     rewind: (f) => Boolean(api.rewind(f)),
     checksum: () => api.checksum(),
@@ -81,16 +76,12 @@ function dealt(end: End): number[] {
 
 afterEach(() => vi.useRealTimers())
 
-/**
- * Plays the two ends against each other and hands back everything worth
- * asserting on.
- */
+/** Plays the two ends against each other and hands back everything worth asserting on. */
 async function botMatch(corruptAt = -1, pair = 0) {
   const A = await client(11 + pair * 2)
   const B = await client(22 + pair * 2, corruptAt)
 
-  // The trick this harness stands on: two instances of the module, each with
-  // its own session.
+  // The trick this harness stands on.
   A.advance(0, 0)
   expect([A.frame(), B.frame()]).toEqual([1, 0])
   // Then undone.
@@ -110,8 +101,8 @@ async function botMatch(corruptAt = -1, pair = 0) {
 
 
   for (let f = 0; f < FRAMES; f++) {
-    // Each end presses for its own seat, from its own state, and the other
-    // end learns about it over the wire — which is the point.
+    // Each end presses for its own seat, from its own state, and the other end learns about it over
+    // the wire.
     netA.step(A.press(0))
     netB.step(B.press(1))
     if (f % 30 === 0) {
@@ -138,12 +129,11 @@ async function oneMatch(pair: number) {
   expect(netA.stats.desyncs).toBe(0)
   expect(netB.stats.desyncs).toBe(0)
 
-  // The netcode was actually exercised: a run with no rollbacks proves the
-  // conditions never bit, not that the sim agrees under them.
+  // The netcode was actually exercised.
   expect(netA.stats.rollbacks).toBeGreaterThan(0)
   expect(netB.stats.rollbacks).toBeGreaterThan(0)
-  // A correction older than the window cannot be applied, and one arriving is
-  // the first sign the rollback parameters do not fit these conditions.
+  // A correction older than the window cannot be applied, and one arriving is the first sign the
+  // rollback parameters do not fit these conditions.
   expect(netA.stats.dropped).toBe(0)
   expect(netB.stats.dropped).toBe(0)
 
@@ -165,8 +155,7 @@ async function oneMatch(pair: number) {
   expect(A.frame()).toBeGreaterThan(MAX_ROLLBACK)
   expect(netA.log.some((v) => v !== 0)).toBe(true)
   expect(dealt(A).some((d) => d > 0)).toBe(true)
-  // The run covered a round transition rather than merely being long enough to
-  // have covered one — the comment on FRAMES is a claim, and this is the check.
+  // The run covered a round transition rather than merely being long enough to have covered one.
   expect(round(A)).toBeGreaterThan(1)
 }
 
@@ -177,11 +166,7 @@ test('a desync on one end is caught', async () => {
   expect(netA.stats.desyncs + netB.stats.desyncs).toBeGreaterThan(0)
 })
 
-/**
- * The coupling the test above uncovered, asserted so it cannot be tuned away by
- * accident: the checksum cadence must be shorter than the input history
- * (`InputHistory`, sim/input.go, 32 frames).
- */
+/** The coupling the test above uncovered, asserted so it cannot be tuned away by accident. */
 test('the checksum cadence samples faster than the input ring forgets', () => {
   expect(CHECKSUM_EVERY).toBeLessThanOrEqual(32)
 })

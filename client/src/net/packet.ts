@@ -1,8 +1,4 @@
-/**
- * Net packet format.
- *
- *   [uint8 type][uint32 startFrame][uint8 count][uint16 inputs[count]]
- */
+/** Net packet format. */
 export const PacketType = {inputs: 1, checksum: 2, ping: 3, control: 4} as const
 
 /** Frames of history in every inputs packet. */
@@ -38,10 +34,7 @@ export function encodeInputs(startFrame: number, inputs: ArrayLike<number>): Arr
   return buf
 }
 
-/**
- * Everything here came off the wire, so every field is checked before it is
- * used.
- */
+/** Everything here came off the wire, so every field is checked before it is used. */
 export function decodeInputs(data: ArrayBuffer): InputsPacket {
   if (data.byteLength < HEADER) {
     throw new Error(`packet is ${data.byteLength} bytes, shorter than the ${HEADER}-byte header`)
@@ -56,8 +49,8 @@ export function decodeInputs(data: ArrayBuffer): InputsPacket {
     throw new Error(`count ${count} does not match a ${data.byteLength}-byte packet`)
   }
 
-  // ponytail: a Uint16Array view over the buffer would be zero-copy and the
-  // offset happens to be aligned, but typed arrays read platform endianness.
+  // ponytail: a Uint16Array view over the buffer would be zero-copy and the offset happens to be
+  // aligned, but typed arrays read platform endianness.
   const inputs = new Uint16Array(count)
   for (let i = 0; i < count; i++) inputs[i] = v.getUint16(HEADER + i * 2, true)
 

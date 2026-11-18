@@ -13,8 +13,7 @@ describe('artificial network conditions', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  // With the layer off the link must not be in the way at all: no timer, no
-  // reordering, nothing deferred to a later task.
+  // With the layer off the link must not be in the way at all.
   it('passes packets straight through when clean', () => {
     const {got, deliver} = collect()
     const link = createLink(deliver, CLEAN)
@@ -76,8 +75,8 @@ describe('artificial network conditions', () => {
     expect(run(7).length).toBeLessThan(200 * 0.8)
   })
 
-  // Jitter is what reorders packets, and reordering is the condition the
-  // unordered channel exists to tolerate.
+  // Jitter is what reorders packets, and reordering is the condition the unordered channel exists
+  // to tolerate.
   it('keeps jittered delays inside the window and never below zero', () => {
     const {deliver} = collect()
     const link = createLink(deliver, {delayMs: 20, jitterMs: 30, lossPercent: 0})
@@ -88,8 +87,8 @@ describe('artificial network conditions', () => {
     const {delay} = link.stats
     expect(delay.percentile(0)).toBeGreaterThanOrEqual(0)
     expect(delay.percentile(100)).toBeLessThanOrEqual(50)
-    // The spread is real: a jitter that never fires would pin every sample at
-    // the base delay and this test would pass on a broken layer.
+    // The spread is real: a jitter that never fires would pin every sample at the base delay and
+    // this test would pass on a broken layer.
     expect(delay.percentile(100) - delay.percentile(0)).toBeGreaterThan(10)
   })
 

@@ -25,8 +25,8 @@ function connectPads(...pads: (Gamepad | null)[]) {
 }
 
 afterEach(() => {
-  // jsdom has no Gamepad API; createInput's optional call handles that, and
-  // leaving a stub behind would leak into the tests that rely on its absence.
+  // jsdom has no Gamepad API; createInput's optional call handles that, and leaving a stub behind
+  // would leak into the tests that rely on its absence.
   delete (navigator as {getGamepads?: unknown}).getGamepads
 })
 
@@ -96,8 +96,8 @@ test('a tap that starts and ends between two polls still registers', () => {
   press(target, 'KeyD')
   release(target, 'KeyD')
 
-  // The key is already up by the time the loop looks, but the player pressed
-  // it, so it lands on this frame.
+  // The key is already up by the time the loop looks, but the player pressed it, so it lands on
+  // this frame.
   expect(input.poll()).toEqual([IN_RIGHT, 0])
   // ...and on exactly one frame, not forever.
   expect(input.poll()).toEqual([0, 0])
@@ -127,8 +127,7 @@ test('dispose stops tracking', () => {
   expect(input.poll()).toEqual([0, 0])
 })
 
-// Each device is SOCD-clean on its own; the opposing pair only exists after the
-// merge.
+// Each device is SOCD-clean on its own.
 test('SOCD resolves across devices, not just within one', () => {
   const target = new EventTarget()
   connectPads(fakePad({buttons: [15]})) // pad holds right

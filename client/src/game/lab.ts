@@ -29,10 +29,7 @@ const BUTTONS: readonly (readonly [number, string])[] = [
 export interface Lab {
   /** Call once per *simulated* frame, with the inputs that frame was fed. */
   step(snap: Snapshot, inputs: readonly [number, number]): void
-  /**
-   * Player 1's advantage in frames after the last exchange — positive when
-   * player 1 acts first.
-   */
+  /** Player 1's advantage in frames after the last exchange. */
   advantage(): number | null
   /** Input history for a seat, oldest first, one drawable line each. */
   history(seat: number): string[]
@@ -40,13 +37,11 @@ export interface Lab {
 }
 
 export function createLab(): Lab {
-  // The frame each seat last became actionable, and whether they were on the
-  // previous frame.
+  // The frame each seat last became actionable, and whether they were on the previous frame.
   const free = [0, 0]
   const was = [true, true]
 
-  // An exchange is a stretch with neither player able to act: an attack met by
-  // a block, a hit, a trade, or two moves whiffing at each other.
+  // An exchange is a stretch with neither player able to act.
   let overlapped = false
   let adv: number | null = null
 
@@ -93,10 +88,7 @@ export function createLab(): Lab {
   }
 }
 
-/**
- * Numpad notation, the way every frame data resource in the genre writes a
- * direction.
- */
+/** Numpad notation, the way every frame data resource in the genre writes a direction. */
 export function numpad(bits: number): string {
   const y = bits & IN_UP ? 1 : bits & IN_DOWN ? -1 : 0
   const x = bits & IN_RIGHT ? 1 : bits & IN_LEFT ? -1 : 0

@@ -33,27 +33,17 @@ import {createSamples} from './stats'
 
 /** The loop: input, the fixed step, netplay, and what gets reported. */
 
-/**
- * Displayed frames between HUD refreshes, counted off the display and not off
- * the sim frame.
- */
+/** Displayed frames between HUD refreshes, counted off the display and not off the sim frame. */
 const HUD_EVERY = 30
 
 /** Frames between pings. */
 const PING_EVERY = 30
 
-/**
- * Silence that counts as a disconnect (02 Architecture/Transport and
- * Connectivity.md).
- */
+/** Silence that counts as a disconnect (02 Architecture/Transport and Connectivity.md). */
 const DISCONNECT_MS = 3000
 
 export interface Game {
-  /**
-   * The session so far in the replay log format: a 16-byte header carrying the
-   * setup, then little-endian uint16 pairs, player 1 then player 2, one pair
-   * per frame.
-   */
+  /** The session so far in the replay log format. */
   inputLog(): Blob
   /** Switch from local play to netplay over a connected peer. */
   connect(peer: Peer, seat: 0 | 1, session?: MatchSession): void
@@ -68,8 +58,8 @@ export interface Game {
   /** Picks what the dummy does with seat 2. */
   setDummy(mode: DummyMode): void
   /**
-   * The figures the HUD draws, as plain numbers, for the measurement harness
-   * (01 Thesis/Measurement Methodology.md).
+   * The figures the HUD draws, as plain numbers, for the measurement harness (01 Thesis/Measurement
+   * Methodology.md).
    */
   measure(): Record<string, unknown>
   /** Sets the artificial network conditions applied to arriving packets. */
@@ -120,8 +110,7 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
   /** How many replay frames have been played. */
   let played = 0
   await loadSim()
-  // The characters arrive from the URL, so they are user input and clamped here
-  // — the first point at which the roster is loaded and its size is known.
+  // The characters arrive from the URL, so they are user input and clamped here.
   const count = numCharacters()
   chars = [chars[0] % count, chars[1] % count]
   reset(training, ai, chars)
@@ -170,8 +159,8 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
   let ticks = 0
   let hudTicks = 0
 
-  // Every playtest is a free regression log, and the corpus is worth more than
-  // any single test in here — but only if it is actually recorded.
+  // Every playtest is a free regression log, and the corpus is worth more than any single test in
+  // here — but only if it is actually recorded.
   const recorded: number[] = []
 
   /** The session so far in the replay log format. */
@@ -187,9 +176,8 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
     void uploadResult(id, {
       // The sim counts seats from 0 and the server from 1.
       winner: winner + 1,
-      // The frames the log actually contains, which is what the server
-      // replays and counts — not the frame this end had simulated to, which
-      // on a disconnect runs past the last confirmed input.
+      // The frames the log actually contains, which is what the server replays and counts — not the
+      // frame this end had simulated to, which on a disconnect runs past the last confirmed input.
       endFrame: n.log.length / 2,
       chars,
       disconnect: opponentLeft,
@@ -213,13 +201,10 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
 
   app.ticker.add((ticker) => {
     frameCost.push(ticker.deltaMS)
-    // A frame that took longer than one and a half steps is one the display did
-    // not get.
+    // A frame that took longer than one and a half steps is one the display did not get.
     if (ticker.deltaMS > STEP_MS * 1.5) longFrames++
 
-    // Once the opponent has gone the match is over: no reconnection window
-    // (D51), so there is nothing left to simulate and the last confirmed frame
-    // is the one the result is reported from.
+    // Once the opponent has gone the match is over (D51).
     for (let i = opponentLeft || holding ? 0 : clock.tick(ticker.deltaMS); i > 0; i--) {
       // A replay is a device too: the log's pair for this frame, and the end of the log is the end.
       if (replay && played * 2 >= replay.length) {
@@ -228,8 +213,8 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
       }
       const [keys, p2] = replay ? [replay[played * 2], replay[played * 2 + 1]] : input.poll()
       played++
-      // The bot is a device: it stands in for the local player's keyboard and
-      // is read once per fixed step, exactly where the keyboard is read.
+      // The bot is a device: it stands in for the local player's keyboard and is read once per
+      // fixed step, exactly where the keyboard is read.
       const p1 = bot ? bot.poll() : keys
       // So is the dummy, in the other seat.
       const p2in = dummy ? dummy.poll(readSnapshot(), p2) : p2
@@ -241,29 +226,25 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
         if (++ticks % PING_EVERY === 0) net.ping()
       } else {
         advance(p1, p2in)
-        // What the sim was fed, dummy included — a log that recorded the
-        // keyboard instead would replay a lab session nobody played.
+        // What the sim was fed, dummy included.
         recorded.push(p1, p2in)
       }
       stepCost.push(performance.now() - t0)
 
-      // Per simulated frame, not per displayed one: a display frame that runs
-      // two sim steps would otherwise lose a row of the input display and
-      // could miss the frame a recovery ended on.
+      // Per simulated frame, not per displayed one.
       lab?.step(readSnapshot(), [p1, p2in])
     }
 
     const snap = readSnapshot()
 
-    // Under netplay the confirmed line lags the simulated frame by the rollback
-    // window; locally every frame that has run is settled the moment it has.
+    // Under netplay the confirmed line lags the simulated frame by the rollback window.
     pump.drain(net ? net.confirmed : snap.frame - 1, ({seat, bits}) => {
       scene.spark(snap, seat, bits)
       playEvents(bits)
     })
 
-    // Three seconds of silence is a disconnect and the match ends there (02
-    // Architecture/Transport and Connectivity.md).
+    // Three seconds of silence is a disconnect and the match ends there (02 Architecture/Transport
+    // and Connectivity.md).
     if (net && !opponentLeft && net.silentMs() > DISCONNECT_MS) {
       opponentLeft = true
     }
@@ -281,8 +262,7 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
 
     scene.draw(snap, {
       net,
-      // The disconnect takes the screen over: immediate match end, an explicit
-      // message and a win (02 Architecture/Disconnect and Match Integrity.md).
+      // The disconnect takes the screen over.
       banner: opponentLeft
         ? 'OPPONENT DISCONNECTED\nYOU WIN'
         : replay && holding
@@ -305,8 +285,8 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
   return {
     training,
 
-    // A getter, not the value: connect() replaces the pair with the room's, and
-    // a field captured here would still be reporting what this end picked.
+    // A getter, not the value: connect() replaces the pair with the room's, and a field captured
+    // here would still be reporting what this end picked.
     get chars() {
       return chars
     },
@@ -331,11 +311,10 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
     },
 
     connect(peer, seat, session) {
-      // Never into a training match: the mode is in the state, so two ends that
-      // disagreed about it would desync on frame 0.
+      // Never into a training match: the mode is in the state, so two ends that disagreed about it
+      // would desync on frame 0.
       chars = session?.chars ?? chars
-      // Zero for a private match by code, which is not recorded: a ladder made
-      // of matches two people arranged between themselves is not a ladder.
+      // Zero for a private match by code, which is not recorded.
       matchID = session?.matchID ?? 0
       transport = session?.transport
       mySeat = seat
@@ -348,13 +327,11 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
       scene.reset()
       ticks = 0
       longFrames = 0
-      // Both ends of a measured run open the same URL, so the seat is the only
-      // thing that can make the two input streams differ.
+      // Both ends of a measured run open the same URL, so the seat is the only thing that can make
+      // the two input streams differ.
       bot?.reseed(seat + 1)
       net = createNetplay({advance, rewind, checksum, dataVersion}, (data) => peer.send(data), seat)
-      // Every arriving packet goes through the impairment layer, whatever it
-      // is set to — the clean setting passes straight through, so a real match
-      // runs the same path a measured one does.
+      // Every arriving packet goes through the impairment layer, whatever it is set to.
       link = createLink((data) => net?.receive(data), CLEAN)
       net.hello()
     },
@@ -403,8 +380,8 @@ export async function startGame(parent: HTMLElement, o: GameOptions = {}): Promi
       disposed = true
       input.dispose()
       link?.dispose()
-      // The Go runtime keeps running: quit() cannot be undone and loadSim is
-      // cached, so a remount would have no sim.
+      // The Go runtime keeps running: quit() cannot be undone and loadSim is cached, so a remount
+      // would have no sim.
       sizer.disconnect()
       app.destroy(true, {children: true})
     },

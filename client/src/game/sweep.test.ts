@@ -3,11 +3,7 @@ import {batchFor, runSweep, toCSV, type SweepSim} from './sweep'
 
 const OPTS = {samples: 2, stepsPerBatch: 12, maxDepth: 2, warmup: 0, resetEvery: 1e9}
 
-/**
- * Counts what the sweep asked the sim to do, and keeps a frame number the way
- * the real sim does — a rewind moves it back, and the replay advances it up
- * again.
- */
+/** Counts what the sweep asked the sim to do, and keeps a frame number the way the real sim does. */
 function stub() {
   const depths: number[] = []
   let advances = 0
@@ -42,8 +38,7 @@ function stub() {
 }
 
 test('a frame at depth d runs the sim d+1 times', async () => {
-  // The cost model the whole measurement is about: an 8-frame rollback runs the
-  // sim nine times and still has to fit one frame.
+  // The cost model the whole measurement is about.
   const s = stub()
   const rows = await runSweep(s.sim, OPTS)
 
@@ -60,8 +55,8 @@ test('a frame at depth d runs the sim d+1 times', async () => {
 })
 
 test('every rewind goes back exactly the depth being measured', async () => {
-  // A row that rewound one frame while claiming depth 8 would report the cost
-  // of the cheapest correction under the name of the most expensive one.
+  // A row that rewound one frame while claiming depth 8 would report the cost of the cheapest
+  // correction under the name of the most expensive one.
   const s = stub()
   const rows = await runSweep(s.sim, OPTS)
 
@@ -81,8 +76,8 @@ test('depth 0 never rewinds', async () => {
 })
 
 test('a refused rewind names the frame rather than reporting a fast run', async () => {
-  // Silently skipping the replay would leave a plausible-looking row that
-  // measured a plain frame and called it a depth-2 one.
+  // Silently skipping the replay would leave a plausible-looking row that measured a plain frame
+  // and called it a depth-2 one.
   const sim = {...stub().sim, rewind: () => false}
   await expect(runSweep(sim, OPTS)).rejects.toThrow(/rewind to frame \d+ rejected/)
 })

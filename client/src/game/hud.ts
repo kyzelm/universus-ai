@@ -15,10 +15,7 @@ import type {Samples} from './stats'
 
 /** The HUD's text: every string on screen that is built from numbers. */
 
-/**
- * The round clock in whole seconds, rounded up: the sim counts frames, and the
- * view is the only place allowed to hold a number that is not exact.
- */
+/** The round clock in whole seconds, rounded up. */
 export function seconds(frames: number): number {
   return Math.ceil((frames * STEP_MS) / 1000)
 }
@@ -31,8 +28,7 @@ export function announcement(snap: Snapshot): string {
     case PHASE_FIGHT:
       return ''
     case PHASE_KO:
-      // A drawn round ended either on a double KO or on the clock; both read
-      // as a draw, and the distinction is not one the player needs.
+      // A drawn round ended either on a double KO or on the clock.
       if (snap.roundWinner === NOBODY) return 'DRAW'
       return snap.timer === 0 ? 'TIME UP' : 'K.O.'
     case PHASE_INTRO:
@@ -62,13 +58,9 @@ export function localHud(snap: Snapshot): string {
   ].join('\n')
 }
 
-/**
- * M-A as the methodology asks for it: cost by rollback depth, one row per depth
- * (01 Thesis/Measurement Methodology.md).
- */
+/** M-A as the methodology asks for it. */
 export function costByDepth(step: Samples, net: Netplay | null) {
-  // percentile(100) is the maximum: the worst frame is what breaks a fighting
-  // game, so it is reported beside the tail rather than in place of it.
+  // percentile(100) is the maximum.
   const row = (depth: number, s: Samples) => ({
     depth,
     count: s.count,
@@ -95,10 +87,7 @@ export function costHud(stepCost: Samples, frameCost: Samples, longFrames: numbe
   )
 }
 
-/**
- * Mean rollback depth over the session — a measurement column, and the one
- * place a float is welcome: it is reported, never simulated from.
- */
+/** Mean rollback depth over the session. */
 export function averageDepth(s: Netplay['stats']): number {
   let frames = 0
   let total = 0
@@ -118,9 +107,7 @@ export function netHud(net: Netplay, link: Link | null, upload: string): string 
   const rtt = (p: number) => (s.rtt.count ? s.rtt.percentile(p).toFixed(1) : '—')
 
   return [
-    // Ahead and behind read differently and both matter: the leading end is
-    // the one that skips, and a skip count that never moves on a laggy link
-    // means time synchronisation is not doing its job.
+    // Ahead and behind read differently and both matter.
     `frame ${net.frame}  ahead ${net.advantage > 0 ? '+' : ''}${net.advantage}  ` +
       `rtt p50 ${rtt(50)}ms p99 ${rtt(99)}ms`,
     `rollback ${pct(s.rollbacks)}% depth p99 ${depthP99(s.depths)}  ` +

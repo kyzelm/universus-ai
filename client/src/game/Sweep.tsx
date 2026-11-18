@@ -3,21 +3,18 @@ import {advance, loadSim, reset, rewind} from '../sim/wasm'
 import {runSweep, toCSV, type SweepRow} from './sweep'
 
 /**
- * `?sweep` — the M-A page: frame time at forced rollback depths 0 through 8,
- * measured in the browser (01 Thesis/Measurement Methodology.md).
+ * `?sweep` — the M-A page: frame time at forced rollback depths 0 through 8, measured in the
+ * browser (01 Thesis/Measurement Methodology.md).
  */
 
-// The sweep owns the sim for as long as it runs, and StrictMode mounts twice in
-// development — two sweeps interleaved on one sim would rewind each other's
-// frames and report the cost of the collision.
+// The sweep owns the sim for as long as it runs, and StrictMode mounts twice in development.
 let running = false
 
 export default function Sweep() {
   const [rows, setRows] = useState<SweepRow[] | null>(null)
   const [at, setAt] = useState(0)
   const [error, setError] = useState('')
-  // A background tab is not a measurement (01 Thesis/Measurement
-  // Methodology.md).
+  // A background tab is not a measurement (01 Thesis/Measurement Methodology.md).
   const [wasHidden, setWasHidden] = useState(document.hidden)
 
   useEffect(() => {

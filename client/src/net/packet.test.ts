@@ -5,8 +5,7 @@ test('a full redundancy window is 22 bytes', () => {
   expect(encodeInputs(0, new Uint16Array(REDUNDANCY)).byteLength).toBe(22)
 })
 
-// The layout is a wire format: two machines agree on these exact bytes or they
-// desync.
+// The layout is a wire format: two machines agree on these exact bytes or they desync.
 test('the byte layout is little-endian and packed', () => {
   const bytes = new Uint8Array(encodeInputs(0x01020304, [0x0a0b, 0x0c0d]))
   expect([...bytes]).toEqual([

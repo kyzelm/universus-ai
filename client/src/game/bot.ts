@@ -15,17 +15,11 @@ import {
 export interface Bot {
   /** One frame's bitfield. */
   poll(): number
-  /**
-   * Both ends open the same URL, so the seat is what makes the streams differ.
-   */
+  /** Both ends open the same URL, so the seat is what makes the streams differ. */
   reseed(seed: number): void
 }
 
-/**
- * Single directions and the two down-diagonals — enough to walk, crouch, jump
- * and occasionally complete a motion, which is what makes the stream worth
- * predicting wrongly.
- */
+/** Single directions and the two down-diagonals. */
 const DIRECTIONS = [0, IN_LEFT, IN_RIGHT, IN_DOWN, IN_UP, IN_DOWN | IN_RIGHT, IN_DOWN | IN_LEFT]
 const ATTACKS = [IN_LP, IN_MP, IN_HP, IN_LK, IN_MK, IN_HK]
 

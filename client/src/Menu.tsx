@@ -133,8 +133,7 @@ export default function Menu({roster, onStart}: MenuProps) {
     )
   }
 
-  // Who the second column belongs to is the mode's business: in training it is
-  // the dummy, and against the AI it is the opponent nobody is holding.
+  // Who the second column belongs to is the mode's business.
   const seat2 = mode === 'training' ? 'dummy' : mode === 'ai' ? 'opponent' : 'P2'
 
   return (

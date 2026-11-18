@@ -1,8 +1,6 @@
 import {token} from './account'
 
-/**
- * Uploading a finished match (02 Architecture/Anti-Cheat and Verification.md).
- */
+/** Uploading a finished match (02 Architecture/Anti-Cheat and Verification.md). */
 export interface MatchReport {
   /** The winning seat, 1 or 2 — the server knows who sat where. */
   winner: number
@@ -21,8 +19,8 @@ export interface MatchReport {
 }
 
 function base64(bytes: Uint8Array): string {
-  // Chunked: String.fromCharCode(...bytes) on a 20 KB log is an argument list
-  // long enough to blow the call stack on some engines.
+  // Chunked: String.fromCharCode(...bytes) on a 20 KB log is an argument list long enough to blow
+  // the call stack on some engines.
   let out = ''
   for (let i = 0; i < bytes.length; i += 0x8000) {
     out += String.fromCharCode(...bytes.subarray(i, i + 0x8000))

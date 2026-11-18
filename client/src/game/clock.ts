@@ -6,13 +6,7 @@ export interface Clock {
 
 export const STEP_MS = 1000 / 60
 
-/**
- * @param maxCatchup steps per frame before the leftover time is dropped. A
- * frame that takes longer than the steps it schedules would otherwise ask for
- * more steps next frame, and so on, until the tab locks up.
- * @param snapMs how far a frame delta may sit from a whole number of steps and
- * still be treated as that many. See below.
- */
+/** @param maxCatchup steps per frame before the leftover time is dropped. */
 export function createClock(stepMs = STEP_MS, maxCatchup = 5, snapMs = 1.5): Clock {
   let acc = 0
 
@@ -32,8 +26,8 @@ export function createClock(stepMs = STEP_MS, maxCatchup = 5, snapMs = 1.5): Clo
         steps++
       }
 
-      // Hit the ceiling: the machine is behind, so give up on the backlog
-      // rather than compounding it.
+      // Hit the ceiling: the machine is behind, so give up on the backlog rather than compounding
+      // it.
       if (steps === maxCatchup) acc = 0
 
       return steps

@@ -18,11 +18,10 @@ test('the URL names the same setup the menu builds', () => {
   expect(setupFromURL(parseFlags('?room=ABC'))).toEqual({mode: 'online', ai: false, chars: [0, 0]})
   expect(setupFromURL(parseFlags('?bot'))).toEqual({mode: 'local', ai: false, chars: [0, 0]})
 
-  // Training wins over the AI, which is the precedence the sim had
-  // before the menu existed: the lab is a mode, not an opponent.
+  // Training wins over the AI, which is the precedence the sim had before the menu existed.
   expect(setupFromURL(parseFlags('?training&ai'))?.mode).toBe('training')
 
-  // A character index that is not one, or not there at all, is the first entry
-  // rather than a fighter who cannot move.
+  // A character index that is not one, or not there at all, is the first entry rather than a
+  // fighter who cannot move.
   expect(setupFromURL(parseFlags('?p1=-3&p2=x'))?.chars).toEqual([0, 0])
 })

@@ -22,8 +22,8 @@ test('leftover time carries into the next frame instead of being lost', () => {
 })
 
 test('a fast display does not run the sim fast, and does not drift', () => {
-  // 144 Hz for 10 seconds: most frames step zero times, and the error stays
-  // bounded at one step rather than accumulating.
+  // 144 Hz for 10 seconds: most frames step zero times, and the error stays bounded at one step
+  // rather than accumulating.
   const steps = stepsOver(1000 / 144, 1440)
   expect(steps).toBeGreaterThanOrEqual(599)
   expect(steps).toBeLessThanOrEqual(600)

@@ -3,10 +3,8 @@ import {token} from './account'
 import {guest, host, type Connection, type Peer} from './peer'
 
 /**
- * Signalling and the relay fallback over one socket to our own server (02
- * Architecture/Transport and Connectivity.md).
- *
- *   ws://host/ws?room=CODE
+ * Signalling and the relay fallback over one socket to our own server (02 Architecture/Transport
+ * and Connectivity.md).
  */
 
 /** D15: WebRTC gets five seconds, then the match starts over the relay. */
@@ -16,29 +14,21 @@ export type Kind = 'p2p' | 'relay'
 
 export interface Session {
   readonly peer: Peer
-  /**
-   * Which transport the match is actually on — a measured figure, not a guess.
-   */
+  /** Which transport the match is actually on. */
   readonly kind: Kind
   /** The host drives P1. */
   readonly seat: 0 | 1
   /**
-   * The characters the match is played with, decided by the host for both ends,
-   * exactly as the transport is.
+   * The characters the match is played with, decided by the host for both ends, exactly as the
+   * transport is.
    */
   readonly chars: [number, number]
-  /**
-   * The match this pairing was recorded as, or 0 for one that was not — a
-   * private match by code is for testing and for the demo, and a ladder made of
-   * matches two people arranged between themselves is not a ladder.
-   */
+  /** The match this pairing was recorded as, or 0 for one that was not. */
   readonly matchID: number
   close(): void
 }
 
-/**
- * What a room looks like to the negotiation: text now, bytes possibly later.
- */
+/** What a room looks like to the negotiation. */
 export interface Signal {
   send(text: string): void
   onText(cb: (text: string) => void): void
@@ -78,10 +68,7 @@ export interface Origin {
   readonly search: string
 }
 
-/**
- * The signalling server, defaulting to the origin that served the page: the
- * guest opens the host's address and the relay is found at the same one.
- */
+/** The signalling server, defaulting to the origin that served the page. */
 export function relayURL(code: string, origin: Origin = location): string {
   return `${socketBase(origin)}/ws?room=${encodeURIComponent(code)}`
 }
@@ -104,9 +91,7 @@ export async function negotiate(
 ): Promise<Session> {
   const text = queue(sig)
 
-  // The first frame the server ever sends is the role, and it is sent when the
-  // pair is complete — so "you are the host" also means "the other end is here,
-  // start offering".
+  // The first frame the server ever sends is the role, and it is sent when the pair is complete.
   const opening = await text.next()
   const [role, id] = opening.split(' ')
   if (role !== 'host' && role !== 'guest') {
@@ -143,10 +128,7 @@ export async function negotiate(
   return {peer: sig.asPeer(), kind, seat, chars: agreed, matchID, close: () => sig.close()}
 }
 
-/**
- * The host's verdict on the wire: the transport and the pair of characters, in
- * one message rather than two.
- */
+/** The host's verdict on the wire. */
 function encodeVerdict(kind: Kind, chars: [number, number]): string {
   return `${kind} ${chars[0]},${chars[1]}`
 }
@@ -182,25 +164,20 @@ async function follow(
   text: {next(): Promise<string>},
   fallbackMs: number,
 ): Promise<{kind: Kind; chars: [number, number]}> {
-  // Twice the host's budget: its verdict is sent at the five-second mark at the
-  // latest, and has a trip to make after that.
+  // Twice the host's budget: its verdict is sent at the five-second mark at the latest, and has a
+  // trip to make after that.
   const said = await within(text.next(), fallbackMs * 2)
   if (said === TIMEOUT) throw new Error('the host never said which transport to use')
   const verdict = decodeVerdict(said)
 
-  // Same ICE negotiation, so a channel the host has open is about to be open
-  // here.
+  // Same ICE negotiation, so a channel the host has open is about to be open here.
   if (verdict.kind === 'p2p' && (await within(conn.ready, fallbackMs)) === TIMEOUT) {
     throw new Error('the host is on P2P and this end never connected')
   }
   return verdict
 }
 
-/**
- * Signalling text arrives whether or not anybody is awaiting it — the offer can
- * land while we are still generating our own description — so it is queued
- * rather than dropped.
- */
+/** Signalling text arrives whether or not anybody is awaiting it. */
 function queue(sig: Signal) {
   const waiting: string[] = []
   let want: ((text: string) => void) | null = null
@@ -257,8 +234,8 @@ export async function openRoom(url: string): Promise<Signal> {
     onText: (cb) => (text = cb),
     onBinary: (cb) => (binary = cb),
     asPeer: () => ({
-      // Same rule as the data channel: a packet sent on a socket that is not
-      // open is dropped, and the next one carries the same inputs again.
+      // Same rule as the data channel: a packet sent on a socket that is not open is dropped, and
+      // the next one carries the same inputs again.
       send: (data) => {
         if (ws.readyState === WebSocket.OPEN) ws.send(data)
       },

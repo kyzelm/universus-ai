@@ -27,10 +27,7 @@ import {
   stampNow,
 } from './packet'
 
-/**
- * Two drivers wired to each other through a delay queue — the closest thing to
- * a real match that runs headlessly.
- */
+/** Two drivers wired to each other through a delay queue. */
 function match(frames: number, lagFrames = 3, corruptBAt = -1) {
   const simA = stubSim()
   const simB = stubSim(corruptBAt)
@@ -59,8 +56,8 @@ function stubSim(corruptAt = -1, version = 0xda7a) {
       return frame
     },
     advance(p1, p2) {
-      // corruptAt makes this end diverge from the frame given onward, which is
-      // what a real desync looks like: one bad frame poisons every hash after.
+      // corruptAt makes this end diverge from the frame given onward, which is what a real desync
+      // looks like.
       applied[frame] = [p1, frame === corruptAt ? p2 ^ 1 : p2]
       frame++
     },
@@ -69,8 +66,8 @@ function stubSim(corruptAt = -1, version = 0xda7a) {
       frame = to
       return true
     },
-    // FNV-1a over the whole history, so the hash depends on every frame the
-    // way the real state hash does.
+    // FNV-1a over the whole history, so the hash depends on every frame the way the real state hash
+    // does.
     checksum() {
       let h = 2166136261
       for (let f = 0; f < frame; f++) {
@@ -219,8 +216,8 @@ describe('ping', () => {
     const {net} = harness()
     net.receive(encodePing(stampNow() - 25, true)) // stamped 2.5 ms ago
 
-    // A range, not an equality: real time passes between the two stamps, and a
-    // test that pins the wall clock to a tenth of a ms fails on a slow machine.
+    // A range, not an equality: real time passes between the two stamps, and a test that pins the
+    // wall clock to a tenth of a ms fails on a slow machine.
     expect(net.stats.rtt.count).toBe(1)
     expect(net.stats.rtt.percentile(50)).toBeGreaterThanOrEqual(2.5)
     expect(net.stats.rtt.percentile(50)).toBeLessThan(10)
@@ -243,8 +240,7 @@ describe('checksum exchange', () => {
 
     expect(A.stats.desyncs).toBeGreaterThan(0)
     expect(B.stats.desyncs).toBeGreaterThan(0)
-    // Frame 30 hashes frames 0-29 and is still clean; 60 is the first to cover
-    // frame 40, so that is where it must surface.
+    // Frame 30 hashes frames 0-29 and is still clean.
     expect(A.stats.desyncFrame).toBe(60)
   })
 
@@ -260,8 +256,7 @@ describe('checksum exchange', () => {
       net.step(0)
     }
 
-    // Frame 30 is settled now, so the held checksum finally gets judged — and
-    // 0xdeadbeef was never going to match.
+    // Frame 30 is settled now, so the held checksum finally gets judged.
     expect(net.stats.desyncs).toBe(1)
     expect(net.stats.desyncFrame).toBe(30)
   })
@@ -289,11 +284,7 @@ test('a malformed packet is counted and dropped, never thrown', () => {
   expect(net.stats.malformed).toBe(1)
 })
 
-/**
- * The property the whole design rests on: however late the remote inputs
- * arrive, once they have arrived every frame holds the input that really
- * happened.
- */
+/** The property the whole design rests on. */
 test('converges on the true remote inputs under lagged delivery', () => {
   const {sim, net} = harness()
   const truth = Array.from({length: 60}, (_, f) => (f * 13) % 7)
@@ -343,16 +334,12 @@ test('a peer with matching character data plays normally', () => {
   expect(net.step(0)).toBe(true)
 })
 
-/**
- * The invariant the whole wire format rests on: the same bytes go to the sim,
- * the network and the replay (CLAUDE.md).
- */
+/** The invariant the whole wire format rests on. */
 test('a frame\'s input is decided once — a stall never rewrites what was sent', () => {
   const sent: ArrayBuffer[] = []
   const net = createNetplay(stubSim(), (d) => sent.push(d), 0)
 
-  // Nothing ever arrives, so the window runs out and every tick after that
-  // stalls — while the local input keeps changing, as a held stick does not.
+  // Nothing ever arrives, so the window runs out and every tick after that stalls.
   for (let f = 0; f < 40; f++) net.step((f * 7) & 0xff)
   expect(net.stats.stalls).toBeGreaterThan(0)
 
@@ -371,11 +358,7 @@ test('a frame\'s input is decided once — a stall never rewrites what was sent'
   }
 })
 
-/**
- * The netcode driven through the real impairment layer, which is the condition
- * it exists for: localhost produces one-frame rollbacks and never exercises the
- * window.
- */
+/** The netcode driven through the real impairment layer, which is the condition it exists for. */
 describe('under artificial network conditions', () => {
   afterEach(() => vi.useRealTimers())
 
@@ -388,8 +371,7 @@ describe('under artificial network conditions', () => {
     const simA = stubSim()
     const simB = stubSim()
 
-    // Each end's link impairs what *arrives* at it, which is where the real one
-    // sits.
+    // Each end's link impairs what *arrives* at it, which is where the real one sits.
     let A!: ReturnType<typeof createNetplay>
     let B!: ReturnType<typeof createNetplay>
     const toB = createLink((d) => B.receive(d), cfg, 11)
@@ -414,17 +396,14 @@ describe('under artificial network conditions', () => {
     expect(A.stats.rollbacks).toBeGreaterThan(0)
     expect(A.stats.desyncs).toBe(0)
     expect(B.stats.desyncs).toBe(0)
-    // A correction older than the window cannot be applied, and one arriving
-    // is the first sign the parameters do not fit the conditions.
+    // A correction older than the window cannot be applied, and one arriving is the first sign the
+    // parameters do not fit the conditions.
     expect(A.stats.dropped).toBe(0)
     expect(B.stats.dropped).toBe(0)
   })
 })
 
-/**
- * Two ends on their own 60 Hz clocks, exchanging inputs and pings over a fixed
- * delay.
- */
+/** Two ends on their own 60 Hz clocks, exchanging inputs and pings over a fixed delay. */
 function linked(frames: number, lagFrames: number, headStart = 0) {
   const simA = stubSim()
   const simB = stubSim()
@@ -458,17 +437,15 @@ describe('time synchronisation', () => {
     const {A, B, simA, simB} = linked(400, 3, HEAD_START)
 
     expect(A.stats.skipped).toBeGreaterThan(0)
-    // Never both. The two readings are the same difference with opposite signs,
-    // so an end that is behind cannot decide to wait as well — that would be
-    // two clients politely deadlocking each other.
+    // Never both. The two readings are the same difference with opposite signs, so an end that is
+    // behind cannot decide to wait as well — that would be two clients politely deadlocking each
+    // other.
     expect(B.stats.skipped).toBe(0)
 
-    // The claim, measured on the frame counters rather than on the instrument:
-    // the head start is gone.
+    // The claim, measured on the frame counters rather than on the instrument.
     expect(simA.frame - simB.frame).toBeLessThanOrEqual(AHEAD_LIMIT)
 
-    // And it stopped once level, over 400 frames in which it could have
-    // skipped sixty.
+    // And it stopped once level, over 400 frames in which it could have skipped sixty.
     expect(A.stats.skipped).toBeLessThanOrEqual(HEAD_START)
   })
 
@@ -498,8 +475,7 @@ test('the driver logs the confirmed inputs, in the replay format', () => {
 
   const n = Math.min(A.log.length, B.log.length)
   expect(n).toBeGreaterThan(300) // ~150 frames of a 200-frame match, confirmed
-  // Both ends log the same pairs in the same order: the log is a fact about
-  // the match, not about which seat recorded it.
+  // Both ends log the same pairs in the same order.
   expect(A.log.slice(0, n)).toEqual(B.log.slice(0, n))
 
   // And it is what the sim was actually fed, p1 first.
@@ -535,8 +511,7 @@ describe('the rollback timeline', () => {
     net.receive(encodeInputs(0, [5]))
     for (let f = 0; f < 6; f++) net.step(0)
 
-    // Every packet carries eight frames, so one arrival routinely invalidates
-    // several: frames 1 to 4 were all predicted as 5 and were all really 9.
+    // Every packet carries eight frames, so one arrival routinely invalidates several.
     net.receive(encodeInputs(1, [9, 9, 9, 9]))
 
     expect(net.stats.rollbacks).toBe(1)
@@ -544,8 +519,8 @@ describe('the rollback timeline', () => {
     for (const f of [1, 2, 3, 4]) {
       expect(kindOf(net.sample(f))).toBe(FRAME_CORRECTED)
     }
-    // The tick is drawn on the frame the rollback landed on, and its height is
-    // how many frames had to be thrown away.
+    // The tick is drawn on the frame the rollback landed on, and its height is how many frames had
+    // to be thrown away.
     expect(depthOf(net.sample(1))).toBe(5)
     expect(depthOf(net.sample(2))).toBe(0)
   })
@@ -561,8 +536,7 @@ describe('the rollback timeline', () => {
   })
 })
 
-// The checksum series goes to the server, which replays the log and compares
-// them in frame order.
+// The checksum series goes to the server, which replays the log and compares them in frame order.
 /** The cadence is the one coupling the determinism gate cannot cover. */
 test('the checkpoint cadence is the one the server replays to', () => {
   expect(CHECKSUM_EVERY).toBe(30)
@@ -571,27 +545,23 @@ test('the checkpoint cadence is the one the server replays to', () => {
 test('the checksums come out in frame order, packed little-endian', () => {
   const {net} = harness()
 
-  // Far enough to take several checkpoints, with the remote input always
-  // available so nothing stalls.
+  // Far enough to take several checkpoints, with the remote input always available so nothing
+  // stalls.
   for (let f = 0; f < CHECKSUM_EVERY * 3; f++) {
     net.receive(encodeInputs(f, [0, 0, 0, 0]))
     net.step(0)
   }
 
-  // One uint32 per checkpoint taken, and nothing else in the buffer: the server
-  // reads this as a flat series and a stray entry would shift every comparison
-  // after it by one checkpoint.
+  // One uint32 per checkpoint taken, and nothing else in the buffer.
   const bytes = net.checksums()
   expect(bytes.length).toBe(4 * Math.floor((CHECKSUM_EVERY * 3) / CHECKSUM_EVERY))
 
-  // Little-endian, whatever the machine — the server reads it with a fixed
-  // byte order and a platform-native view here would produce a different file
-  // on a big-endian one.
+  // Little-endian, whatever the machine.
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   expect(v.getUint32(0, true)).not.toBe(v.getUint32(0, false))
 
-  // Stable: asking twice is the same series, so an upload retried after a
-  // failure does not send a different match.
+  // Stable: asking twice is the same series, so an upload retried after a failure does not send a
+  // different match.
   expect([...net.checksums()]).toEqual([...bytes])
 })
 
@@ -599,10 +569,7 @@ describe('liveness', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  /**
-   * Three seconds of silence is a disconnect, and what resets the clock is
-   * *anything at all* from the peer.
-   */
+  /** Three seconds of silence is a disconnect, and what resets the clock is */
   test('silence is measured from the last packet of any kind', () => {
     const {net} = harness()
     expect(net.silentMs()).toBe(0)
@@ -610,8 +577,7 @@ describe('liveness', () => {
     vi.advanceTimersByTime(4000)
     expect(net.silentMs()).toBeGreaterThan(3000)
 
-    // A ping is not gameplay and still counts: it is the transport saying the
-    // other machine is there, which is the only question being asked.
+    // A ping is not gameplay and still counts.
     net.receive(encodePing(stampNow(), false))
     expect(net.silentMs()).toBe(0)
 

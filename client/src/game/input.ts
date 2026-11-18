@@ -103,16 +103,14 @@ export function createInput(target: EventTarget = window): Input {
   }
   const up = (e: Event) => held.delete((e as KeyboardEvent).code)
 
-  // Losing focus mid-hold leaves the key stuck down forever; the keyup lands
-  // on whatever the user tabbed to.
+  // Losing focus mid-hold leaves the key stuck down forever.
   const clear = () => held.clear()
 
   target.addEventListener('keydown', down)
   target.addEventListener('keyup', up)
   target.addEventListener('blur', clear)
 
-  // The Gamepad API is a polling API by design, which is exactly the shape
-  // this loop wants: gamepads are read in poll(), never from an event.
+  // The Gamepad API is a polling API by design, which is exactly the shape this loop wants.
   const pads = (): (Gamepad | null)[] => navigator.getGamepads?.() ?? []
 
   return {
@@ -123,9 +121,7 @@ export function createInput(target: EventTarget = window): Input {
       // First two connected pads take seat 0 and seat 1.
       const connected = pads().filter((p): p is Gamepad => p !== null)
 
-      // Resolve SOCD once more after merging: each device is clean on its own,
-      // but keyboard-left plus pad-right is an opposing pair that only exists
-      // after the merge, and an unresolved pair must never reach the sim.
+      // Resolve SOCD once more after merging.
       return [
         resolveSOCD(packBits(pressed, keyMasks(options.keys[0])) | (connected[0] ? packPad(connected[0]) : 0)),
         resolveSOCD(packBits(pressed, keyMasks(options.keys[1])) | (connected[1] ? packPad(connected[1]) : 0)),

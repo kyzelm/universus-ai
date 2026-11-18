@@ -2,8 +2,8 @@ import type {Snapshot} from '../sim/wasm'
 import {IN_DOWN, IN_LEFT, IN_LP, IN_RIGHT, IN_UP} from './input'
 
 /**
- * The training dummy: the second half of the lab overlay (03 Game Design/Game
- * Modes.md), and what makes the frame advantage readout readable by one person.
+ * The training dummy: the second half of the lab overlay (03 Game Design/Game Modes.md), and what
+ * makes the frame advantage readout readable by one person.
  */
 
 export const DUMMY_MODES = ['manual', 'stand', 'crouch', 'block', 'jump', 'reversal'] as const
@@ -39,8 +39,8 @@ export function createDummy(): Dummy {
       const back = me.facing > 0 ? IN_LEFT : IN_RIGHT
 
       // Holding away only while the attacker is committed to something.
-      // ponytail: blocks anything the attacker starts, high or low, because
-      // guarding the wrong height is a mechanic the sim does not have yet.
+      // ponytail: blocks anything the attacker starts, high or low, because guarding the wrong
+      // height is a mechanic the sim does not have yet.
       const guard = () => (them.moveIndex >= 0 ? back : 0)
 
       switch (mode) {
@@ -53,8 +53,7 @@ export function createDummy(): Dummy {
         case 'block':
           return guard()
         case 'jump':
-          // Pressed while it can act, released while it cannot — which in the
-          // air is the whole jump.
+          // Pressed while it can act, released while it cannot.
           return me.actionable === 1 ? IN_UP : 0
         case 'reversal': {
           if (me.actionable === 1) {
@@ -65,9 +64,7 @@ export function createDummy(): Dummy {
           const step = beat++ % 3
           if (step === 0) return fwd
           if (step === 1) return IN_DOWN
-          // The button lands on the frame that completes the motion: the
-          // motion is judged at the frame of the press, not at the frame the
-          // move comes out.
+          // The button lands on the frame that completes the motion.
           return fwd | IN_LP
         }
       }

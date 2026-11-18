@@ -26,10 +26,7 @@ export const SKIP_EVERY = 6
 /** Frames between checksum exchanges. */
 export const CHECKSUM_EVERY = 30
 
-/**
- * The rollback visualiser's backing data (01 Thesis/Supervisor
- * Deliverables.md).
- */
+/** The rollback visualiser's backing data (01 Thesis/Supervisor Deliverables.md). */
 export const TIMELINE = 180
 
 /** A frame simulated from the remote input that had already arrived. */
@@ -39,11 +36,7 @@ export const FRAME_PREDICTED = 1
 /** …from a guess that turned out wrong, and has since been replayed. */
 export const FRAME_CORRECTED = 2
 
-/**
- * The 99th-percentile rollback depth from the histogram — the number worth
- * reporting, since the mean depth of a healthy connection is near zero and
- * hides the frames that actually cost something.
- */
+/** The 99th-percentile rollback depth from the histogram. */
 export function depthP99(depths: readonly number[]): number {
   const total = depths.reduce((a, b) => a + b, 0)
   if (total === 0) return 0
@@ -99,9 +92,7 @@ export interface NetplayStats {
   stalls: number
   /** Frames deliberately dropped to let the other end catch up. */
   skipped: number
-  /**
-   * Corrections that arrived too late to apply — a desync, if it ever fires.
-   */
+  /** Corrections that arrived too late to apply. */
   dropped: number
   malformed: number
   /** Set when the peer's character data does not match ours. */
@@ -113,10 +104,7 @@ export interface NetplayStats {
   desyncs: number
   desyncFrame: number
   rtt: Samples
-  /**
-   * What a rollback's replay cost, bucketed by the depth that produced it —
-   * index 1..MAX_ROLLBACK, and index 0 is never pushed to.
-   */
+  /** What a rollback's replay cost, bucketed by the depth that produced it. */
   replayByDepth: Samples[]
 }
 
@@ -130,42 +118,22 @@ export interface Netplay {
   receive(data: ArrayBuffer): void
   ping(): void
   readonly frame: number
-  /**
-   * The newest frame that is both simulated and settled — every input in it is
-   * known, so it cannot be simulated again.
-   */
+  /** The newest frame that is both simulated and settled. */
   readonly confirmed: number
-  /**
-   * How many frames ahead of the other end we are, with the connection's own
-   * latency taken out.
-   */
+  /** How many frames ahead of the other end we are, with the connection's own latency taken out. */
   readonly advantage: number
-  /**
-   * The confirmed inputs so far, in the replay log's order: p1 then p2, one
-   * pair per frame, seat-independent.
-   */
+  /** The confirmed inputs so far, in the replay log's order. */
   readonly log: readonly number[]
   /** Milliseconds since anything at all arrived from the peer. */
   silentMs(): number
-  /**
-   * The state hashes taken every CHECKSUM_EVERY frames, in frame order, packed
-   * as little-endian uint32s.
-   */
+  /** The state hashes taken every CHECKSUM_EVERY frames, in frame order, packed as little-endian uint32s. */
   checksums(): Uint8Array
-  /**
-   * What happened on a frame, for the visualiser: `kind | depth << 2`, where
-   * kind is one of the FRAME_* constants and depth is the depth of a rollback
-   * that *landed* on this frame, or zero.
-   */
+  /** What happened on a frame, for the visualiser. */
   sample(frame: number): number
   readonly stats: NetplayStats
 }
 
-/**
- * @param seat which player this end drives — 0 is P1, 1 is P2. The sim always
- * takes (p1, p2) in that order on both machines, because the update order is
- * part of the spec and swapping it per-machine is a desync.
- */
+/** @param seat which player this end drives — 0 is P1, 1 is P2. */
 export function createNetplay(
   sim: SimBridge,
   send: (data: ArrayBuffer) => void,
@@ -192,14 +160,10 @@ export function createNetplay(
   let theirFrame = -1
   let lastSkip = -SKIP_EVERY
 
-  // Wall clock, not the frame counter: the question is whether the other
-  // machine is still there, and a stalled sim stops counting frames at exactly
-  // the moment that question starts mattering.
+  // Wall clock, not the frame counter.
   let lastHeard = Date.now()
 
-  /**
-   * The newest frame we have put on the wire, for the resend on a held tick.
-   */
+  /** The newest frame we have put on the wire, for the resend on a held tick. */
   let sentInputsThrough = -1
 
   /** Frames written to the log so far, so settle only ever appends. */
@@ -234,9 +198,7 @@ export function createNetplay(
     return 0
   }
 
-  /**
-   * Frames we are ahead, corrected for the flight time of what we are reading.
-   */
+  /** Frames we are ahead, corrected for the flight time of what we are reading. */
   function advantage(): number {
     if (theirFrame < 0 || stats.rtt.count === 0) return 0
     const flight = Math.round(stats.rtt.percentile(50) / 2 / STEP_MS)
@@ -265,8 +227,8 @@ export function createNetplay(
     if (seat === 0) sim.advance(mine, remoteBits)
     else sim.advance(remoteBits, mine)
 
-    // Recorded on the way past, because the hash of frame N is unreachable once
-    // the sim has moved on.
+    // Recorded on the way past, because the hash of frame N is unreachable once the sim has moved
+    // on.
     const next = f + 1
     if (next % CHECKSUM_EVERY === 0) sums.set(next, sim.checksum() >>> 0)
   }
@@ -288,8 +250,7 @@ export function createNetplay(
 
       const ours = sums.get(f)
       if (ours === undefined) {
-        // Settled but not simulated here yet — inputs can arrive faster than we
-        // step.
+        // Settled but not simulated here yet.
         if (f < upTo - CHECKSUM_EVERY * 4) theirSums.delete(f)
         continue
       }
@@ -320,8 +281,7 @@ export function createNetplay(
   /** Rewind to `to` and re-simulate everything since with what we now know. */
   function rollback(to: number): void {
     const depth = frame - to
-    // Deeper than the window is still a rollback of window depth as far as the
-    // cost goes: it replayed that many frames and no more.
+    // Deeper than the window is still a rollback of window depth as far as the cost goes.
     const bucket = Math.min(depth, MAX_ROLLBACK)
     if (!sim.rewind(to)) {
       // Older than the rollback window.
@@ -337,9 +297,7 @@ export function createNetplay(
     stats.rollbacks++
     stats.depths[bucket]++
 
-    // Recorded on the frame the rollback *landed* on, which is where the strip
-    // draws the tick: that is the frame the correction was about, and its
-    // height is how much had to be thrown away.
+    // Recorded on the frame the rollback *landed* on, which is where the strip draws the tick.
     mark(to, FRAME_CORRECTED)
     slotDepth[to % TIMELINE] = bucket
   }
@@ -356,8 +314,8 @@ export function createNetplay(
     },
 
     sample(f) {
-      // The strip asks about the last three seconds, which at the start of a
-      // match runs off the front of it.
+      // The strip asks about the last three seconds, which at the start of a match runs off the
+      // front of it.
       if (f < 0) return -1
       const i = f % TIMELINE
       if (slotFrame[i] !== f) return -1
@@ -373,8 +331,8 @@ export function createNetplay(
     step(localBits) {
       // Nothing is recorded or sent before the guards below.
 
-      // Never outrun the window: a misprediction older than MAX_ROLLBACK cannot
-      // be corrected, so wait rather than desync.
+      // Never outrun the window: a misprediction older than MAX_ROLLBACK cannot be corrected, so
+      // wait rather than desync.
       if (frame - confirmed > MAX_ROLLBACK) {
         stats.stalls++
         resendInputs()
@@ -389,13 +347,11 @@ export function createNetplay(
         return false
       }
 
-      // Nothing is worth simulating against a peer with different frame data:
-      // every frame would diverge and the checksums would report it without
-      // ever saying why.
+      // Nothing is worth simulating against a peer with different frame data.
       if (stats.dataMismatch) return false
 
-      // Our own input lands INPUT_DELAY frames from now, so it has time to
-      // reach the other end before the frame it belongs to is simulated.
+      // Our own input lands INPUT_DELAY frames from now, so it has time to reach the other end
+      // before the frame it belongs to is simulated.
       const at = frame + INPUT_DELAY
       local[at] = localBits
       sendInputs(at)
@@ -409,9 +365,7 @@ export function createNetplay(
     },
 
     receive(data) {
-      // Before the parse and outside the try: a packet that arrived and failed
-      // to decode is still evidence the peer is alive, and a malformed one is
-      // the peer's bug rather than its funeral.
+      // Before the parse and outside the try.
       lastHeard = Date.now()
 
       let earliest = -1
@@ -436,8 +390,8 @@ export function createNetplay(
 
         const {startFrame, inputs} = decodeInputs(data)
 
-        // The newest input in the packet is the sender's own frame plus the
-        // input delay, which is what they were on when they sent it.
+        // The newest input in the packet is the sender's own frame plus the input delay, which is
+        // what they were on when they sent it.
         const theirs = startFrame + inputs.length - 1 - INPUT_DELAY
         if (theirs > theirFrame) theirFrame = theirs
 
@@ -474,8 +428,8 @@ export function createNetplay(
     },
 
     checksums() {
-      // Sorted by frame, because frame order is what the server replays in and
-      // nothing here guarantees it otherwise.
+      // Sorted by frame, because frame order is what the server replays in and nothing here
+      // guarantees it otherwise.
       const frames = [...sums.keys()].sort((a, b) => a - b)
       const out = new Uint8Array(frames.length * 4)
       const v = new DataView(out.buffer)

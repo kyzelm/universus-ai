@@ -16,8 +16,8 @@ export interface SheetMeta {
 
 export interface Sheet {
   /**
-   * The sheet's origin as a Pixi anchor, so a sprite placed at the fighter's
-   * simulated position lands with its feet there.
+   * The sheet's origin as a Pixi anchor, so a sprite placed at the fighter's simulated position
+   * lands with its feet there.
    */
   readonly anchor: {x: number; y: number}
   /** The texture a fighter in this state is on. */
@@ -97,9 +97,8 @@ export function buildSheet(meta: SheetMeta, base: Texture): Sheet {
   return {
     anchor: {x: meta.meta.origin.x / cell.w, y: meta.meta.origin.y / cell.h},
     texture(state, stateFrame, moveIndex) {
-      // Startup validation means every tag resolves, so the fallbacks below are
-      // for the two things it cannot cover: a move index of -1, which the sim
-      // uses for "no move", and a state frame that has outrun its animation.
+      // Startup validation means every tag resolves, so the fallbacks below are for the two things
+      // it cannot cover.
       const tag = tagFor(meta, state, moveIndex)
       const run = runs.get(tag) ?? idle
       return run[frameOf(runs.has(tag) ? tag : 'idle', stateFrame, run.length)]
@@ -113,8 +112,8 @@ export async function loadSheet(name: string): Promise<Sheet> {
   if (!res.ok) throw new Error(`sprites: /sprites/${name}.json (${res.status})`)
   const meta = (await res.json()) as SheetMeta
   const base: Texture = await Assets.load(`/sprites/${name}.png`)
-  // The renderer draws at display resolution, so sprites are magnified on the
-  // GPU now, not by the browser's CSS scale.
+  // The renderer draws at display resolution, so sprites are magnified on the GPU now, not by the
+  // browser's CSS scale.
   base.source.scaleMode = 'nearest'
   return buildSheet(meta, base)
 }

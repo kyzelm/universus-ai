@@ -1,10 +1,7 @@
 import {useState} from 'react'
 import {account, signIn, signOut, type Account} from './account'
 
-/**
- * Sign in or register, in the net panel where the thing that needs an account
- * is.
- */
+/** Sign in or register, in the net panel where the thing that needs an account is. */
 export default function SignIn({onChange}: {onChange(a: Account | null): void}) {
   const [who, setWho] = useState<Account | null>(account)
   const [email, setEmail] = useState('')
@@ -27,9 +24,8 @@ export default function SignIn({onChange}: {onChange(a: Account | null): void}) 
       done(await signIn(email, password, registering ? displayName : undefined))
       setPassword('')
     } catch (err) {
-      // The server's own words: it says "wrong email or password" for three
-      // different situations on purpose, and rewording that here would be
-      // guessing which one happened.
+      // The server's own words: it says "wrong email or password" for three different situations on
+      // purpose, and rewording that here would be guessing which one happened.
       setStatus((err as Error).message)
     } finally {
       setBusy(false)
@@ -66,9 +62,9 @@ export default function SignIn({onChange}: {onChange(a: Account | null): void}) 
         <input
           type="password"
           placeholder="password"
-          // The browser's password manager fills a different field for a new
-          // account than for an existing one, and telling it which is the
-          // difference between it helping and it fighting.
+          // The browser's password manager fills a different field for a new account than for an
+          // existing one, and telling it which is the difference between it helping and it
+          // fighting.
           autoComplete={registering ? 'new-password' : 'current-password'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
